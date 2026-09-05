@@ -1,2 +1,18 @@
-# Auto detect text files and perform LF normalization
+# LF forzado. En esta flota es una regla de seguridad, no de estilo.
+#
+# El `.env` de cada app se teclea a mano en el servidor y el pipeline de
+# despliegue lo excluye del rsync, así que nadie lo revisa. Un CRLF mete un \r
+# DENTRO del valor de cada variable (DATABASE_HOST=172.31.2.40\r) y produce
+# errores de conexión absurdos; un BOM al principio —que PowerShell 5.1 escribe
+# con `Set-Content -Encoding utf8`— corrompe la PRIMERA clave del archivo.
+# `coipo_n8n` es hoy el único repo de la flota con esto, y por eso es el único
+# que no ha pisado ninguno de los dos.
 * text=auto
+
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.conf  text eol=lf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.sql   text eol=lf
+.env*   text eol=lf

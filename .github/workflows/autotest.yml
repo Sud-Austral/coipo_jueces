@@ -1,0 +1,72 @@
+# Los jueces se juzgan a sí mismos.
+#
+# Un verificador sin pruebas es un verificador en el que nadie puede confiar
+# cuando pone rojo, y al que todo el mundo cree cuando pone verde. La primera
+# versión de j09 emitía 68 hallazgos falsos sobre COIPO_USUARIOS y 53 sobre
+# coipo_prensa2 —que por diseño tenía que salir verde—; sin una suite que lo
+# midiera, esa versión se habría conectado a los 22 repos de la flota.
+
+name: Autotest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: autotest-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
+
+      - name: Versión de python
+        # Los jueces son de biblioteca estándar: si esto deja de bastar, es un
+        # cambio de contrato y tiene que doler aquí, no en el CI de una app.
+        run: python3 --version
+
+      - name: Suite
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Sin dependencias fuera de la biblioteca estándar
+        # `pip` no está disponible a propósito en esta comprobación: se importa
+        # cada juez con el intérprete pelado. Un `import yaml` que se colara
+        # rompería el CI de las apps, no el nuestro, y el diagnóstico allá es
+        # mucho más caro.
+        run: |
+          for j in jueces/j*.py; do
+            python3 -c "
+          import importlib.util, sys
+          spec = importlib.util.spec_from_file_location('x', '$j')
+          m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+          print('ok  $j')
+          "
+          done
+
+      - name: El YAML del reusable parsea
+        run: |
+          python3 -c "
+          import re, sys
+          t = open('.github/workflows/verificar.yml', encoding='utf-8').read()
+          assert t.lstrip().startswith('#'), 'el archivo debe empezar por comentario o clave'
+          assert 'workflow_call' in t, 'el reusable perdió su disparador'
+          assert re.search(r'uses: actions/[a-z-]+@[0-9a-f]{40}', t), \
+              'D-29: las actions de terceros van fijadas a SHA de 40 caracteres, no a tag'
+          print('verificar.yml ok')
+          "
+
+      - name: Los jueces sobre su propio repositorio
+        # Dogfooding, y no es simbólico: este repo es PÚBLICO. Si un fixture con
+        # un secreto de mentira deja de estar bajo tests/ y pasa a parecer real,
+        # aquí sale rojo antes de publicarse.
+        run: python3 jueces/correr.py --repo . --modo bloqueante

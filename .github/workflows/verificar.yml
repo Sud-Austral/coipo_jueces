@@ -1,0 +1,129 @@
+# Verificación COIPO — workflow reusable.
+#
+# Se invoca desde el ci.yml de cada app:
+#
+#     jueces:
+#       uses: Sud-Austral/coipo_jueces/.github/workflows/verificar.yml@v1
+#       with:
+#         modo: advisory        # advisory | bloqueante
+#         perfil: aplicacion    # aplicacion | encuadre_operativo
+#
+# POR QUÉ REUSABLE Y NO COPIADO
+#   Está medido en esta flota: `DOCKER.md` vive en 10 repos con 3 contenidos
+#   distintos, y `guia-8-prompt-checklist-pre-deploy.md` tiene 11 puntos en el
+#   repo maestro y 9 en COIPO_ENTREGA_PLANTA — al único repo sin CI le faltan
+#   justo los dos puntos que más caros salieron. Tasa de propagación del
+#   mecanismo copia: 2 de 9 (22 %). Tasa del `uses:`: 8 de 8. Con bus factor 1,
+#   el artefacto correcto es el que funciona sin operador disciplinado.
+#
+# POR QUÉ ESTE REPOSITORIO ES PÚBLICO
+#   Un reusable alojado en un repo privado obliga a cablear un PAT de
+#   organización en cada repo llamante. El historial de esta flota con secretos
+#   de larga vida es un `.env` versionado desde abril: no se añade otro. Los
+#   jueces son Python de biblioteca estándar y no llevan secretos, así que
+#   publicarlos no expone nada. Los hallazgos, el registro de puertos y los
+#   decretos siguen privados en `coipo_master_produccion`.
+
+name: Verificar COIPO
+
+on:
+  workflow_call:
+    inputs:
+      modo:
+        description: "advisory (informa, sale 0) | bloqueante (rompe el build)"
+        type: string
+        default: advisory
+      perfil:
+        description: "aplicacion | encuadre_operativo"
+        type: string
+        default: aplicacion
+      jueces:
+        description: "Lista separada por espacios (p. ej. 'j01 j09'). Vacío = todos los del perfil."
+        type: string
+        default: ""
+      ref_jueces:
+        description: "Tag o SHA de coipo_jueces con el que verificar."
+        type: string
+        default: v1
+    outputs:
+      bloqueantes:
+        description: "Número de hallazgos de severidad BLOQUEA."
+        value: ${{ jobs.verificar.outputs.bloqueantes }}
+      supresiones:
+        description: "Supresiones activas. Si crece respecto de main, el juez se está apagando."
+        value: ${{ jobs.verificar.outputs.supresiones }}
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: jueces (${{ inputs.modo }})
+    runs-on: ubuntu-latest
+    # Sin timeout, un juez con un bucle infinito encola todos los despliegues
+    # siguientes: la concurrencia de esta flota nunca cancela en las ramas que
+    # despliegan.
+    timeout-minutes: 10
+    outputs:
+      bloqueantes: ${{ steps.correr.outputs.bloqueantes }}
+      supresiones: ${{ steps.correr.outputs.supresiones }}
+    steps:
+      # Sin `repository:`, checkout trae el repositorio LLAMANTE. Es lo que se
+      # quiere: el sujeto de la verificación es la app, no los jueces.
+      - name: Repositorio a verificar
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
+        with:
+          # `git ls-files` lee el índice, no el historial: un clon superficial
+          # basta y ahorra minutos en repos con muchos commits.
+          fetch-depth: 1
+
+      - name: Los jueces
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
+        with:
+          repository: Sud-Austral/coipo_jueces
+          ref: ${{ inputs.ref_jueces }}
+          path: .coipo_jueces
+          fetch-depth: 1
+
+      # No hay `setup-python`: los jueces son de biblioteca estándar a
+      # propósito, así que el python del runner sirve. Es un minuto menos por
+      # ejecución y una dependencia menos que puede caerse.
+      - name: Versión de python
+        run: python3 --version
+
+      - name: Correr los jueces
+        id: correr
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          # `run:` se ejecuta con `bash -e`: si correr.py sale distinto de 0, el
+          # paso aborta EN ESA LÍNEA. Sin el `|| codigo=$?`, el modo bloqueante
+          # nunca llegaría a las salidas del job ni al resumen — justo cuando
+          # hacen falta. Las salidas las escribe correr.py en $GITHUB_OUTPUT.
+          codigo=0
+          python3 .coipo_jueces/jueces/correr.py \
+            --repo . \
+            --modo "${{ inputs.modo }}" \
+            --perfil "${{ inputs.perfil }}" \
+            --jueces "${{ inputs.jueces }}" \
+            --resumen "$RUNNER_TEMP/RESUMEN.md" \
+            --json "$RUNNER_TEMP/hallazgos.json" || codigo=$?
+          exit $codigo
+
+      # `always()`: el resumen es MÁS útil cuando el paso anterior falló. Sin
+      # esto, el modo bloqueante deja al que mira el build sin la lista de lo
+      # que hay que arreglar, que es justo cuando la necesita.
+      - name: Publicar el resumen
+        if: always()
+        run: cat "$RUNNER_TEMP/RESUMEN.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Guardar los hallazgos
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 · 2026-09-05
+        with:
+          name: jueces-${{ github.job }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/RESUMEN.md
+            ${{ runner.temp }}/hallazgos.json
+          if-no-files-found: warn
+          retention-days: 30

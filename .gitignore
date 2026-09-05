@@ -1,0 +1,20 @@
+# Anclados con barra inicial, SIEMPRE.
+#
+# Sin la barra el patrón casa a cualquier profundidad, y como `rsync --delete`
+# no borra lo que excluye, un directorio versionado que caiga bajo el patrón se
+# CONGELA en el servidor. Ya pasó: dejó a coipo_entrega_planta con un catálogo
+# de agosto y la base sin sembrar, mientras /health respondía 200.
+/.env
+/.env.*
+!/.env.example
+/data/
+
+__pycache__/
+*.pyc
+.pytest_cache/
+/.venv/
+/venv/
+
+# Salidas de los propios jueces
+/RESUMEN.md
+/hallazgos.json
