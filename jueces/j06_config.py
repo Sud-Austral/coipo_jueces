@@ -41,6 +41,34 @@ VERSION_CI = re.compile(
     r"^\s*(?P<lenguaje>python|node)-version:\s*[\"']?(?P<version>\d+(?:\.\d+)?)",
     re.MULTILINE)
 
+# `VERSION_PYTHON: "3.14"` en el bloque `env:` de un workflow, y el
+# `${{ env.VERSION_PYTHON }}` que lo consume.
+ENV_DEL_WORKFLOW = re.compile(
+    r"^\s*(?P<clave>[A-Z][A-Z0-9_]*):\s*[\"']?(?P<valor>\d+(?:\.\d+)*)[\"']?\s*$",
+    re.MULTILINE)
+USO_DE_ENV = re.compile(r"\$\{\{\s*env\.(?P<clave>[A-Z][A-Z0-9_]*)\s*\}\}")
+
+
+def _resolver_env(texto: str) -> str:
+    """Sustituye `${{ env.X }}` por el valor que el propio workflow le da.
+
+    SIN ESTO EL JUEZ CASTIGA LA PRACTICA CORRECTA. Declarar la version una sola
+    vez en el `env:` del workflow y usarla en los dos jobs es mejor que
+    repetirla como literal: es justo lo que hace que se pueda cambiar en un
+    sitio. Un verificador que solo entiende el literal marca ese repositorio
+    como "no fija ninguna version", que es falso, y el aviso ensena a ignorarlo.
+
+    Solo se resuelven valores con pinta de version (digitos y puntos). No es un
+    interprete de expresiones de GitHub Actions y no pretende serlo: cualquier
+    otra cosa se deja sin tocar y el juez la reporta como no evaluada.
+    """
+    valores = {m.group("clave"): m.group("valor")
+               for m in ENV_DEL_WORKFLOW.finditer(texto)}
+    if not valores:
+        return texto
+    return USO_DE_ENV.sub(
+        lambda m: valores.get(m.group("clave"), m.group(0)), texto)
+
 
 def _archivos_env(repo: Repo) -> list[str]:
     return [r for r in repo.versionados()
@@ -190,7 +218,7 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
     for ruta in repo.versionados():
         if not re.match(r"\.github/workflows/.*\.ya?ml$", ruta):
             continue
-        for m in VERSION_CI.finditer(repo.texto(ruta) or ""):
+        for m in VERSION_CI.finditer(_resolver_env(repo.texto(ruta) or "")):
             del_ci.setdefault(m.group("lenguaje"), set()).add((m.group("version"), ruta))
 
     if not de_imagen:

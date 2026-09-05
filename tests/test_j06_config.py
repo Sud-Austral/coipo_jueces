@@ -190,5 +190,64 @@ class PruebaDelPropioJuez(unittest.TestCase):
             repo.cierra()
 
 
+class PruebaVersionPorVariableDelWorkflow(CasoConRepo):
+    """El falso positivo que destapó la semilla al pasar por este juez.
+
+    Declarar la versión UNA vez en el `env:` del workflow y usarla en los dos
+    jobs es mejor que repetirla como literal: es lo que permite cambiarla en un
+    solo sitio. La primera versión de `CI-1` sólo entendía el literal y marcaba
+    ese repositorio como «no fija ninguna versión» —que es falso—, castigando
+    justo a quien hace lo correcto. Un aviso falso enseña a ignorar los avisos.
+    """
+
+    MODULO = j06
+
+    WORKFLOW = """\
+name: CI
+env:
+  VERSION_PYTHON: "3.14"
+jobs:
+  backend:
+    steps:
+      - uses: actions/setup-python@abc
+        with:
+          python-version: ${{ env.VERSION_PYTHON }}
+"""
+
+    ENV_EXAMPLE = """\
+DATABASE_HOST=x
+DATABASE_PORT=5432
+DATABASE_USER=x
+DATABASE_PASSWORD=x
+DATABASE_NAME=x
+APP_PORT=8080
+"""
+
+    def setUp(self):
+        super().setUp()
+        self.repo.escribe(
+            "docker-compose.yml",
+            "services:\n  app:\n    build:\n      context: .\n")
+        self.repo.escribe(".env.example", self.ENV_EXAMPLE)
+        self.repo.escribe(".github/workflows/ci.yml", self.WORKFLOW)
+
+    def test_version_por_variable_coincidente_no_es_hallazgo(self):
+        self.repo.escribe("backend/Dockerfile", "FROM python:3.14-slim\n")
+        r = self.repo.juzga()
+        self.assertEqual(
+            [], [h for h in r.hallazgos if h.regla == "CI-1"],
+            [h.mensaje for h in r.hallazgos])
+
+    def test_version_por_variable_DIVERGENTE_si_bloquea(self):
+        """La indirección no puede convertirse en un escondite.
+
+        Si el `env:` dice 3.14 y la imagen construye 3.11, sigue siendo el mismo
+        defecto que en `coipo_prensa2`: el CI declara verde sobre un intérprete
+        que no llega a producción.
+        """
+        self.repo.escribe("backend/Dockerfile", "FROM python:3.11-slim\n")
+        self.assertBloquea("el CI prueba con python 3.14")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
