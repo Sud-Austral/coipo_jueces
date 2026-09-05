@@ -69,20 +69,37 @@ Un juez nuevo se valida contra el código que **ya se sabe bueno**. Si sale rojo
 sobre un repo cuyo comportamiento es correcto, el verificador está mal — no el
 código. Cada juez lleva su tabla de calibración en el docstring.
 
-`j09` (secretos), medido el 2026-09-05:
+Estado de la flota con los tres jueces, medido el 2026-09-05 en modo advisory:
 
-| Repositorio | Esperado | Obtenido |
-|---|---|---|
-| `COIPO_USUARIOS` | 🔴 rojo | 🔴 3 hallazgos: `.env` versionado, `JWT_SECRET`, `RUT_HMAC_SECRETS` |
-| `coipo_prensa2` | 🟢 verde | 🟢 |
-| `COIPO_ENTREGA_PLANTA` | 🟢 verde | 🟢 |
-| `coipo_n8n` | 🟢 verde | 🟢 |
-| `coipo_master_produccion` | 🟢 verde | 🟢 |
+| Repositorio | Bloquea | Avisa | No evaluado | Qué encuentra |
+|---|---:|---:|---:|---|
+| `coipo_n8n` | **0** | 0 | 1 | la referencia: `mem_limit` y healthcheck en todos, guards `${VAR:?}`, `resolver` |
+| `COIPO_USUARIOS` | 4 | 6 | 0 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
+| `coipo_prensa2` | 6 | 9 | 0 | `SESSION_`/`SESION_` conviviendo; CI que prueba python 3.11 y node 22 mientras construye 3.14 y 26; `proxy_pass` literal |
+| `COIPO_ENTREGA_PLANTA` | 5 | 7 | 0 | sin `.dockerignore` con `context: .`; `proxy_pass` literal; CI con node 20 y Dockerfile con 22 |
+| `coipo_master_produccion` | 0 | 1 | 3 | repo de doctrina: no despliega, no se le exige contrato de `.env` |
+| `coipo_jueces` | 0 | 0 | 3 | este mismo repo |
 
-La primera versión de `j09` emitía **68** hallazgos sobre `COIPO_USUARIOS` y
-**53** sobre `coipo_prensa2`. Los falsos positivos no son un detalle de
-afinación: son el modo de muerte más probable de un verificador, porque enseñan
-a la gente a suprimirlo.
+Cada uno de esos 15 bloqueantes es un defecto real y verificable, no una
+preferencia de estilo. Y `coipo_n8n` en verde es tan importante como los rojos:
+es la prueba de que el juez no dispara sobre el repositorio que hizo las cosas
+bien.
+
+Tres correcciones al verificador —no al código— hicieron falta para llegar aquí:
+
+- `j09`, primera pasada: **68** hallazgos sobre `COIPO_USUARIOS` y **53** sobre
+  `coipo_prensa2`, que debía salir verde. Dejaba que la entropía del *valor*
+  disparara sola sin mirar la clave, así que cualquier cadena de 32 caracteres
+  —un SHA, un identificador— era un secreto.
+- `j09`, segunda pasada: cuatro falsos positivos, y uno señalaba el patrón
+  **correcto** (componer la URL desde las cinco variables, que es lo que exige
+  D-06). Los otros tres eran valores que los propios repos declaran falsos en
+  español (`...-jamas-usar-en-produccion`).
+- `j06`: exigía `.env.example` a este mismo repositorio, que no es una
+  aplicación. Una regla aplicada fuera de su dominio.
+
+Los falsos positivos no son un detalle de afinación: son el modo de muerte más
+probable de un verificador, porque enseñan a la gente a suprimirlo.
 
 ## Supresiones
 
@@ -100,11 +117,14 @@ el `DEUDA.md` de la app.
 
 ## Jueces
 
-| Juez | Regla | Qué mira | Estado |
+| Juez | Reglas | Qué mira | Estado |
 |---|---|---|---|
-| `j09_secretos` | D-31 | `.env` versionados, claves privadas, credenciales en DSN, valores con pinta de generados | ✅ |
-| `j01_despliegue` | D-37 | compose, `.dockerignore`, un solo `ports:`, healthchecks, `mem_limit` | pendiente |
-| `j06_config` | D-06 · D-08 | `.env.example` ↔ `Settings`, alias erróneos, versiones coherentes | pendiente |
+| `j01_despliegue` | D-37 · D-27 | compose (`version:`, un solo `ports:`, base de datos propia, healthcheck, `mem_limit`, `restart`), `.dockerignore` frente al contexto de build, y `proxy_pass` literal sin `resolver` en el nginx interno | ✅ |
+| `j06_config` | D-06 · D-08 · D-28 | `.env.example` y las seis variables base, `APP_PORT` sin comillas, `DATABASE_URL` prohibida, `SESSION_`/`SESION_` conviviendo, y versiones del CI frente a las del Dockerfile | ✅ |
+| `j09_secretos` | D-31 | `.env` versionados, claves privadas, credenciales en DSN y valores con pinta de generados | ✅ |
+| `j02_capas` | D-25 | el dominio no importa infraestructura (AST, no grep) | pendiente |
+| `j03_iam_bff` | — | `IAM_JWT_SECRET` inexistente, sin token en `localStorage`, `state` de un solo uso | pendiente |
+| `j10_rat` | D-23 | ficha ↔ `COMMENT ON COLUMN` ↔ anonimizador | pendiente |
 
 Añadir un juez es añadir un archivo `jNN_nombre.py` que exponga
 `comprobar(repo, resultado)`. `correr.py` los descubre solo; un archivo con

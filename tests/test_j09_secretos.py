@@ -246,8 +246,14 @@ class PruebaFixturesDePrueba(unittest.TestCase):
         Una clave privada es material criptográfico real aunque quien la
         commiteó dijera que era "solo para el test".
         """
-        self.repo.escribe("tests/fixtures/id_rsa",
-                          "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n")
+        # Se SUPRIME en vez de trocear la cadena para esquivar al detector. El
+        # día que alguien aprenda que un `"-----BEGIN " + "RSA..."` pasa el
+        # juez, la regla deja de valer para todo el repositorio. Una supresión
+        # se cuenta y se publica; una evasión no deja rastro.
+        self.repo.escribe(
+            "tests/fixtures/id_rsa",
+            # coipo-jueces:ignorar(D-31) encabezado sintético para probar el detector
+            "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n")
         self.assertTrue(self.repo.juzga().bloqueantes)
 
 

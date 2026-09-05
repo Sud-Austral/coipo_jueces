@@ -143,7 +143,12 @@ VERSIONADO = re.compile(r"^v\d+:[A-Za-z0-9_\-+/]{20,}={0,2}$")
 
 CLAVE_PRIVADA = re.compile(r"-----BEGIN (RSA |EC |OPENSSH |PGP |DSA )?PRIVATE KEY-----")
 
-# Credencial embebida en un DSN: postgres://usuario:clave@host
+# Credencial embebida en un DSN: postgres://<usuario>:<clave>@<host>
+#
+# Los signos de menor y mayor no son adorno: sin ellos esta línea es un DSN
+# válido y el propio juez la marca como hallazgo al correr sobre este repo. Pasó
+# en el primer CI verde. Documentar un patrón con un ejemplo que el detector
+# reconoce es la forma más rápida de aprender a suprimirlo.
 DSN_CON_CLAVE = re.compile(
     r"\b(postgres(?:ql)?|mysql|mongodb|redis|amqp|https?)(?:\+\w+)?://"
     r"(?P<usuario>[^:/\s@]{1,64}):(?P<clave>[^@/\s]{1,128})@"
