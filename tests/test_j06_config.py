@@ -126,7 +126,7 @@ class PruebaGrafiaDeSesion(CasoConRepo):
 
     def test_se_puede_suprimir_con_motivo(self):
         self._con(ENV_BUENO
-                  + "# coipo-jueces:ignorar(D-08) convención heredada, migra en el trimestre\n"
+                  + "# coipo-jueces:ignorar(G8-6) convención heredada, migra en el trimestre\n"
                     "SESION_HTTPS_ONLY=false\n")
         r = self.repo.juzga()
         self.assertSinBloqueos(r)

@@ -74,7 +74,7 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
         return
 
     if not repo.existe(".env.example"):
-        r.bloquea("D-06", "", "no hay `.env.example` en la raíz",
+        r.bloquea("G8-3", "", "no hay `.env.example` en la raíz",
                   "el pipeline aborta si falta /opt/apps/<app>/.env y nadie sabe "
                   "qué variables tiene que llevar; el contenedor arranca sin "
                   "alguna, falla el healthcheck y `docker compose up` se cae "
@@ -84,13 +84,14 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
                           "cada secreto")
         return
 
+    r.comprobo(".env.example y las variables base")
     texto = repo.texto(".env.example") or ""
     lineas = texto.splitlines()
     declaradas = {m.group("clave") for l in lineas if (m := ASIGNACION_ENV.match(l))}
 
     faltan = [v for v in BASE if v not in declaradas]
     if faltan:
-        r.bloquea("D-06", ".env.example",
+        r.bloquea("G8-3", ".env.example",
                   f"faltan variables base: {', '.join(faltan)}",
                   "el despliegue supone que existen: sin DATABASE_HOST el backend "
                   "intenta conectar a localhost y falla en silencio, y sin "
@@ -105,7 +106,7 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
             continue
         valor = m.group("valor")
         if valor != valor.strip() or valor.strip().strip("\"'") != valor.strip():
-            r.bloquea("D-06", ".env.example",
+            r.bloquea("G8-3", ".env.example",
                       "`APP_PORT` lleva comillas o espacios alrededor del valor",
                       "el smoke test lo extrae con `cut -d= -f2`, así que "
                       'APP_PORT="8125" produce la URL http://127.0.0.1:"8125"/health '
@@ -113,14 +114,14 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
                       linea=i + 1, arreglo="escribir APP_PORT=8125 y nada más")
 
     if "DATABASE_URL" in declaradas:
-        r.bloquea("D-06", ".env.example",
+        r.bloquea("G8-3", ".env.example",
                   "`DATABASE_URL` como variable de entorno",
                   "una URL única esconde la contraseña dentro de una cadena que "
                   "acaba en logs y trazas, y rompe la convención que el resto de "
                   "la flota y los scripts de respaldo dan por supuesta",
                   linea=next((i + 1 for i, l in enumerate(lineas)
                               if l.startswith("DATABASE_URL")), None),
-                  arreglo="componerla en el código desde las cinco variables (D-06)")
+                  arreglo="componerla en el código desde las cinco variables (Guía 8, punto 3)")
 
 
 def comprobar_grafia_de_sesion(repo: Repo, r: Resultado) -> None:
@@ -135,8 +136,11 @@ def comprobar_grafia_de_sesion(repo: Repo, r: Resultado) -> None:
     tiene una tabla ALIAS_ERRONEOS que NOMBRA la grafía mala justamente para
     cazarla al arrancar. Marcar esa tabla sería marcar la defensa.
     """
+    archivos = _archivos_env(repo)
+    if archivos:
+        r.comprobo("grafia SESSION_/SESION_ en los archivos de entorno")
     con_dos, con_una = {}, {}
-    for ruta in _archivos_env(repo):
+    for ruta in archivos:
         for i, l in enumerate(repo.lineas(ruta)):
             m = ASIGNACION_ENV.match(l)
             if not m:
@@ -152,11 +156,11 @@ def comprobar_grafia_de_sesion(repo: Repo, r: Resultado) -> None:
 
     ruta, linea = next(iter(con_una.values()))
     lineas = repo.lineas(ruta)
-    if (motivo := suprimido(lineas, linea - 1, "D-08")):
+    if (motivo := suprimido(lineas, linea - 1, "G8-6")):
         r.supresiones.append(f"{ruta}:{linea} grafía de sesión — {motivo}")
         return
 
-    r.bloquea("D-08", ruta,
+    r.bloquea("G8-6", ruta,
               "conviven las dos grafías: "
               f"{', '.join(sorted(con_dos))} junto a {', '.join(sorted(con_una))}",
               "con dos convenciones activas, escribir SESION_HTTPS_ONLY donde el "
@@ -195,13 +199,14 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
             "versiones que contrastar (normal en un encuadre operativo)")
         return
     if not del_ci:
-        r.avisa("D-28", "", "ningún workflow fija la versión de python o node",
+        r.avisa("CI-1", "", "ningún workflow fija la versión de python o node",
                 "la suite corre con lo que traiga el runner ese día, que puede "
                 "no ser lo que construye la imagen; el día que cambie, nada avisa",
                 arreglo="fijar python-version y node-version en el CI, iguales a "
                         "las del Dockerfile")
         return
 
+    r.comprobo("versiones del CI frente a las del Dockerfile")
     for lenguaje, versiones in del_ci.items():
         imagenes = de_imagen.get(lenguaje)
         if not imagenes:
@@ -211,7 +216,7 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
             partes = version.split(".")
             if any(i.split(".")[:len(partes)] == partes for i in imagenes):
                 continue
-            r.bloquea("D-28", ruta,
+            r.bloquea("CI-1", ruta,
                       f"el CI prueba con {lenguaje} {version} y ninguna imagen se "
                       f"construye con esa versión (las imágenes usan "
                       f"{', '.join(sorted(imagenes))})",
@@ -222,7 +227,7 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
 
     for lenguaje, versiones in de_imagen.items():
         if len(versiones) > 1:
-            r.avisa("D-28", "",
+            r.avisa("CI-1", "",
                     f"las imágenes de este repositorio usan varias versiones de "
                     f"{lenguaje}: {', '.join(sorted(versiones))}",
                     "un sub-stack que se queda atrás recibe parches de seguridad "
@@ -241,4 +246,4 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
 if __name__ == "__main__":
     ejecutar("j06", "superficie de configuración: .env.example, grafías y versiones "
-                    "(D-06, D-08, D-28)", comprobar)
+                    "(Guía 8, puntos 3 y 6; coherencia de runtime)", comprobar)

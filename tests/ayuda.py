@@ -40,9 +40,13 @@ class RepoSintetico:
     `.env` trackeado pese al `.gitignore`— solo existe dentro de git.
     """
 
-    def __init__(self, modulo) -> None:
+    def __init__(self, modulo, nombre: str | None = None) -> None:
         self.modulo = modulo
-        self.dir = Path(tempfile.mkdtemp(prefix="coipo_jueces_"))
+        base = Path(tempfile.mkdtemp(prefix="coipo_jueces_"))
+        # `nombre` existe para j02: el nombre del DIRECTORIO es lo que ese juez
+        # examina, porque es lo que el workflow usa para armar /opt/apps/<app>/.
+        self.dir = base / nombre if nombre else base
+        self.dir.mkdir(exist_ok=True)
         _git(self.dir, "init", "-q")
         _git(self.dir, "config", "user.email", "prueba@ejemplo.invalid")
         _git(self.dir, "config", "user.name", "prueba")

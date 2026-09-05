@@ -69,13 +69,21 @@ def resumen_markdown(resultados: list[Resultado], *, modo: str, repo: str) -> st
     lineas = [
         f"# Verificación COIPO — `{repo}`", "",
         f"Modo: **{modo}**", "",
-        "| Juez | Bloquea | Avisa | Supresiones | No evaluado |",
-        "|---|---:|---:|---:|---:|",
+        "| Juez | Veredicto | Comprobó | Bloquea | Avisa | Supresiones |",
+        "|---|---|---:|---:|---:|---:|",
     ]
     for r in resultados:
         b = len(r.bloqueantes)
         a = len(r.hallazgos) - b
-        lineas.append(f"| `{r.juez}` | {b} | {a} | {len(r.supresiones)} | {len(r.no_evaluado)} |")
+        icono = {"OK": "🟢 OK", "HALLAZGOS": "🔴 HALLAZGOS",
+                 "SIN_EVALUAR": "⚪ SIN EVALUAR",
+                 "NO_APLICA": "➖ NO APLICA"}[r.veredicto]
+        lineas.append(f"| `{r.juez}` | {icono} | {len(r.comprobado)} | {b} | {a} "
+                      f"| {len(r.supresiones)} |")
+    if any(r.veredicto == "SIN_EVALUAR" for r in resultados):
+        lineas += ["", "> **SIN EVALUAR no es un aprobado.** Ese juez no encontró nada "
+                       "que comprobar en este repositorio; cero hallazgos ahí no "
+                       "significa que esté conforme."]
 
     detalle = [(r, h) for r in resultados for h in r.hallazgos]
     if detalle:
@@ -93,6 +101,13 @@ def resumen_markdown(resultados: list[Resultado], *, modo: str, repo: str) -> st
                    "Cada una exige una fila en `DEUDA.md`. Si este número crece "
                    "respecto de `main`, el verificador se está apagando.", ""]
         lineas += [f"- `{j}` — {s}" for j, s in supr]
+
+    n_a = [(r.juez, n) for r in resultados for n in r.no_aplica]
+    if n_a:
+        lineas += ["", "## No aplica", "",
+                   "El `[N/A]` de la Guía 8: se miró y aquí no corresponde. Lo "
+                   "declara el juez desde la evidencia, nunca el repositorio.", ""]
+        lineas += [f"- `{j}` — {n}" for j, n in n_a]
 
     no_ev = [(r.juez, n) for r in resultados for n in r.no_evaluado]
     if no_ev:
@@ -120,11 +135,24 @@ def main() -> int:
     repo = Repo(args.repo)
     en_github = os.environ.get("GITHUB_ACTIONS") == "true"
 
+    disponibles = [n for n, _ in descubrir(AQUI, args.perfil, [])]
+    # Un --jueces que no casa con nada NO es "el perfil no tiene jueces". Decirlo
+    # asi manda a revisar el perfil cuando el error es un id mal escrito
+    # (`j11_salud` en vez de `j11`), y eso cuesta media hora de CI.
+    desconocidos = [x for x in solo if x not in disponibles]
+    if desconocidos:
+        aviso = (f"--jueces nombra {', '.join(desconocidos)}, que no existe(n) "
+                 f"para el perfil '{args.perfil}'. Se espera el id corto del juez "
+                 f"(p. ej. 'j11', no 'j11_salud'). Disponibles: "
+                 f"{', '.join(disponibles) or 'ninguno'}")
+        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
+        return 1
+
     modulos = descubrir(AQUI, args.perfil, solo)
     if not modulos:
-        print(f"::error::ningún juez aplica al perfil '{args.perfil}'"
-              if en_github else
-              f"[jueces] ningún juez aplica al perfil '{args.perfil}'")
+        aviso = (f"ningún juez aplica al perfil '{args.perfil}'. "
+                 f"Jueces del perfil: {', '.join(disponibles) or 'ninguno'}")
+        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
         # Salir 1: "no corrió ningún juez" nunca puede leerse como "todo bien".
         return 1
 
@@ -138,6 +166,9 @@ def main() -> int:
     total_b = sum(len(r.bloqueantes) for r in resultados)
     total_a = sum(len(r.hallazgos) for r in resultados) - total_b
     total_s = sum(len(r.supresiones) for r in resultados)
+    total_c = sum(len(r.comprobado) for r in resultados)
+    sin_evaluar = [r.juez for r in resultados if r.veredicto == "SIN_EVALUAR"]
+    todo_na = all(r.veredicto == "NO_APLICA" for r in resultados)
 
     if args.resumen:
         Path(args.resumen).write_text(
@@ -147,7 +178,9 @@ def main() -> int:
             {"repo": repo.nombre, "modo": args.modo, "perfil": args.perfil,
              "bloqueantes": total_b, "avisos": total_a, "supresiones": total_s,
              "resultados": [
-                 {"juez": r.juez, "no_evaluado": r.no_evaluado,
+                 {"juez": r.juez, "veredicto": r.veredicto,
+                  "comprobado": r.comprobado, "no_evaluado": r.no_evaluado,
+                  "no_aplica": r.no_aplica,
                   "supresiones": r.supresiones,
                   "hallazgos": [asdict(h) for h in r.hallazgos]}
                  for r in resultados]},
@@ -165,11 +198,58 @@ def main() -> int:
             fh.write(f"supresiones={total_s}\n")
 
     print(f"\n{'=' * 78}")
-    print(f"{len(modulos)} juez/jueces · {total_b} bloqueante(s) · {total_a} aviso(s) · "
-          f"{total_s} supresión(es) · modo {args.modo}")
+    print(f"{len(modulos)} juez/jueces · {total_c} comprobación(es) · {total_b} bloqueante(s) · "
+          f"{total_a} aviso(s) · {total_s} supresión(es) · modo {args.modo}")
+    if sin_evaluar:
+        print(f"SIN EVALUAR: {', '.join(sin_evaluar)} — no comprobaron nada. "
+              f"Cero hallazgos ahí NO significa conforme.")
     print("=" * 78)
 
     if args.modo == "bloqueante" and total_b:
+        return 1
+
+    # CERO COMPROBACIONES TAMBIÉN ES UN FALLO.
+    #
+    # Es la lección de COIPO_PDF_EXCEL, y en esta flota costó meses: un
+    # verificador que contaba comparaciones FALLIDAS daba «todos los totales
+    # cuadran» cuando el número de comparaciones era cero, y una columna salió
+    # en 0 para los 3.610 trabajadores sin que nadie lo notara.
+    #
+    # El modo de fallo equivalente aquí: los jueces no encuentran nada que
+    # comprobar —porque el repositorio tiene otra forma, o porque un cambio
+    # rompió la detección— y el gate sale verde habiendo verificado NADA. Un
+    # repositorio que no es una aplicación puede tener jueces SIN_EVALUAR y eso
+    # es correcto; lo que nunca puede pasar es que NINGUNO haya comprobado algo.
+    #
+    # LA EXCEPCIÓN, Y ES ESTRECHA A PROPÓSITO: si todos los jueces que corrieron
+    # dijeron NO_APLICA, cero comprobaciones es la respuesta honesta y no un
+    # fallo de detección. Pasa al correr un solo juez a mano —`--jueces j05`
+    # sobre una app de mismo origen, que legítimamente no tiene CORS—. En el CI
+    # corren todos, así que basta con que UNO compruebe algo para que esta rama
+    # no se active.
+    if not total_c and not todo_na:
+        aviso = ("ningún juez comprobó nada: un gate que no verifica no aprueba. "
+                 "Revisa el perfil, o si el repositorio tiene una forma que los "
+                 "jueces no reconocen.")
+        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
+        return 1
+
+    # El PERFIL es una declaración, y obliga.
+    #
+    # `perfil: aplicacion` afirma que este repositorio es una app de la flota:
+    # tiene compose, tiene `.env.example`, despliega por el pipeline. Si un juez
+    # que verifica precisamente eso no encuentra NADA que comprobar, solo hay dos
+    # explicaciones y las dos son un fallo: o el repositorio no es lo que declara,
+    # o algo rompió la detección del juez. Dejarlo pasar en verde es el caso
+    # «cero de cero cuadra» con otro disfraz.
+    #
+    # Un `encuadre_operativo` (software de terceros) SÍ puede tener jueces sin
+    # evaluar —no tiene Dockerfile ni tests— y por eso la regla no le aplica.
+    if args.modo == "bloqueante" and args.perfil == "aplicacion" and sin_evaluar:
+        aviso = (f"perfil 'aplicacion' pero {', '.join(sin_evaluar)} no encontró nada "
+                 f"que comprobar. O el repositorio no es una aplicación de la flota, "
+                 f"o la detección del juez está rota. Un gate no aprueba lo que no miró.")
+        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
         return 1
     if args.modo == "advisory" and total_b and en_github:
         # En advisory NO se rompe el build: la flota tiene que poder desplegar

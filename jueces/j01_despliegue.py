@@ -100,8 +100,9 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
         r.no_evaluado.append(f"{ruta}: {e}. El compose no se pudo verificar.")
         return
 
+    r.comprobo(f"docker-compose ({ruta})")
     if "version" in compose:
-        r.bloquea("D-37", ruta, "el compose declara `version:`",
+        r.bloquea("G8-7", ruta, "el compose declara `version:`",
                   "Compose v2+ la ignora y emite un aviso en cada `up`; el aviso "
                   "entrena a la gente a no leer la salida del despliegue",
                   linea=numero_de_linea(texto, "version:"),
@@ -109,7 +110,7 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
 
     servicios = _servicios(compose)
     if not servicios:
-        r.bloquea("D-37", ruta, "el compose no define ningún servicio",
+        r.bloquea("G8-7", ruta, "el compose no define ningún servicio",
                   "`docker compose up` no levanta nada y el smoke test recibe "
                   "connection-refused")
         return
@@ -117,13 +118,13 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
     # ---- exactamente un servicio publica puerto ----
     con_puerto = [n for n, s in servicios.items() if isinstance(s, dict) and s.get("ports")]
     if len(con_puerto) == 0:
-        r.bloquea("D-37", ruta, "ningún servicio publica un puerto al host",
+        r.bloquea("G8-7", ruta, "ningún servicio publica un puerto al host",
                   "nada es alcanzable desde el nginx del servidor: el smoke test "
                   "`curl -sf http://127.0.0.1:$APP_PORT/health` no puede pasar",
                   arreglo="publicar `${APP_PORT:-8080}:8000` en el servicio `app` "
                           "y solo en ese")
     elif len(con_puerto) > 1:
-        r.bloquea("D-37", ruta,
+        r.bloquea("G8-7", ruta,
                   f"{len(con_puerto)} servicios publican puerto: {', '.join(con_puerto)}",
                   "más superficie expuesta de la que el registro de puertos "
                   "conoce, y un segundo puerto sin registrar puede colisionar con "
@@ -138,33 +139,33 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
             continue
         imagen = s.get("image")
         if isinstance(imagen, str) and IMAGENES_DE_BASE.match(imagen):
-            r.bloquea("D-37", ruta,
+            r.bloquea("DK-3", ruta,
                       f"el servicio `{nombre}` levanta un motor de base de datos",
                       "el Postgres de esta flota es compartido, vive fuera de "
                       "Docker y lo administra otro equipo; una base propia en el "
                       "compose queda fuera de los respaldos y de la retención legal",
                       linea=numero_de_linea(texto, f"image: {imagen}"),
                       arreglo="conectar al Postgres compartido con las cinco "
-                              "variables DATABASE_* (D-06)")
+                              "variables DATABASE_* (Guía 8, punto 3)")
 
     # ---- avisos de robustez, uno por servicio ----
     for nombre, s in servicios.items():
         if not isinstance(s, dict):
             continue
         if "healthcheck" not in s and "image" not in s:
-            r.avisa("D-37", ruta, f"el servicio `{nombre}` no tiene healthcheck",
+            r.avisa("G8-7", ruta, f"el servicio `{nombre}` no tiene healthcheck",
                     "`docker compose ps` lo da por sano pase lo que pase; "
                     "coipo_cabania lleva días `unhealthy` sin que nadie se entere",
                     arreglo="añadir un healthcheck, aunque sea de proceso vivo")
         if "mem_limit" not in s and "deploy" not in s:
-            r.avisa("D-37", ruta, f"el servicio `{nombre}` no declara `mem_limit`",
+            r.avisa("OPS-1", ruta, f"el servicio `{nombre}` no declara `mem_limit`",
                     "un servicio que se desboca se lleva por delante a las demás "
                     "apps de la misma VM",
                     arreglo="MEDIR la RAM de la VM antes de fijar el valor: un "
                             "límite mal puesto es un OOM kill silencioso, que es "
                             "peor que no tenerlo")
         if "restart" not in s:
-            r.avisa("D-37", ruta, f"el servicio `{nombre}` no declara `restart:`",
+            r.avisa("G8-7", ruta, f"el servicio `{nombre}` no declara `restart:`",
                     "tras un reinicio del servidor el servicio no vuelve solo",
                     arreglo="`restart: unless-stopped`, salvo en tareas de un "
                             "solo tiro, donde `restart: \"no\"` es lo correcto")
@@ -195,17 +196,18 @@ def comprobar_contexto_de_build(repo: Repo, r: Resultado) -> None:
     if not contextos:
         return  # no se construye nada: un encuadre operativo con `image:` a secas
 
+    r.comprobo(".dockerignore frente al contexto de build")
     raiz_en_contexto = any(c in (".", "./") for c in contextos)
     if not repo.existe(".dockerignore"):
         if raiz_en_contexto:
-            r.bloquea("D-37", "", "falta `.dockerignore` en la raíz y hay builds con `context: .`",
+            r.bloquea("DK-4", "", "falta `.dockerignore` en la raíz y hay builds con `context: .`",
                       "el repositorio entero viaja al daemon en cada build —incluido "
                       "el `.git` y cualquier `.env` del servidor— y lo que entra al "
                       "contexto puede acabar en una capa de la imagen",
                       arreglo="crear .dockerignore con al menos .git, .env, "
                               "node_modules, dist e INSUMO_*")
         else:
-            r.avisa("D-37", "", "no hay `.dockerignore` en la raíz",
+            r.avisa("DK-4", "", "no hay `.dockerignore` en la raíz",
                     "los builds con contexto acotado no sufren hoy, pero el primer "
                     "`context: .` que alguien añada lo hará sin avisar")
         return
@@ -213,7 +215,7 @@ def comprobar_contexto_de_build(repo: Repo, r: Resultado) -> None:
     lineas = repo.lineas(".dockerignore")
     patrones = {l.strip() for l in lineas if l.strip() and not l.startswith("#")}
     if not (patrones & EXCLUYE_ENV):
-        r.bloquea("D-37", ".dockerignore", "el `.dockerignore` no excluye `.env`",
+        r.bloquea("DK-4", ".dockerignore", "el `.dockerignore` no excluye `.env`",
                   "el archivo con las credenciales de producción entra en el "
                   "contexto de build; un `COPY . .` lo deja dentro de la imagen, "
                   "donde sobrevive a cualquier borrado posterior",
@@ -234,6 +236,7 @@ def comprobar_nginx_interno(repo: Repo, r: Resultado) -> None:
         texto = repo.texto(ruta)
         if texto is None:
             continue
+        r.comprobo(f"nginx interno ({ruta})")
         lineas = texto.splitlines()
         tiene_resolver = bool(RESOLVER.search(texto))
         for m in PROXY_LITERAL.finditer(texto):
@@ -241,10 +244,10 @@ def comprobar_nginx_interno(repo: Repo, r: Resultado) -> None:
             if destino in ("localhost",) or tiene_resolver:
                 continue
             n = texto[:m.start()].count("\n")
-            if (motivo := suprimido(lineas, n, "D-27")):
+            if (motivo := suprimido(lineas, n, "NG-1")):
                 r.supresiones.append(f"{ruta}:{n + 1} proxy_pass literal — {motivo}")
                 continue
-            r.bloquea("D-27", ruta,
+            r.bloquea("NG-1", ruta,
                       f"`proxy_pass` al nombre literal `{destino}` sin `resolver`",
                       "nginx resuelve el nombre una sola vez al arrancar; cuando el "
                       "contenedor de destino se recrea con otra IP, responde 502 con "
@@ -262,5 +265,5 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
 
 if __name__ == "__main__":
-    ejecutar("j01", "sobre de despliegue: compose, contexto de build y nginx (D-37, D-27)",
+    ejecutar("j01", "sobre de despliegue: compose, contexto de build y nginx (Guía 8 punto 7; DOCKER.md; nginx)",
              comprobar)

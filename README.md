@@ -93,7 +93,7 @@ Tres correcciones al verificador —no al código— hicieron falta para llegar 
   —un SHA, un identificador— era un secreto.
 - `j09`, segunda pasada: cuatro falsos positivos, y uno señalaba el patrón
   **correcto** (componer la URL desde las cinco variables, que es lo que exige
-  D-06). Los otros tres eran valores que los propios repos declaran falsos en
+  Guía 8 punto 3). Los otros tres eran valores que los propios repos declaran falsos en
   español (`...-jamas-usar-en-produccion`).
 - `j06`: exigía `.env.example` a este mismo repositorio, que no es una
   aplicación. Una regla aplicada fuera de su dominio.
@@ -107,7 +107,7 @@ Se silencia un hallazgo con un marcador en el código, con **motivo obligatorio*
 de al menos 12 caracteres, en la misma línea o en la anterior:
 
 ```python
-JWT_SECRET = "..."  # coipo-jueces:ignorar(D-31) fixture del arnés de pruebas
+JWT_SECRET = "..."  # coipo-jueces:ignorar(G8-4) fixture del arnés de pruebas
 ```
 
 Toda supresión **se cuenta y se publica** en el resumen y en las salidas del
@@ -119,12 +119,17 @@ el `DEUDA.md` de la app.
 
 | Juez | Reglas | Qué mira | Estado |
 |---|---|---|---|
-| `j01_despliegue` | D-37 · D-27 | compose (`version:`, un solo `ports:`, base de datos propia, healthcheck, `mem_limit`, `restart`), `.dockerignore` frente al contexto de build, y `proxy_pass` literal sin `resolver` en el nginx interno | ✅ |
-| `j06_config` | D-06 · D-08 · D-28 | `.env.example` y las seis variables base, `APP_PORT` sin comillas, `DATABASE_URL` prohibida, `SESSION_`/`SESION_` conviviendo, y versiones del CI frente a las del Dockerfile | ✅ |
-| `j09_secretos` | D-31 | `.env` versionados, claves privadas, credenciales en DSN y valores con pinta de generados | ✅ |
-| `j02_capas` | D-25 | el dominio no importa infraestructura (AST, no grep) | pendiente |
-| `j03_iam_bff` | — | `IAM_JWT_SECRET` inexistente, sin token en `localStorage`, `state` de un solo uso | pendiente |
-| `j10_rat` | D-23 | ficha ↔ `COMMENT ON COLUMN` ↔ anonimizador | pendiente |
+| `j01_despliegue` | `G8-7` · `DK-3` · `DK-4` · `NG-1` · `OPS-1` | compose (`version:`, un solo `ports:`, base de datos propia, healthcheck, `restart`), `.dockerignore` frente al contexto de build, y `proxy_pass` literal sin `resolver` en el nginx interno | ✅ |
+| `j06_config` | `G8-3` · `G8-6` · `CI-1` | `.env.example` y las seis variables base, `APP_PORT` sin comillas, `DATABASE_URL` prohibida, `SESSION_`/`SESION_` conviviendo, y versiones del CI frente a las del Dockerfile | ✅ |
+| `j09_secretos` | `G8-4` | `.env` versionados, claves privadas, credenciales en DSN y valores con pinta de generados | ✅ |
+| `j11_salud` | `G8-9` · `G8-11` | `/health` existe, sin auth ni redirección, con `text()`; y que un fallo de datos no se disfrace de app sana | ✅ |
+| `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | pendiente |
+| `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | pendiente |
+| `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | pendiente |
+
+**Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
+prueba falla si un juez emite un código que no figura ahí —o si el catálogo
+anuncia una regla que ningún juez comprueba.
 
 Añadir un juez es añadir un archivo `jNN_nombre.py` que exponga
 `comprobar(repo, resultado)`. `correr.py` los descubre solo; un archivo con

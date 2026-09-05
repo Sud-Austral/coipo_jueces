@@ -12,7 +12,7 @@ DOS MODOS, Y LA DIFERENCIA IMPORTA
                 romper el despliegue de una flota que hoy no cumple.
   bloqueante -> un hallazgo de severidad BLOQUEA hace salir 1.
 
-La transición de uno a otro es por regla y con fecha escrita en DECRETOS.md, no
+La transición de uno a otro es por regla y con fecha escrita, no
 por criterio del que corre el comando. Encender todas las reglas de golpe deja a
 la flota sin poder desplegar — incluidos los arreglos urgentes — y el resultado
 previsible es que alguien desactive el juez entero.
@@ -58,7 +58,7 @@ class Hallazgo:
     adversario en docs/ADVERSARIAL.md.
     """
 
-    regla: str  # "D-31", "D-08"... el decreto que lo funda
+    regla: str  # "G8-4", "DK-3"... REGLAS.md dice qué documento la respalda
     severidad: Severidad
     archivo: str  # relativo al repo. "" si es del repo entero
     mensaje: str  # qué está mal
@@ -89,6 +89,41 @@ class Resultado:
     # desactivado de hecho a los tres meses, y el número creciendo es la única
     # señal temprana de que eso está pasando.
     supresiones: list[str] = field(default_factory=list)
+    # Lo que este juez SÍ llegó a comprobar. Sin esto, un juez que no pudo
+    # mirar nada devuelve cero hallazgos y se lee como «está todo bien».
+    #
+    # EL INCIDENTE QUE FUNDA ESTE CAMPO no es hipotético y es de esta misma
+    # organización. En COIPO_PDF_EXCEL un comprobante se clasificó mal durante
+    # meses: no generó NINGUNA comparación, y como la pantalla contaba totales
+    # *fallidos*, cero de cero daba «todos los totales cuadran» mientras una
+    # columna salía en 0 para los 3.610 trabajadores. Su corrección fue pasar de
+    # un booleano a TRES estados, donde «no hay con qué comprobarlo» es distinto
+    # de «está bien». Es la misma corrección que se aplica aquí.
+    comprobado: list[str] = field(default_factory=list)
+    # «Esto no corresponde en esta aplicación, y es correcto que no corresponda.»
+    #
+    # Es el `[N/A]` que la propia Guía 8 usa en su checklist, y NO es lo mismo
+    # que `no_evaluado`. La diferencia importa porque decide si el despliegue se
+    # detiene:
+    #
+    #   no_evaluado -> "no pude mirarlo". Puede que el repositorio no sea lo que
+    #                  declara, o que la detección esté rota. Es sospechoso y
+    #                  frena un perfil `aplicacion`.
+    #   no_aplica   -> "lo miré y aquí no hay nada que comprobar". `coipo_prensa2`
+    #                  y `COIPO_ENTREGA_PLANTA` no registran CORS porque su nginx
+    #                  sirve frontend y API bajo el MISMO origen: el navegador
+    #                  nunca emite una petición cruzada. Detener su despliegue
+    #                  por eso es el falso positivo que enseña a suprimir jueces.
+    #
+    # ASIMETRÍA DELIBERADA: solo un JUEZ puede declarar `no_aplica`, y solo desde
+    # evidencia que encontró en el código. Un repositorio NO puede declararse a
+    # sí mismo N/A. Si pudiera, esta sería la puerta por la que todo se pone
+    # verde. Por eso además se cuenta y se publica, igual que las supresiones.
+    no_aplica: list[str] = field(default_factory=list)
+
+    def no_corresponde(self, razon: str) -> None:
+        """Marca este juez como `[N/A]` en este repositorio, con el porqué."""
+        self.no_aplica.append(razon)
 
     def anota(self, *args: Any, **kwargs: Any) -> None:
         self.hallazgos.append(Hallazgo(*args, **kwargs))
@@ -101,9 +136,30 @@ class Resultado:
               linea: int | None = None, arreglo: str = "") -> None:
         self.anota(regla, Severidad.AVISA, archivo, mensaje, manifestacion, linea, arreglo)
 
+    def comprobo(self, que: str) -> None:
+        """Registra una comprobacion REALIZADA. Se llama aunque salga limpia."""
+        self.comprobado.append(que)
+
     @property
     def bloqueantes(self) -> list[Hallazgo]:
         return [h for h in self.hallazgos if h.severidad is Severidad.BLOQUEA]
+
+    @property
+    def veredicto(self) -> str:
+        """Nunca dos estados.
+
+        SIN_EVALUAR no es un aprobado silencioso: es la respuesta honesta a
+        "no habia con que comprobarlo", y tiene que verse distinta de OK.
+
+        NO_APLICA es el cuarto, y es el `[N/A]` de la Guia 8. Se separa de
+        SIN_EVALUAR porque uno frena el despliegue y el otro no: ver el
+        comentario del campo `no_aplica`.
+        """
+        if self.comprobado:
+            return "HALLAZGOS" if self.hallazgos else "OK"
+        if self.no_aplica:
+            return "NO_APLICA"
+        return "SIN_EVALUAR"
 
 
 # --------------------------------------------------------------------------
@@ -387,7 +443,7 @@ def numero_de_linea(texto: str, aguja: str) -> int | None:
 # Marcador para silenciar un hallazgo concreto. Formato, en la MISMA línea o en
 # la inmediatamente anterior:
 #
-#     coipo-jueces:ignorar(D-31) fixture sintético del test de secretos
+#     coipo-jueces:ignorar(G8-4) fixture sintético del test de secretos
 #
 # El motivo es obligatorio y de al menos 12 caracteres. Un marcador sin motivo
 # no suprime nada: si silenciar cuesta lo mismo que arreglar, se arregla.
@@ -441,6 +497,22 @@ def _anotacion_github(h: Hallazgo, juez: str) -> str:
 def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
     print(f"\n{'=' * 78}\n{resultado.juez} — {resultado.descripcion}\n{'=' * 78}")
 
+    marca = {"OK": _VERDE, "HALLAZGOS": _AMARILLO,
+             "SIN_EVALUAR": _AMARILLO, "NO_APLICA": _GRIS}[resultado.veredicto]
+    print(f"{marca}  veredicto: {resultado.veredicto}"
+          f"  ({len(resultado.comprobado)} comprobacion/es realizadas){_FIN}")
+    if resultado.veredicto == "SIN_EVALUAR":
+        print(f"{_AMARILLO}  este juez NO comprobo nada. Cero hallazgos aqui NO significa "
+              f"que este bien.{_FIN}")
+        if en_github:
+            print(f"::warning::[{resultado.juez}] no comprobo nada: "
+                  f"cero hallazgos no equivale a conforme")
+
+    for razon in resultado.no_aplica:
+        print(f"{_GRIS}  no aplica: {razon}{_FIN}")
+        if en_github:
+            print(f"::notice::[{resultado.juez}] no aplica: {razon}")
+
     for nota in resultado.no_evaluado:
         print(f"{_GRIS}  no evaluado: {nota}{_FIN}")
         if en_github:
@@ -456,7 +528,8 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
                   f"Cada una exige una fila en DEUDA.md.")
 
     if not resultado.hallazgos:
-        print(f"{_VERDE}  sin hallazgos{_FIN}")
+        if resultado.comprobado:
+            print(f"{_VERDE}  sin hallazgos{_FIN}")
         return
 
     for h in resultado.hallazgos:
@@ -504,7 +577,10 @@ def ejecutar(juez: str, descripcion: str,
                     "juez": resultado.juez,
                     "modo": args.modo,
                     "no_evaluado": resultado.no_evaluado,
+                    "no_aplica": resultado.no_aplica,
                     "supresiones": resultado.supresiones,
+                    "veredicto": resultado.veredicto,
+                    "comprobado": resultado.comprobado,
                     "hallazgos": [asdict(h) for h in resultado.hallazgos],
                 },
                 ensure_ascii=False, indent=2, default=str,

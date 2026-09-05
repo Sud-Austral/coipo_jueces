@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""j09 — secretos en el árbol versionado.  (D-31)
+"""j09 — secretos en el árbol versionado.  (Guía 8, punto 4)
 
 Es el primero de los tres jueces que se encienden en modo bloqueante, porque es
 el único cuyo hallazgo no admite discusión: un secreto en git ya salió del
@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
-REGLA = "D-31"
+REGLA = "G8-4"
 
 # --------------------------------------------------------------------------
 # Qué archivos se miran
@@ -159,7 +159,7 @@ DSN_CON_CLAVE = re.compile(
 # Interpolación: f-string de Python, plantilla de shell o de compose, formato JS.
 #   f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}..."
 # en coipo_prensa2/backend/app/config.py:69 NO es una fuga: es exactamente el
-# patrón que el decreto D-06 EXIGE —componer la URL desde las cinco variables—
+# patrón que la Guía 8 punto 3 EXIGE —componer la URL desde las cinco variables—
 # y marcarlo era señalar como incidente la única forma correcta de hacerlo.
 INTERPOLADO = re.compile(r"[{}<>$%]")
 
@@ -344,7 +344,7 @@ def comprobar_contenido(repo: Repo, r: Resultado) -> None:
                     "la aplicación y en cualquier traza que imprima la URL",
                     linea=i + 1,
                     arreglo="componer la URL desde las cinco variables "
-                            "DATABASE_HOST/PORT/USER/PASSWORD/NAME (D-06); nunca "
+                            "DATABASE_HOST/PORT/USER/PASSWORD/NAME (Guía 8, punto 3); nunca "
                             "desde una DATABASE_URL del entorno",
                 )
 
@@ -414,9 +414,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         r.no_evaluado.append("`git ls-files` no devolvió nada (¿repo vacío, o git ausente?)")
         return
     comprobar_env_versionados(repo, r)
+    r.comprobo("archivos .env en el arbol versionado")
     comprobar_contenido(repo, r)
+    r.comprobo(f"contenido de {len(repo.versionados())} archivos versionados")
     comprobar_gitignore(repo, r)
+    r.comprobo(".gitignore")
 
 
 if __name__ == "__main__":
-    ejecutar("j09", "secretos en el árbol versionado (D-31)", comprobar)
+    ejecutar("j09", "secretos en el árbol versionado (Guía 8, punto 4)", comprobar)

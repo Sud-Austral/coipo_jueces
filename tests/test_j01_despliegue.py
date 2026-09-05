@@ -225,7 +225,7 @@ server {
     def test_se_puede_suprimir_con_motivo(self):
         self._con_nginx(NGINX_LITERAL.replace(
             "        proxy_pass http://backend:8000/api/;",
-            "        # coipo-jueces:ignorar(D-27) upstream fijo por decisión de red\n"
+            "        # coipo-jueces:ignorar(NG-1) upstream fijo por decisión de red\n"
             "        proxy_pass http://backend:8000/api/;"))
         r = self.repo.juzga()
         self.assertSinBloqueos(r)

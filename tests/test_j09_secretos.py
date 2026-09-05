@@ -155,7 +155,7 @@ class PruebaDsn(unittest.TestCase):
         self.assertIn("URL de conexión", h[0].mensaje)
 
     def test_fstring_de_las_cinco_variables_no_bloquea(self):
-        """El patrón que D-06 EXIGE no puede ser un hallazgo.
+        """El patrón que la Guía 8 punto 3 EXIGE no puede ser un hallazgo.
 
         Marcarlo era señalar como incidente la única forma correcta de componer
         la URL, que es justo lo que enseña a la gente a suprimir al juez.
@@ -252,28 +252,28 @@ class PruebaFixturesDePrueba(unittest.TestCase):
         # se cuenta y se publica; una evasión no deja rastro.
         self.repo.escribe(
             "tests/fixtures/id_rsa",
-            # coipo-jueces:ignorar(D-31) encabezado sintético para probar el detector
+            # coipo-jueces:ignorar(G8-4) encabezado sintético para probar el detector
             "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n")
         self.assertTrue(self.repo.juzga().bloqueantes)
 
 
 class PruebaSupresion(unittest.TestCase):
     def test_marcador_con_motivo_suprime(self):
-        lineas = ["JWT_SECRET=abc  # coipo-jueces:ignorar(D-31) fixture del arnés de pruebas"]
-        self.assertIsNotNone(suprimido(lineas, 0, "D-31"))
+        lineas = ["JWT_SECRET=abc  # coipo-jueces:ignorar(G8-4) fixture del arnés de pruebas"]
+        self.assertIsNotNone(suprimido(lineas, 0, "G8-4"))
 
     def test_marcador_sin_motivo_no_suprime(self):
         """Si silenciar cuesta menos que arreglar, se silencia."""
-        self.assertIsNone(suprimido(["X=1  # coipo-jueces:ignorar(D-31)"], 0, "D-31"))
-        self.assertIsNone(suprimido(["X=1  # coipo-jueces:ignorar(D-31) porque si"], 0, "D-31"))
+        self.assertIsNone(suprimido(["X=1  # coipo-jueces:ignorar(G8-4)"], 0, "G8-4"))
+        self.assertIsNone(suprimido(["X=1  # coipo-jueces:ignorar(G8-4) porque si"], 0, "G8-4"))
 
     def test_marcador_de_otra_regla_no_suprime(self):
-        lineas = ["X=1  # coipo-jueces:ignorar(D-08) motivo suficientemente largo"]
-        self.assertIsNone(suprimido(lineas, 0, "D-31"))
+        lineas = ["X=1  # coipo-jueces:ignorar(G8-6) motivo suficientemente largo"]
+        self.assertIsNone(suprimido(lineas, 0, "G8-4"))
 
     def test_marcador_en_la_linea_anterior_suprime(self):
-        lineas = ["# coipo-jueces:ignorar(D-31) motivo suficientemente largo", "JWT_SECRET=abc"]
-        self.assertIsNotNone(suprimido(lineas, 1, "D-31"))
+        lineas = ["# coipo-jueces:ignorar(G8-4) motivo suficientemente largo", "JWT_SECRET=abc"]
+        self.assertIsNotNone(suprimido(lineas, 1, "G8-4"))
 
     def test_la_supresion_se_cuenta_y_se_publica(self):
         """Una supresión invisible es un juez apagado que parece encendido."""
@@ -282,7 +282,7 @@ class PruebaSupresion(unittest.TestCase):
             repo.escribe(
                 "app/ajustes.py",
                 f'JWT_SECRET = "{HEX_FALSO}"  '
-                "# coipo-jueces:ignorar(D-31) valor de prueba del arnés\n",
+                "# coipo-jueces:ignorar(G8-4) valor de prueba del arnés\n",
             )
             r = repo.juzga()
             self.assertEqual(r.bloqueantes, [])
