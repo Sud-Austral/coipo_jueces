@@ -145,7 +145,7 @@ class PruebaVersiones(CasoConRepo):
     def test_ci_prueba_una_version_que_no_se_construye(self):
         """El defecto real de coipo_prensa2: construye 3.14, prueba 3.11."""
         self._con("FROM python:3.14-slim\n", CI.replace('"3.13"', '"3.11"'))
-        self.assertBloquea("ninguna imagen se construye con esa versión")
+        self.assertAvisa("ninguna imagen se construye con esa versión")
 
     def test_version_coincidente_no_bloquea(self):
         self._con(DOCKERFILE, CI)
@@ -159,7 +159,7 @@ class PruebaVersiones(CasoConRepo):
         falsos.
         """
         self._con("FROM python:3.13-slim\n", CI.replace('"3.13"', '"3.1"'))
-        self.assertBloquea("ninguna imagen se construye con esa versión")
+        self.assertAvisa("ninguna imagen se construye con esa versión")
 
     def test_sin_dockerfile_no_se_declara_limpio(self):
         self.repo.escribe(".env.example", ENV_BUENO)
@@ -238,7 +238,7 @@ APP_PORT=8080
             [], [h for h in r.hallazgos if h.regla == "CI-1"],
             [h.mensaje for h in r.hallazgos])
 
-    def test_version_por_variable_DIVERGENTE_si_bloquea(self):
+    def test_version_por_variable_DIVERGENTE_si_avisa(self):
         """La indirección no puede convertirse en un escondite.
 
         Si el `env:` dice 3.14 y la imagen construye 3.11, sigue siendo el mismo
@@ -246,7 +246,7 @@ APP_PORT=8080
         que no llega a producción.
         """
         self.repo.escribe("backend/Dockerfile", "FROM python:3.11-slim\n")
-        self.assertBloquea("el CI prueba con python 3.14")
+        self.assertAvisa("el CI prueba con python 3.14")
 
 
 if __name__ == "__main__":

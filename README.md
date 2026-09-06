@@ -69,16 +69,17 @@ Un juez nuevo se valida contra el código que **ya se sabe bueno**. Si sale rojo
 sobre un repo cuyo comportamiento es correcto, el verificador está mal — no el
 código. Cada juez lleva su tabla de calibración en el docstring.
 
-Estado de la flota con los tres jueces, medido el 2026-09-05 en modo advisory:
+Estado de la flota con los **ocho** jueces, medido el 2026-09-05 en modo advisory,
+despues de corregir la severidad de `NG-1` y `CI-1` (ver REGLAS.md):
 
 | Repositorio | Bloquea | Avisa | No evaluado | Qué encuentra |
 |---|---:|---:|---:|---|
-| `coipo_n8n` | **0** | 0 | 1 | la referencia: `mem_limit` y healthcheck en todos, guards `${VAR:?}`, `resolver` |
-| `COIPO_USUARIOS` | 4 | 6 | 0 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
-| `coipo_prensa2` | 6 | 9 | 0 | `SESSION_`/`SESION_` conviviendo; CI que prueba python 3.11 y node 22 mientras construye 3.14 y 26; `proxy_pass` literal |
-| `COIPO_ENTREGA_PLANTA` | 5 | 7 | 0 | sin `.dockerignore` con `context: .`; `proxy_pass` literal; CI con node 20 y Dockerfile con 22 |
-| `coipo_master_produccion` | 0 | 1 | 3 | repo de doctrina: no despliega, no se le exige contrato de `.env` |
-| `coipo_jueces` | 0 | 0 | 3 | este mismo repo |
+| `coipo_n8n` | **0** | **0** | 1 | la referencia: `mem_limit` y healthcheck en todos, guards `${VAR:?}`, `resolver` |
+| `COIPO_USUARIOS` | 9 | 8 | 0 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
+| `coipo_prensa2` | 1 | 15 | 0 | el unico bloqueante es `SESSION_`/`SESION_` conviviendo. Avisan: CI que prueba python 3.11 y node 22 mientras construye 3.14 y 26, `proxy_pass` literal sin `resolver`, healthchecks y `mem_limit` ausentes |
+| `COIPO_ENTREGA_PLANTA` | 2 | 11 | 0 | sin `.dockerignore` con `context: .`; `proxy_pass` literal; CI con node 20 y Dockerfile con 22 |
+| `coipo_master_produccion` | 1 | 1 | 1 | repo de doctrina: no despliega, no se le exige contrato de `.env` |
+| `coipo_jueces` | 0 | 0 | 2 | este mismo repo |
 
 Cada uno de esos 15 bloqueantes es un defecto real y verificable, no una
 preferencia de estilo. Y `coipo_n8n` en verde es tan importante como los rojos:
@@ -123,9 +124,10 @@ el `DEUDA.md` de la app.
 | `j06_config` | `G8-3` · `G8-6` · `CI-1` | `.env.example` y las seis variables base, `APP_PORT` sin comillas, `DATABASE_URL` prohibida, `SESSION_`/`SESION_` conviviendo, y versiones del CI frente a las del Dockerfile | ✅ |
 | `j09_secretos` | `G8-4` | `.env` versionados, claves privadas, credenciales en DSN y valores con pinta de generados | ✅ |
 | `j11_salud` | `G8-9` · `G8-11` | `/health` existe, sin auth ni redirección, con `text()`; y que un fallo de datos no se disfrace de app sana | ✅ |
-| `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | pendiente |
-| `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | pendiente |
-| `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | pendiente |
+| `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | ✅ |
+| `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
+| `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
+| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo

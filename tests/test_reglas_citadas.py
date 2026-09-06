@@ -109,5 +109,81 @@ class PruebaTrazabilidad(unittest.TestCase):
                               f"no lo nombra: {fila}")
 
 
+SECCION_SIN_FUENTE = "## Reglas sin fuente escrita"
+
+
+def _emisiones():
+    """(código, juez, nombre de la llamada) para cada código emitido."""
+    for archivo in sorted(JUECES.glob("j*.py")):
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"), filename=str(archivo))
+        constantes = _constantes(arbol)
+        for nodo in ast.walk(arbol):
+            if not isinstance(nodo, ast.Call):
+                continue
+            f = nodo.func
+            nombre = f.attr if isinstance(f, ast.Attribute) else (
+                f.id if isinstance(f, ast.Name) else None)
+            if nombre not in LLAMADAS:
+                continue
+            for arg in nodo.args:
+                valor = arg.value if isinstance(arg, ast.Constant) else (
+                    constantes.get(arg.id) if isinstance(arg, ast.Name) else None)
+                if isinstance(valor, str) and CODIGO.match(valor):
+                    yield valor, archivo.stem, nombre
+                    break
+
+
+def severidades_emitidas() -> dict[str, set[str]]:
+    """código -> con qué llamadas se emite: `bloquea`, `avisa`, `suprimido`."""
+    salida: dict[str, set[str]] = {}
+    for codigo, _juez, llamada in _emisiones():
+        salida.setdefault(codigo, set()).add(llamada)
+    return salida
+
+
+def codigos_sin_fuente_escrita() -> set[str]:
+    """Los códigos de la tabla «Reglas sin fuente escrita» de REGLAS.md."""
+    texto = REGLAS.read_text(encoding="utf-8")
+    i = texto.find(SECCION_SIN_FUENTE)
+    if i < 0:
+        return set()
+    resto = texto[i + len(SECCION_SIN_FUENTE):]
+    fin = resto.find("\n## ")
+    return {m.group("codigo")
+            for m in EN_TABLA.finditer(resto if fin < 0 else resto[:fin])}
+
+
+class PruebaSeveridad(unittest.TestCase):
+    """REGLAS.md promete que las reglas sin fuente escrita no bloquean.
+
+    Hasta el 2026-09-05 eso era solo una frase. `NG-1`, `CI-1` y `SEM-1` estaban
+    en esa tabla y llamaban a `bloquea()`. Se descubrió al correr el gate sobre
+    `coipo_prensa2`, donde 5 de los 6 bloqueantes salían de ahí: el repositorio
+    más maduro de la flota, detenido por reglas que el propio catálogo declaraba
+    inofensivas. Una promesa que nada ejecuta se rompe sola.
+    """
+
+    def test_la_seccion_sin_fuente_existe_y_tiene_reglas(self):
+        self.assertTrue(
+            codigos_sin_fuente_escrita(),
+            f"no se encontró ninguna regla bajo «{SECCION_SIN_FUENTE}» en "
+            f"REGLAS.md. O se renombró la sección y esta prueba dejó de mirar "
+            f"nada —cero de cero leído como conformidad—, o ya no quedan reglas "
+            f"sin fuente y hay que borrar esta prueba a propósito, no dejarla "
+            f"pasando en vacío")
+
+    def test_ninguna_regla_sin_fuente_escrita_bloquea(self):
+        severidades = severidades_emitidas()
+        infractoras = sorted(c for c in codigos_sin_fuente_escrita()
+                             if "bloquea" in severidades.get(c, set()))
+        self.assertEqual(
+            [], infractoras,
+            f"REGLAS.md las lista como «sin fuente escrita» y promete que no "
+            f"bloquean, pero llaman a bloquea(): {infractoras}. O se les escribe "
+            f"la fuente y suben a la tabla de reglas vigentes, o pasan a avisa(). "
+            f"Bloquear un despliegue citando un documento que no existe es "
+            f"exactamente lo que este catálogo existe para impedir")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

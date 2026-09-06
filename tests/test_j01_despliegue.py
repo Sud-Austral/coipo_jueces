@@ -198,9 +198,15 @@ class PruebaNginxInterno(CasoConRepo):
         self.repo.escribe(".dockerignore", ".git\n.env\n")
         self.repo.escribe("frontend/nginx.conf", contenido)
 
-    def test_proxy_pass_literal_sin_resolver_bloquea(self):
+    def test_proxy_pass_literal_sin_resolver_avisa(self):
+        """Avisa y no bloquea: `NG-1` no tiene documento que la respalde.
+
+        Ver REGLAS.md, «Reglas sin fuente escrita». El defecto es real y
+        verificable, pero una regla que nadie escribio no puede detener el
+        despliegue de siete repositorios que la incumplen.
+        """
         self._con_nginx(NGINX_LITERAL)
-        self.assertBloquea("sin `resolver`")
+        self.assertAvisa("sin `resolver`")
 
     def test_con_resolver_no_bloquea(self):
         self._con_nginx(NGINX_BUENO)
@@ -243,7 +249,7 @@ class PruebaDelPropioJuez(unittest.TestCase):
             repo.escribe("docker-compose.yml", COMPOSE_BUENO)
             repo.escribe(".dockerignore", ".git\n.env\n")
             repo.escribe("frontend/nginx.conf", NGINX_LITERAL)
-            self.assertTrue(repo.juzga().bloqueantes,
+            self.assertTrue(repo.juzga().hallazgos,
                             "el juez dejó pasar un proxy_pass literal sin resolver")
         finally:
             repo.cierra()

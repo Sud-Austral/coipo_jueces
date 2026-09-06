@@ -244,7 +244,7 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
             partes = version.split(".")
             if any(i.split(".")[:len(partes)] == partes for i in imagenes):
                 continue
-            r.bloquea("CI-1", ruta,
+            r.avisa("CI-1", ruta,
                       f"el CI prueba con {lenguaje} {version} y ninguna imagen se "
                       f"construye con esa versión (las imágenes usan "
                       f"{', '.join(sorted(imagenes))})",

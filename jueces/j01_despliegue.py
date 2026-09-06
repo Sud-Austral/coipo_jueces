@@ -227,9 +227,8 @@ def comprobar_nginx_interno(repo: Repo, r: Resultado) -> None:
 
     Si el contenedor del backend cambia de IP —cualquier `up -d` que lo
     recree—, nginx sigue apuntando a la anterior: 502 con el backend
-    perfectamente sano al lado y `docker compose ps` todo en verde. Ya rompió un
-    despliegue a uat (`exit 22` en el smoke test). La corrección —`resolver
-    127.0.0.11` más el upstream en una variable— existe hoy solo en
+    perfectamente sano al lado y `docker compose ps` todo en verde. La corrección
+    —`resolver 127.0.0.11` más el upstream en una variable— existe hoy solo en
     COIPO_USUARIOS y en coipo_n8n; prensa2 y ENTREGA_PLANTA siguen expuestos.
     """
     for ruta in NGINX_INTERNO:
@@ -247,7 +246,7 @@ def comprobar_nginx_interno(repo: Repo, r: Resultado) -> None:
             if (motivo := suprimido(lineas, n, "NG-1")):
                 r.supresiones.append(f"{ruta}:{n + 1} proxy_pass literal — {motivo}")
                 continue
-            r.bloquea("NG-1", ruta,
+            r.avisa("NG-1", ruta,
                       f"`proxy_pass` al nombre literal `{destino}` sin `resolver`",
                       "nginx resuelve el nombre una sola vez al arrancar; cuando el "
                       "contenedor de destino se recrea con otra IP, responde 502 con "

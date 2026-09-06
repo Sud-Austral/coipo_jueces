@@ -15,9 +15,10 @@ una regla que alguien se inventó, y este archivo es lo que lo hace visible.
 
 | Prefijo | Documento | Dónde vive |
 |---|---|---|
-| `G8-N` | Guía 8 — checklist pre-deploy, punto N | `INSUMO_PRODUCCION2/guia-8-prompt-checklist-pre-deploy.md` |
-| `DK-N` | `DOCKER.md` — arquitectura de contenedores | `INSUMO_PRODUCCION2/DOCKER.md` |
-| `H-N` | Hallazgo N del estado real del servidor | `INSUMO_PRODUCCION2/00-HALLAZGOS-Y-ESTADO-REAL.md` |
+| `G8-N` | Guía 8 — checklist pre-deploy, punto N | `referencia/guia-8-prompt-checklist-pre-deploy.md` |
+| `DK-N` | `DOCKER.md` — arquitectura de contenedores | `referencia/DOCKER.md` |
+| `H-N` | Hallazgo N del estado real del servidor | `referencia/00-HALLAZGOS-Y-ESTADO-REAL.md` |
+| `SEM-N` | La semilla: qué es común a toda la flota y no se edita por aplicación | `semilla/README.md` y `semilla.lock` |
 | otros | **sin fuente escrita todavía** | ver la columna «fuente» |
 
 Los dos primeros documentos son privados (viven en `coipo_master_produccion`).
@@ -32,23 +33,30 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `G8-3` | `j06` | `.env.example` existe y declara las seis variables base; `APP_PORT` sin comillas; `DATABASE_URL` única prohibida | Guía 8, punto 3 | BLOQUEA |
 | `G8-4` | `j09` | secretos reales en el árbol versionado: `.env` commiteado, claves privadas, credenciales en un DSN, valores con pinta de generados | Guía 8, punto 4 | BLOQUEA |
 | `G8-5` | `j05` | CORS por dominio: ni `*` ni una IP; y `CORS_ORIGINS` no puede ser una variable inerte que el middleware ignora | Guía 8, punto 5 | BLOQUEA |
-| `G8-6` | `j06` | `SESSION_` y `SESION_` conviviendo: con una sola S la cookie viaja sin `Secure` y la app arranca igual | Guía 8, punto 6 | BLOQUEA |
+| `G8-6` | `j06` | `SESSION_` y `SESION_` conviviendo: con una sola S la cookie viaja sin `Secure` y la app arranca igual | **Derivada** de la Guía 8, punto 6. El punto 6 habla de `APP_ENV` y de no poner `SESSION_HTTPS_ONLY=true` sobre HTTP plano; **no menciona la grafía**. Lo que se extrapola es su mecanismo: una bandera de seguridad que se descarta en silencio | BLOQUEA |
 | `G8-7` | `j01` | estructura del compose: sin `version:`, al menos un servicio, **un solo** `ports:`, healthcheck y `restart:` | Guía 8, punto 7 | BLOQUEA / AVISA |
 | `G8-8` | `j08` | `.gitignore` existe, ignora `.env`, y sus rutas van **ancladas**: `data/` sin barra inicial ignora cualquier `data` a cualquier profundidad. Además, un `.env` ya versionado no lo salva el `.gitignore` | Guía 8, punto 8 | BLOQUEA |
 | `G8-9` | `j11` | `GET /health` existe, sin autenticación, sin redirección, y con `text()` si usa SQLAlchemy 2.x | Guía 8, punto 9 | BLOQUEA |
 | `G8-11` | `j11` | un fallo de datos no se disfraza de aplicación sana | Guía 8, punto 11 | AVISA (ver nota) |
 | `G8-10` | `j08` | qué llega al servidor con el `rsync` anclado: un `.env` en un subdirectorio **sí** viaja; lo versionado bajo el `data/` de la raíz **nunca** llega | Guía 8, punto 10 | BLOQUEA / AVISA |
+| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz) | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita | BLOQUEA |
 | `DK-3` | `j01` | ningún servicio del compose levanta un motor de base de datos | `DOCKER.md`, «La base de datos no está en el `docker-compose.yml`» | BLOQUEA |
 | `DK-4` | `j01` | hay `.dockerignore` en la raíz cuando se construye con `context: .`, y excluye `.env` | `DOCKER.md`, «conviene un `.dockerignore` en la raíz» | BLOQUEA / AVISA |
 
 ## Reglas sin fuente escrita
 
 Estas comprueban algo real, pero **ningún documento de la flota las dice**. O se
-escriben en la guía que corresponda, o se derogan. Mientras tanto no bloquean.
+escriben en la guía que corresponda, o se derogan. Mientras tanto **no bloquean**,
+y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
+`bloquea()`, la prueba falla. La promesa dejó de ser una frase.
+
+> `NG-1` y `CI-1` bloqueaban pese a estar aquí. Se corrigió el 2026-09-05, al
+> correr el gate sobre `coipo_prensa2`: 5 de sus 6 bloqueantes salían de esta
+> tabla. `SEM-1` también estaba, pero sí tiene fuente escrita —`semilla/README.md`—
+> y pasó a la tabla de arriba.
 
 | Código | Juez | Qué comprueba | Qué respalda hoy la regla |
 |---|---|---|---|
-| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que declara haberse sembrado (`.semilla` en la raíz) | Ninguno todavía. La regla nace de la medición que funda toda la arquitectura: `DOCKER.md` en 10 repositorios con 3 contenidos distintos, propagación por copia 22 % frente a 100 % del `uses:`. **La mitad de la semilla no puede distribuirse de otra forma** —Docker lee el `Dockerfile` del disco—, así que lo único posible es que la deriva no sea silenciosa. |
 | `NG-1` | `j01` | `proxy_pass` a un nombre literal sin `resolver` en el nginx **interno** | Ningún documento. Lo implementan por su cuenta `COIPO_USUARIOS`, `coipo_n8n` y `coipo_seguimiento_madera`; siete repos más no. El comportamiento de nginx (resolución única al arrancar) sí es verificable. **La versión anterior de este juez justificaba la regla con un «despliegue a uat roto con exit 22» que no consta en ningún sitio.** |
 | `OPS-1` | `j01` | los servicios declaran `mem_limit` | Ningún documento. Solo `coipo_n8n` lo hace, en sus cuatro servicios. El arreglo exige medir la RAM de la VM antes, así que la regla no puede bloquear. |
 | `CI-1` | `j06` | la versión de python/node del CI coincide con la que construyen los Dockerfile | Ningún documento. Divergencia real medida en `coipo_prensa2` (CI 3.11, imágenes 3.13/3.14) y `COIPO_ENTREGA_PLANTA` (CI node 20, Dockerfile node 22): el CI prueba sobre un runtime que no es el que se despliega. |
