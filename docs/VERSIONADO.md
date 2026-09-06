@@ -32,7 +32,9 @@ alguien se queda atrás.
 ```bash
 # 0. la suite y la calibración, antes de nada
 python3 -m unittest discover -s tests
-python3 jueces/correr.py --repo . --modo bloqueante
+# perfil encuadre_operativo: este repo no despliega, y con 'aplicacion'
+# j01 y j06 salen SIN_EVALUAR, que en modo bloqueante es exit 1
+python3 jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo
 
 # 1. la rama entra en main
 git checkout main

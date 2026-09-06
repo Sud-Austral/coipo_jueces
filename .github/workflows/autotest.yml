@@ -69,4 +69,10 @@ jobs:
         # Dogfooding, y no es simbólico: este repo es PÚBLICO. Si un fixture con
         # un secreto de mentira deja de estar bajo tests/ y pasa a parecer real,
         # aquí sale rojo antes de publicarse.
-        run: python3 jueces/correr.py --repo . --modo bloqueante
+        #
+        # El perfil NO es 'aplicacion': este repositorio no despliega nada, no
+        # tiene compose ni Dockerfile, y con ese perfil j01 y j06 salen
+        # SIN_EVALUAR — que en modo bloqueante es exit 1 (correr.py, «cero
+        # comprobaciones no es conformidad»). El paso llevaba el perfil por
+        # defecto y por tanto fallaba siempre.
+        run: python3 jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo
