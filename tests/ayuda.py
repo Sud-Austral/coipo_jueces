@@ -54,7 +54,12 @@ class RepoSintetico:
     def escribe(self, ruta: str, contenido: str, *, versionar: bool = True) -> "RepoSintetico":
         p = self.dir / ruta
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(contenido, encoding="utf-8")
+        # `newline=""` desactiva la traduccion de fin de linea de Python. Sin
+        # esto, en Windows un `\n` se escribe como `\r\n` y un `\r\n` como
+        # `\r\r\n` -- que git no produce JAMAS. El fixture dejaba de representar
+        # lo que hay en un repositorio real justo en las pruebas que van sobre
+        # el fin de linea, que son las que lo necesitan.
+        p.write_text(contenido, encoding="utf-8", newline="")
         if versionar:
             _git(self.dir, "add", "-f", ruta)
         return self

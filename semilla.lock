@@ -1,0 +1,36 @@
+# semilla.lock — qué archivos están congelados y con qué contenido.
+#
+# GENERADO por `semilla/sellar.py` de coipo_master_produccion. No se edita a mano.
+#
+# Lo consume el juez `j12` sobre cada aplicación de la flota: si un archivo de
+# esta lista existe en la aplicación con otro contenido, alguien editó una pieza
+# congelada y el despliegue lo dice. Que el archivo NO exista no es un hallazgo:
+# no toda aplicación usa todas las piezas.
+#
+# El hash es del contenido con `\r\n` normalizado a `\n`. Sin eso, el juez
+# fallaría en cada checkout de Windows por un motivo que no es el contenido, y
+# un juez que falla por algo que no importa se suprime en una semana.
+#
+# 21 archivos.
+
+50029487b6e33dba855c25ed6b8c82ab46a25e421e4ccd7b9d522c5c0cecef4f  .dockerignore
+61b45fedad0879a11fcd811d395f856eabe7067b38cb9ed6033423231f75e0ff  backend/app/adaptadores/entrada/http/guards.py
+7990b75f1738b2aec8ff912383bb7f9ad4a99f65b0796a93a24691d10fd60009  backend/app/adaptadores/entrada/http/sesion.py
+7f361562ccb8e2145175ce1117dcecc9887307f3414d30b9602654e425b98cc5  backend/app/adaptadores/salida/iam/cliente_iam.py
+584914fc8db680b2c6aa5bc4ec06b93216c232f5e81daa778bfd9671c7d3341e  backend/app/aplicacion/puertos/identidad.py
+f3e67b10c5f49a99e86685ca60b343fd3b48209580ad189c6b71092569dc21d2  backend/app/core/auditoria/__init__.py
+3743a2a8b0d756232f13555527657c9fa426f7de83d0d20725402a9eea3c57dc  backend/app/core/auditoria/clasificacion.py
+97db4f56b5dcd8575fc871d63a0d27476d95c0d2f6353c648dd7545fe8a8f28f  backend/app/core/auditoria/eventos.py
+51a6657b15c913b2c06b2058dc574d2aa63d4e4adda68960bb28800205bb0396  backend/app/dominio/modelo/identidad.py
+bd22827cdcdeffc435ee4a8aa2fac59530a5249fb5d924133a9996fcdd34be96  backend/Dockerfile
+86cfe6310c4598bb37a085254514e7c1025c00372d644eb2c89d8f490300ae4a  backend/pytest.ini
+cff7d073ca64baf14790a32631d94a4150d1c9887e21b464dea0391ede090b77  backend/requirements-dev.txt
+26349507553285350330579c7f617b76478b3082504abbbc6581c27b5f7e0d3c  backend/requirements.txt
+a30e5c665c753104fca92b232df098b620aeec87dc106dab55d3bec4f49febc1  backend/tests/arquitectura/test_capas.py
+1abf2f39a334b962cf872f4db76aafaad33af77a5a7cee4a757a1f8485bfd435  backend/tests/conftest.py
+bcc8188aa52c69d5a2448079a49500b63a5ac6eb99afbd9ffcd247db649c57e3  backend/tests/contrato/test_health.py
+f6e66b15347560a7c4ae23f32c6ac036cedd08c6167ed6fd797b696afca911fd  db/0000_plataforma.sql
+2863dd2cac5003c16bda1f45278c39dc73d29f95e704e35de703ebe8cedcc168  docker-compose.fragmento.yml
+a73dfa461ce61bd0135bb4c2b347894118e7e3f7c991e856ec8e30268c6bb947  frontend/Dockerfile
+249c3418d308253c1402301e145325a2baeb967db746a026b5b12036862b196f  frontend/nginx.conf
+9387ed9e1588c39a3cd4e67e148d0a27638c0b6ac0c83b45a51a299f3d033c15  frontend/scripts/verify-banner.mjs
