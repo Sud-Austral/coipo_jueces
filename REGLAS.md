@@ -55,11 +55,22 @@ y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
 > tabla. `SEM-1` también estaba, pero sí tiene fuente escrita —`semilla/README.md`—
 > y pasó a la tabla de arriba.
 
+> Las `UI-N` llegan aquí por otro camino, y conviene no confundirlo: **su fuente
+> existe** —`identidad/ESTANDAR_UI.md`— pero **está en cuarentena y nadie la ha
+> firmado**. Un documento generado por IA y sin firmar no es una fuente escrita
+> en el sentido que esa palabra tiene aquí; darlo por tal repetiría el error de
+> `DECRETOS.md`. Así que se quedan en esta tabla, y `PruebaSeveridad` impide que
+> bloqueen: **la prueba es lo que hace cumplir la firma**. Qué hay que hacer el
+> día que se firme está en [`FILAS_REGLAS_UI.md`](FILAS_REGLAS_UI.md).
+
 | Código | Juez | Qué comprueba | Qué respalda hoy la regla |
 |---|---|---|---|
 | `NG-1` | `j01` | `proxy_pass` a un nombre literal sin `resolver` en el nginx **interno** | Ningún documento. Lo implementan por su cuenta `COIPO_USUARIOS`, `coipo_n8n` y `coipo_seguimiento_madera`; siete repos más no. El comportamiento de nginx (resolución única al arrancar) sí es verificable. **La versión anterior de este juez justificaba la regla con un «despliegue a uat roto con exit 22» que no consta en ningún sitio.** |
 | `OPS-1` | `j01` | los servicios declaran `mem_limit` | Ningún documento. Solo `coipo_n8n` lo hace, en sus cuatro servicios. El arreglo exige medir la RAM de la VM antes, así que la regla no puede bloquear. |
 | `CI-1` | `j06` | la versión de python/node del CI coincide con la que construyen los Dockerfile | Ningún documento. Divergencia real medida en `coipo_prensa2` (CI 3.11, imágenes 3.13/3.14) y `COIPO_ENTREGA_PLANTA` (CI node 20, Dockerfile node 22): el CI prueba sobre un runtime que no es el que se despliega. |
+| `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz) | `identidad/ESTANDAR_UI.md` de `coipo_master_produccion`, **en cuarentena y sin firmar**. Lo que sí está medido: en `coipo_prensa2` seis tokens no se redefinen en `[data-theme=oscuro]`, y el peor da **1,38:1** sobre la tarjeta oscura —texto presente e ilegible—; el anillo de foco cae a **2,99:1**, bajo el 3:1 de WCAG 2.4.11. |
+| `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz) | Ídem, sin firmar. Medido: `coipo_prensa2` tiene **tres** recetas distintas de anillo de foco, **cinco** valores de `outline-offset` (`-3, -2, 1, 2, 3`) y **tres** anchos, ninguno como token. WCAG 2.4.11 es norma, pero la regla concreta que este juez comprueba la escribe el estándar. |
+| `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz) | Ídem, sin firmar. Medido: el bloque de `coipo_prensa2` (`estilos.css:254`) desactiva **una** transición y deja **ocho** vivas. Cumple la letra y no la función. |
 
 ### Nota sobre `G8-11`
 

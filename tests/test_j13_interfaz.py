@@ -1,0 +1,279 @@
+"""Pruebas de j13 — la interfaz: foco, tema oscuro y movimiento reducido.
+
+Fixtures SINTÉTICOS: este repositorio es público.
+
+LA PRUEBA QUE MÁS IMPORTA de este archivo es
+`test_ninguna_regla_de_este_juez_bloquea`. El estándar que sostiene estos
+códigos —`identidad/ESTANDAR_UI.md`— está en cuarentena y sin firmar, así que
+`UI-N` vive en la tabla «Reglas sin fuente escrita» de REGLAS.md, y esa tabla
+promete que no bloquean. Si alguien sube una de estas tres a `bloquea()` sin
+haber firmado el documento, esta prueba lo caza aquí, antes de que
+`test_reglas_citadas.py::PruebaSeveridad` lo cace en el catálogo.
+
+Y la segunda en importancia es `test_backend_sin_css_es_no_aplica`: un juez de
+interfaz que tratara «este repositorio no tiene CSS» como defecto pondría rojos
+a todos los backends, colectores y encuadres operativos de la flota. Ese falso
+positivo no se discute: se suprime el juez, y a los tres meses el gate está
+apagado.
+"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ayuda import CasoConRepo  # noqa: E402
+
+RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RAIZ / "jueces"))
+import j13_interfaz as j13  # noqa: E402
+
+
+SEMILLA = """\
+version: 2026-09-07
+gerencia: 1_banner_SECOM
+"""
+
+CSS_SANO = """\
+:root {
+  --verde: #064928;
+  --tinta: #1f2a24;
+}
+[data-theme='oscuro'] {
+  --verde: #4fb37a;
+  --tinta: #e8eae9;
+}
+.boton { color: var(--verde); transition: background .2s; }
+.boton:focus-visible { outline: 3px solid var(--verde); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; }
+}
+"""
+
+
+class ConSemilla(CasoConRepo):
+    """Repositorio que DECLARA seguir el estándar de interfaz.
+
+    El estándar es para proyectos NUEVOS, así que `j13` sólo juzga a quien lo
+    declara con `.semilla` en la raíz — el mismo marcador que exige `j12`. Sin
+    él sale NO_APLICA, y eso lo prueba `PruebaAlcance` más abajo.
+    """
+
+    MODULO = j13
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo.escribe(".semilla", SEMILLA)
+
+
+class PruebaFoco(ConSemilla):
+
+    def test_outline_cero_sin_sustituto_avisa(self):
+        self.repo.escribe("src/estilos.css",
+                          ".campo:focus { outline: 0; }\n"
+                          ".campo { transition: border .2s; }\n")
+        self.assertAvisa("quita el contorno del foco")
+
+    def test_outline_cero_con_focus_visible_en_el_mismo_archivo_no_avisa(self):
+        """Conservador a propósito: un `outline:0` acompañado de un
+        `:focus-visible` en el mismo archivo es la forma CORRECTA de reemplazar
+        el anillo por defecto, y marcarlo sería el falso positivo que enseña a
+        suprimir al juez."""
+        self.repo.escribe("src/estilos.css", CSS_SANO + ".x:focus { outline: 0; }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-10"],
+                         f"no debía avisar de foco: {[h.mensaje for h in r.hallazgos]}")
+
+    def test_outline_offset_no_se_confunde_con_outline_cero(self):
+        """`outline-offset: 0` es legítimo y frecuente. Confundirlo con
+        `outline: 0` marcaría CSS correcto."""
+        self.repo.escribe("src/estilos.css",
+                          ".x { outline-offset: 0; }\n.x { transition: all .2s; }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-10"])
+
+
+class PruebaTemaOscuro(ConSemilla):
+
+    def test_token_de_texto_sin_redefinir_avisa(self):
+        self.repo.escribe("src/estilos.css",
+                          ":root { --verde: #064928; }\n"
+                          "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
+                          ".t { color: var(--verde); }\n")
+        self.assertAvisa("NO se redefinen en el tema oscuro")
+
+    def test_token_usado_solo_de_fondo_no_avisa(self):
+        """Un color que sólo se usa como fondo puede ser legítimo en los dos
+        temas: la superficie del banner institucional es el caso real. Sólo se
+        exige redefinir lo que se usa como texto, borde o foco."""
+        self.repo.escribe("src/estilos.css",
+                          ":root { --marca: #064928; }\n"
+                          "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
+                          ".banner { background: var(--marca); }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"],
+                         "un token usado sólo de fondo no exige redefinición")
+
+    def test_sin_tema_oscuro_es_no_evaluado_y_no_hallazgo(self):
+        """No tener tema oscuro es una carencia del proyecto, no un defecto de
+        este archivo: se dice como no evaluado, que es lo honesto, en vez de
+        inventar un hallazgo sobre algo que el juez no puede ver."""
+        self.repo.escribe("src/estilos.css",
+                          ":root { --verde: #064928; }\n.t { color: var(--verde); }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"])
+        self.assertTrue(any("tema oscuro" in n for n in r.no_evaluado),
+                        f"debía declararlo no evaluado: {r.no_evaluado}")
+
+    def test_css_minificado_en_una_linea_tambien_se_mira(self):
+        """Regresión. La primera versión del juez exigía que el bloque del tema
+        oscuro cerrase en su propia línea, así que sobre un CSS MINIFICADO —que
+        es la forma en que el bundle llega al servidor— no encontraba ninguno y
+        declaraba «no evaluado» en silencio. Un juez que no mira nada y no lo
+        dice es peor que no tenerlo."""
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root{--verde:#064928}[data-theme='oscuro']{--fondo:#1a1f1c}"
+            ".t{color:var(--verde)}\n")
+        self.assertAvisa("NO se redefinen en el tema oscuro")
+
+    def test_prefers_color_scheme_cuenta_como_tema_oscuro(self):
+        """Las dos vías son válidas: el selector explícito para quien eligió, y
+        la consulta de medio para quien no."""
+        self.repo.escribe("src/estilos.css",
+                          ":root { --verde: #064928; }\n"
+                          "@media (prefers-color-scheme: dark) {\n"
+                          "  :root { --verde: #4fb37a; }\n}\n"
+                          ".t { color: var(--verde); }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"])
+
+
+class PruebaMovimientoReducido(ConSemilla):
+
+    def test_sin_bloque_avisa(self):
+        self.repo.escribe("src/estilos.css",
+                          ".a { transition: all .2s; }\n.b { animation: x 1s; }\n")
+        self.assertAvisa("ninguna hoja tiene un bloque `prefers-reduced-motion`")
+
+    def test_bloque_selectivo_avisa_con_la_cuenta(self):
+        """El caso real de coipo_prensa2: apaga una transición y deja ocho vivas."""
+        self.repo.escribe("src/estilos.css",
+                          ".a { transition: all .2s; }\n"
+                          ".b { transition: color .2s; }\n"
+                          ".c { transition: opacity .2s; }\n"
+                          "@media (prefers-reduced-motion: reduce) {\n"
+                          "  .a { transition: none; }\n}\n")
+        self.assertAvisa("es selectivo")
+
+    def test_bloque_universal_no_avisa(self):
+        self.repo.escribe("src/estilos.css", CSS_SANO)
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
+                         f"el selector universal cubre todo: {[h.mensaje for h in r.hallazgos]}")
+
+    def test_sin_movimiento_no_exige_el_bloque(self):
+        """Un CSS sin una sola transición no necesita apagar nada."""
+        self.repo.escribe("src/estilos.css", ".a { color: #111; }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"])
+
+
+class PruebaAlcance(ConSemilla):
+
+    def test_backend_sin_css_es_no_aplica(self):
+        self.repo.escribe("backend/app/main.py", "app = 1\n")
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto,
+                         "un repositorio sin interfaz no tiene interfaz que juzgar")
+
+    def test_css_de_dependencias_y_build_no_se_juzga(self):
+        """`node_modules/` y `dist/` no son código del proyecto. Si se juzgaran,
+        cualquier repositorio con un lockfile versionado saldría rojo por CSS
+        que nadie escribió."""
+        self.repo.escribe("node_modules/x/a.css", ".x:focus { outline: 0; }\n")
+        self.repo.escribe("dist/b.css", ".y:focus { outline: none; }\n")
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto)
+
+    def test_un_css_sano_sale_ok_con_comprobaciones(self):
+        """Y sale OK, no SIN_EVALUAR: cero hallazgos con cero comprobaciones no
+        es conformidad, y este juez tiene que registrar lo que miró."""
+        self.repo.escribe("src/estilos.css", CSS_SANO)
+        r = self.repo.juzga()
+        self.assertEqual("OK", r.veredicto, f"hallazgos: {[h.mensaje for h in r.hallazgos]}")
+        self.assertTrue(r.comprobado, "un veredicto OK exige comprobaciones registradas")
+
+
+class PruebaDeclaracion(CasoConRepo):
+    """El alcance se declara, y la declaración pide MÁS obligación, no menos.
+
+    Es la única clase de este archivo que NO hereda de `ConSemilla`: prueba
+    justamente lo que pasa sin el marcador.
+    """
+
+    MODULO = j13
+
+    def test_sin_declaracion_es_no_aplica_aunque_el_css_este_mal(self):
+        """El estándar es para proyectos NUEVOS.
+
+        Una aplicación anterior no lo incumple: no existía cuando se escribió.
+        Este CSS tiene los tres defectos a la vez y aun así no se juzga —y ese
+        es el comportamiento correcto, no una laxitud—. Sin esto, cada regla
+        nueva del estándar encendería 32 frontends heredados a la vez, y lo que
+        se aprende de un gate que avisa de lo que nadie va a arreglar es a
+        ignorarlo.
+        """
+        self.repo.escribe("src/estilos.css",
+                          ":root { --v: #064928; }\n"
+                          "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
+                          ".t { color: var(--v); transition: all .2s; }\n"
+                          ".t:focus { outline: 0; }\n")
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto)
+        self.assertFalse(r.hallazgos, f"no debía juzgar nada: {[h.regla for h in r.hallazgos]}")
+
+    def test_la_declaracion_lo_enciende(self):
+        """El mismo CSS, con el marcador puesto, sí se juzga.
+
+        Las dos pruebas juntas son lo que hace que este juez tenga alcance: sin
+        la segunda, `NO_APLICA` podría estar tapando que el juez no mira nada.
+        """
+        self.repo.escribe(".semilla", SEMILLA)
+        self.repo.escribe("src/estilos.css",
+                          ":root { --v: #064928; }\n"
+                          "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
+                          ".t { color: var(--v); transition: all .2s; }\n"
+                          ".t:focus { outline: 0; }\n")
+        r = self.repo.juzga()
+        self.assertEqual("HALLAZGOS", r.veredicto)
+        self.assertTrue(r.hallazgos, "con la declaración puesta, el mismo CSS sí se juzga")
+        self.assertFalse(r.bloqueantes, "y ninguno bloquea: el estándar está sin firmar")
+
+
+class PruebaSeveridadDeEsteJuez(ConSemilla):
+
+    def test_ninguna_regla_de_este_juez_bloquea(self):
+        """`identidad/ESTANDAR_UI.md` está en cuarentena y sin firmar.
+
+        Hasta que un responsable humano lo firme, sus reglas viven en la tabla
+        «Reglas sin fuente escrita» de REGLAS.md, que promete que no bloquean, y
+        `test_reglas_citadas.py::PruebaSeveridad` hace cumplir esa promesa. Esta
+        prueba la duplica a propósito, más cerca del código: caza el error en el
+        juez antes de que lo cace el catálogo, y con un mensaje que dice qué
+        hacer.
+        """
+        fuente = (RAIZ / "jueces" / "j13_interfaz.py").read_text(encoding="utf-8")
+        self.assertNotIn(
+            "r.bloquea(", fuente,
+            "j13 llama a bloquea(). El estándar de interfaz NO está firmado: sus "
+            "reglas UI-N están en la tabla «sin fuente escrita» de REGLAS.md y no "
+            "pueden bloquear. Primero se firma el documento, se mueve la fila a "
+            "«Reglas vigentes» y se añade el prefijo a «Documentos fuente»; sólo "
+            "entonces se sube la severidad.")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

@@ -69,19 +69,20 @@ Un juez nuevo se valida contra el código que **ya se sabe bueno**. Si sale rojo
 sobre un repo cuyo comportamiento es correcto, el verificador está mal — no el
 código. Cada juez lleva su tabla de calibración en el docstring.
 
-Estado de la flota con los **ocho** jueces, medido el 2026-09-05 en modo advisory,
-despues de corregir la severidad de `NG-1` y `CI-1` (ver REGLAS.md):
+Estado de la flota con los **nueve** jueces, medido el 2026-09-07 en modo
+advisory. El noveno, `j13_interfaz`, sólo AVISA y sólo sobre repositorios que
+**declaran** seguir el estándar de interfaz: hoy, ninguno de estos seis.
 
 | Repositorio | Bloquea | Avisa | No evaluado | Qué encuentra |
 |---|---:|---:|---:|---|
 | `coipo_n8n` | **0** | **0** | 1 | la referencia: `mem_limit` y healthcheck en todos, guards `${VAR:?}`, `resolver` |
 | `COIPO_USUARIOS` | 9 | 8 | 0 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
-| `coipo_prensa2` | 1 | 15 | 0 | el unico bloqueante es `SESSION_`/`SESION_` conviviendo. Avisan: CI que prueba python 3.11 y node 22 mientras construye 3.14 y 26, `proxy_pass` literal sin `resolver`, healthchecks y `mem_limit` ausentes |
+| `coipo_prensa2` | **0** | 10 | 0 | **cero bloqueantes** desde el 2026-09-06, al terminar su alineación. Avisan: CI que prueba python 3.11 y node 22 mientras construye 3.14 y 26, `proxy_pass` literal sin `resolver`, healthchecks y `mem_limit` ausentes |
 | `COIPO_ENTREGA_PLANTA` | 2 | 11 | 0 | sin `.dockerignore` con `context: .`; `proxy_pass` literal; CI con node 20 y Dockerfile con 22 |
 | `coipo_master_produccion` | 1 | 1 | 1 | repo de doctrina: no despliega, no se le exige contrato de `.env` |
 | `coipo_jueces` | 0 | 0 | 2 | este mismo repo |
 
-Cada uno de esos 15 bloqueantes es un defecto real y verificable, no una
+Cada uno de esos 12 bloqueantes es un defecto real y verificable, no una
 preferencia de estilo. Y `coipo_n8n` en verde es tan importante como los rojos:
 es la prueba de que el juez no dispara sobre el repositorio que hizo las cosas
 bien.
@@ -128,6 +129,7 @@ el `DEUDA.md` de la app.
 | `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
 | `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
+| `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **sólo avisa** |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo
