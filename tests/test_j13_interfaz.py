@@ -2,15 +2,13 @@
 
 Fixtures SINTÉTICOS: este repositorio es público.
 
-LA PRUEBA QUE MÁS IMPORTA de este archivo es
-`test_ninguna_regla_de_este_juez_bloquea`. El estándar que sostiene estos
-códigos —`identidad/ESTANDAR_UI.md`— está en cuarentena y sin firmar, así que
-`UI-N` vive en la tabla «Reglas sin fuente escrita» de REGLAS.md, y esa tabla
-promete que no bloquean. Si alguien sube una de estas tres a `bloquea()` sin
-haber firmado el documento, esta prueba lo caza aquí, antes de que
-`test_reglas_citadas.py::PruebaSeveridad` lo cace en el catálogo.
+El estándar se FIRMÓ el 2026-09-07 y estas tres reglas BLOQUEAN. Hasta entonces
+había aquí una prueba, `test_ninguna_regla_de_este_juez_bloquea`, que impedía
+subir la severidad sin firmar; se borró al firmar, que era su trámite. Para
+revocar: devolver las filas a «Reglas sin fuente escrita» de REGLAS.md y las
+llamadas a `r.avisa(`; `PruebaSeveridad` vuelve a impedirlo sola.
 
-Y la segunda en importancia es `test_backend_sin_css_es_no_aplica`: un juez de
+LA PRUEBA QUE MÁS IMPORTA es `test_backend_sin_css_es_no_aplica`: un juez de
 interfaz que tratara «este repositorio no tiene CSS» como defecto pondría rojos
 a todos los backends, colectores y encuadres operativos de la flota. Ese falso
 positivo no se discute: se suprime el juez, y a los tres meses el gate está
@@ -70,13 +68,13 @@ class ConSemilla(CasoConRepo):
 
 class PruebaFoco(ConSemilla):
 
-    def test_outline_cero_sin_sustituto_avisa(self):
+    def test_outline_cero_sin_sustituto_bloquea(self):
         self.repo.escribe("src/estilos.css",
                           ".campo:focus { outline: 0; }\n"
                           ".campo { transition: border .2s; }\n")
-        self.assertAvisa("quita el contorno del foco")
+        self.assertBloquea("quita el contorno del foco")
 
-    def test_outline_cero_con_focus_visible_en_el_mismo_archivo_no_avisa(self):
+    def test_outline_cero_con_focus_visible_en_el_mismo_archivo_no_bloquea(self):
         """Conservador a propósito: un `outline:0` acompañado de un
         `:focus-visible` en el mismo archivo es la forma CORRECTA de reemplazar
         el anillo por defecto, y marcarlo sería el falso positivo que enseña a
@@ -97,14 +95,14 @@ class PruebaFoco(ConSemilla):
 
 class PruebaTemaOscuro(ConSemilla):
 
-    def test_token_de_texto_sin_redefinir_avisa(self):
+    def test_token_de_texto_sin_redefinir_bloquea(self):
         self.repo.escribe("src/estilos.css",
                           ":root { --verde: #064928; }\n"
                           "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
                           ".t { color: var(--verde); }\n")
-        self.assertAvisa("NO se redefinen en el tema oscuro")
+        self.assertBloquea("NO se redefinen en el tema oscuro")
 
-    def test_token_usado_solo_de_fondo_no_avisa(self):
+    def test_token_usado_solo_de_fondo_no_bloquea(self):
         """Un color que sólo se usa como fondo puede ser legítimo en los dos
         temas: la superficie del banner institucional es el caso real. Sólo se
         exige redefinir lo que se usa como texto, borde o foco."""
@@ -137,7 +135,7 @@ class PruebaTemaOscuro(ConSemilla):
             "src/estilos.css",
             ":root{--verde:#064928}[data-theme='oscuro']{--fondo:#1a1f1c}"
             ".t{color:var(--verde)}\n")
-        self.assertAvisa("NO se redefinen en el tema oscuro")
+        self.assertBloquea("NO se redefinen en el tema oscuro")
 
     def test_prefers_color_scheme_cuenta_como_tema_oscuro(self):
         """Las dos vías son válidas: el selector explícito para quien eligió, y
@@ -153,12 +151,12 @@ class PruebaTemaOscuro(ConSemilla):
 
 class PruebaMovimientoReducido(ConSemilla):
 
-    def test_sin_bloque_avisa(self):
+    def test_sin_bloque_bloquea(self):
         self.repo.escribe("src/estilos.css",
                           ".a { transition: all .2s; }\n.b { animation: x 1s; }\n")
-        self.assertAvisa("ninguna hoja tiene un bloque `prefers-reduced-motion`")
+        self.assertBloquea("ninguna hoja tiene un bloque `prefers-reduced-motion`")
 
-    def test_bloque_selectivo_avisa_con_la_cuenta(self):
+    def test_bloque_selectivo_bloquea_con_la_cuenta(self):
         """El caso real de coipo_prensa2: apaga una transición y deja ocho vivas."""
         self.repo.escribe("src/estilos.css",
                           ".a { transition: all .2s; }\n"
@@ -166,9 +164,9 @@ class PruebaMovimientoReducido(ConSemilla):
                           ".c { transition: opacity .2s; }\n"
                           "@media (prefers-reduced-motion: reduce) {\n"
                           "  .a { transition: none; }\n}\n")
-        self.assertAvisa("es selectivo")
+        self.assertBloquea("es selectivo")
 
-    def test_bloque_universal_no_avisa(self):
+    def test_bloque_universal_no_bloquea(self):
         self.repo.escribe("src/estilos.css", CSS_SANO)
         r = self.repo.juzga()
         self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
@@ -250,29 +248,9 @@ class PruebaDeclaracion(CasoConRepo):
         r = self.repo.juzga()
         self.assertEqual("HALLAZGOS", r.veredicto)
         self.assertTrue(r.hallazgos, "con la declaración puesta, el mismo CSS sí se juzga")
-        self.assertFalse(r.bloqueantes, "y ninguno bloquea: el estándar está sin firmar")
-
-
-class PruebaSeveridadDeEsteJuez(ConSemilla):
-
-    def test_ninguna_regla_de_este_juez_bloquea(self):
-        """`identidad/ESTANDAR_UI.md` está en cuarentena y sin firmar.
-
-        Hasta que un responsable humano lo firme, sus reglas viven en la tabla
-        «Reglas sin fuente escrita» de REGLAS.md, que promete que no bloquean, y
-        `test_reglas_citadas.py::PruebaSeveridad` hace cumplir esa promesa. Esta
-        prueba la duplica a propósito, más cerca del código: caza el error en el
-        juez antes de que lo cace el catálogo, y con un mensaje que dice qué
-        hacer.
-        """
-        fuente = (RAIZ / "jueces" / "j13_interfaz.py").read_text(encoding="utf-8")
-        self.assertNotIn(
-            "r.bloquea(", fuente,
-            "j13 llama a bloquea(). El estándar de interfaz NO está firmado: sus "
-            "reglas UI-N están en la tabla «sin fuente escrita» de REGLAS.md y no "
-            "pueden bloquear. Primero se firma el documento, se mueve la fila a "
-            "«Reglas vigentes» y se añade el prefijo a «Documentos fuente»; sólo "
-            "entonces se sube la severidad.")
+        # Desde la firma del 2026-09-07 las tres BLOQUEAN. Antes, esta línea
+        # comprobaba lo contrario.
+        self.assertTrue(r.bloqueantes, "y bloquean: el estándar está firmado")
 
 
 if __name__ == "__main__":

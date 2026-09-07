@@ -147,7 +147,7 @@ def comprobar_foco(repo: Repo, r: Resultado, hojas: list[str]) -> None:
             if (motivo := suprimido(lineas, n, "UI-10")):
                 r.supresiones.append(f"{ruta}:{n + 1} outline suprimido — {motivo}")
                 continue
-            r.avisa(
+            r.bloquea(
                 "UI-10", ruta,
                 "quita el contorno del foco y este archivo no declara ningún "
                 "`:focus-visible` que lo sustituya",
@@ -211,7 +211,7 @@ def comprobar_tema_oscuro(repo: Repo, r: Resultado, hojas: list[str]) -> None:
 
         muestra = ", ".join(f"`{t}`" for t in huerfanos[:5])
         cola = f" y {len(huerfanos) - 5} más" if len(huerfanos) > 5 else ""
-        r.avisa(
+        r.bloquea(
             "UI-3", ruta,
             f"{len(huerfanos)} token(es) de color se usan como texto, borde o "
             f"foco y NO se redefinen en el tema oscuro: {muestra}{cola}",
@@ -226,6 +226,30 @@ def comprobar_tema_oscuro(repo: Repo, r: Resultado, hojas: list[str]) -> None:
                     "no corregir el color medido del banner, que sobre su propia "
                     "superficie es correcto",
         )
+
+
+def _cuerpo_del_media(texto: str, desde: int) -> str:
+    """El cuerpo del `@media` que empieza en `desde`, por conteo de llaves."""
+    profundidad, cuerpo = 0, []
+    for ch in texto[desde:]:
+        if ch == "{":
+            profundidad += 1
+        elif ch == "}":
+            profundidad -= 1
+            if profundidad <= 0:
+                break
+        if profundidad >= 1:
+            cuerpo.append(ch)
+    return "".join(cuerpo)
+
+
+def _es_universal(texto: str) -> bool:
+    """¿Tiene este archivo un `prefers-reduced-motion` con selector universal?"""
+    m = MOVIMIENTO_REDUCIDO.search(texto)
+    if not m:
+        return False
+    bloque = _cuerpo_del_media(texto, m.end())
+    return bool(re.search(r"(?:^|[,{\s])\*(?:[,\s{]|::)", bloque))
 
 
 def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) -> None:
@@ -246,7 +270,7 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
     ruta_principal = max(con_movimiento, key=lambda p: len(HAY_MOVIMIENTO.findall(p[1])))[0]
 
     if not completo:
-        r.avisa(
+        r.bloquea(
             "UI-15", ruta_principal,
             f"el repositorio declara {total} transición(es) o animación(es) y "
             f"ninguna hoja tiene un bloque `prefers-reduced-motion`",
@@ -260,28 +284,26 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
         )
         return
 
-    # Existe. Ahora: ¿es universal, o nombra unos pocos selectores?
+    # ¿Hay en ALGÚN archivo un bloque universal? Si lo hay, el repositorio está
+    # cubierto y no se mira nada más.
+    #
+    # La comprobación es del REPOSITORIO, no de cada archivo. La primera versión
+    # miraba archivo por archivo y marcaba un falso positivo sobre la propia
+    # semilla: su bloque universal vive en `estilos/interfaz.css`, y el CSS de un
+    # componente puede tener además el suyo, específico —el giro de un botón, que
+    # no basta con acelerar: hay que dejarlo quieto en una posición y no a
+    # medias—. Marcar eso es castigar la práctica correcta, y un falso positivo
+    # no se discute: se suprime el juez.
+    if any(_es_universal(t) for _ruta, t in con_movimiento):
+        return
+
     for ruta, texto in con_movimiento:
         m = MOVIMIENTO_REDUCIDO.search(texto)
         if not m:
             continue
-        # El cuerpo del `@media`, hasta su cierre. Aproximación por conteo de llaves.
-        resto = texto[m.end():]
-        profundidad, cuerpo = 0, []
-        for ch in resto:
-            if ch == "{":
-                profundidad += 1
-            elif ch == "}":
-                profundidad -= 1
-                if profundidad <= 0:
-                    break
-            if profundidad >= 1:
-                cuerpo.append(ch)
-        bloque = "".join(cuerpo)
+        bloque = _cuerpo_del_media(texto, m.end())
         if not bloque:
             continue
-        if re.search(r"(?:^|[,{\s])\*(?:[,\s{]|::)", bloque):
-            continue  # universal: cubre todo
 
         propios = len(HAY_MOVIMIENTO.findall(texto))
         apagados = len(re.findall(r"[{;]\s*(?:transition|animation)[^;}]*", bloque))
@@ -294,7 +316,7 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
             r.supresiones.append(f"{ruta}:{n + 1} movimiento reducido — {motivo}")
             continue
 
-        r.avisa(
+        r.bloquea(
             "UI-15", ruta,
             f"el bloque `prefers-reduced-motion` es selectivo: apaga "
             f"{apagados} de {propios} declaración(es) de movimiento de este archivo",
