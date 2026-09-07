@@ -1,0 +1,74 @@
+# Manifiesto derivado del codigo. Los archivos ya estaban abiertos cuando se
+# escribio: esto documenta lo que hay y deja constancia de lo que falta
+# declarar. El conteo de patrones de dato personal no se pudo hacer porque la
+# evidencia extraida no incluye el contenido de los archivos.
+
+archivos:
+
+  - ruta: semilla.lock
+    sha256: "321ba65def2aa17ba28873e1d53f15fc3b929a185eb91b756e140cbce9ec274c"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible. Por su funcion contiene huellas criptograficas de archivos, no valores de negocio"
+    puede_versionarse: true
+    uso: "Archivo de bloqueo contra el que se contrastan las huellas de los archivos sembrados en un repositorio; es la entrada de la verificacion de integridad de la semilla [jueces/j12_semilla.py]"
+
+  - ruta: REGLAS.md
+    sha256: "6d24ec2a7be3332be7683d42888defd7855e9a3f4ce6b64c7c975fc5279f3ce6"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Catalogo escrito de las reglas y sus codigos; una prueba exige que coincida en ambos sentidos con los codigos que el codigo emite [tests/test_reglas_citadas.py]"
+
+  - ruta: .github/workflows/verificar.yml
+    sha256: "2400a8e0972ce3d84a5593ed9e7b07066800ef68fc58303e745663dc9b4becbc"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Flujo reutilizable que otros repositorios invocan por referencia; es el mecanismo de distribucion de las verificaciones [README.md]"
+
+  - ruta: .github/workflows/autotest.yml
+    sha256: "0d6025649b029658fb00e261dd283d0e009ebb498b4a706ffd6e8ab6efea46f9"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Flujo que ejecuta las pruebas del propio repositorio"
+
+  - ruta: docs/VERSIONADO.md
+    sha256: "21a1369db7365bbba3510bdc8d818900891e7d4ca7cc2b272b599fde3547ea33"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Documento de politica de versiones; su contenido no esta en la evidencia extraida"
+
+  - ruta: README.md
+    sha256: "510a46fdd2be024158576f5c4d64e3172878526237cf410959f1fc603169ed24"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Unica fuente escrita sobre el proposito del repositorio, los modos de ejecucion, los perfiles y la razon de que sea publico"
+
+  - ruta: .gitignore
+    sha256: "ce20f370a004fb74956078003c2f7c7d5500e155a012c8f5b81da6bb02d792f7"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Declara que se excluye del control de versiones. Es la misma clase de archivo que dos de las verificaciones del repositorio revisan en repositorios ajenos [jueces/j08_rsync.py], [jueces/j09_secretos.py]"
+
+  - ruta: .gitattributes
+    sha256: "87210affa9c6f56ff2b01a10f4885a322f2a0df162934e683ac34d3af36c0409"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible"
+    puede_versionarse: true
+    uso: "Normaliza el tratamiento de los archivos por parte del control de versiones. Es relevante porque la verificacion de integridad de la semilla depende de que el fin de linea no altere la huella [tests/test_j12_semilla.py]"
+
+  - ruta: tests/ayuda.py
+    sha256: "3633130a59bce3f45138471b956cb681317fbee73b3a7ffe7340856ddf2e91fb"
+    origen: "[PENDIENTE] quien lo entrego y cuando"
+    contiene_pii: "[VERIFICAR] la evidencia no reporta patrones de dato personal en este archivo; conteo no disponible. Esta bajo tests/, lo que aumenta la probabilidad de que cualquier valor sea sintetico, pero no lo confirma"
+    puede_versionarse: true
+    uso: "Construye repositorios sinteticos temporales sobre los que corren las pruebas, de modo que ninguna prueba toque un repositorio real"
+
+notas:
+  - "El repositorio no tiene manifiesto de dependencias: la extraccion devolvio una lista vacia, y los modulos importados son de la biblioteca estandar o del propio repositorio [jueces/comun.py], [jueces/correr.py]. No hay por tanto nada que sellar en esa categoria."
+  - "El repositorio es publico segun la evidencia de origen y el README lo justifica de forma explicita [README.md]. Que no exista ningun secreto en el historial completo es [VERIFICAR], no algo que este manifiesto pueda cerrar."
+  - "Ninguno de los archivos anteriores esta declarado como no versionable, y ninguno se marco con contiene_pii confirmado. Si esa marca cambiara para alguno, la ruta tendria que quedar excluida del control de versiones anclada con barra inicial; comprobarlo y, en su caso, levantarlo como hallazgo corresponde al informe, no a este documento."
