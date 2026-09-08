@@ -187,11 +187,13 @@ reproducido; 175 verdes.
 > X This run likely failed because of a workflow file issue.
 > ```
 >
-> sin log y sin pasos. La causa: el paso `correr` de `verificar.yml` llevaba
-> **dos claves `env:`**. PyYAML se queda con la última sin avisar —por eso la
-> suite y el paso «El YAML del reusable parsea» salieron verdes— y GitHub no
-> tolera claves repetidas. La misma clase de desastre que `v2.0.0`: un tag
-> anotado no se arregla, sólo se avisa.
+> sin log y sin pasos. Dos causas, las dos en `verificar.yml` y las dos
+> invisibles para la suite: el paso `correr` llevaba **dos claves `env:`**
+> (PyYAML se queda con la última sin avisar) y un comentario del `run:` tenía
+> una **expresión vacía `${{ }}`** — GitHub evalúa las expresiones también
+> dentro de los comentarios del shell. La misma clase de desastre que
+> `v2.0.0`: un tag anotado no se arregla, sólo se avisa. `actionlint` señala
+> las dos; conviene pasarlo en local antes de publicar.
 >
 > `v2` apuntó a `v2.0.3` durante unos doce minutos (20:46–20:58 del
 > 2026-09-08) y volvió a `v2.0.2` de forma provisional hasta `v2.0.4`. Un run

@@ -162,7 +162,9 @@ jobs:
           PERFIL: ${{ inputs.perfil }}
           SOLO: ${{ inputs.jueces }}
         run: |
-          # Los inputs entran por `env:` y no como `${{ }}` dentro del shell: un
+          # Los inputs entran por `env:` y no como expresiones interpoladas en el
+          # shell (y OJO: ni siquiera en un comentario de este `run:` puede ir una
+          # expresion vacia -- GitHub las evalua igual y rechaza el archivo). Un
           # valor con comillas rompia el script antes de llegar a correr.py, y uno
           # con `$(...)` se EJECUTABA. El paso motor ya lo hacia asi.
           # `run:` se ejecuta con `bash -e`: si correr.py sale distinto de 0, el

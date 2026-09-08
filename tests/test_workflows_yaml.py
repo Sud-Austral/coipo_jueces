@@ -71,6 +71,16 @@ class PruebaWorkflowsSinClavesDuplicadas(unittest.TestCase):
             with self.subTest(workflow=p.name):
                 self.assertEqual([], claves_duplicadas(p.read_text(encoding="utf-8")))
 
+    def test_ninguna_expresion_vacia(self):
+        """El segundo defecto de v2.0.3: un `${{ }}` vacío en un COMENTARIO del
+        `run:`. GitHub evalúa las expresiones también ahí, y una vacía invalida el
+        archivo entero. actionlint lo señala; esto lo caza sin actionlint."""
+        for p in WORKFLOWS:
+            with self.subTest(workflow=p.name):
+                t = p.read_text(encoding="utf-8")
+                vacias = [n for n, l in enumerate(t.splitlines(), 1) if re.search(r"\$\{\{\s*\}\}", l)]
+                self.assertEqual([], vacias)
+
     def test_el_detector_detecta_el_caso_de_v2_0_3(self):
         """Una prueba que nunca falla no prueba nada."""
         roto = ("jobs:\n  x:\n    steps:\n      - name: a\n        env:\n"
