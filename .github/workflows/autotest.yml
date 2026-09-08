@@ -29,6 +29,17 @@ jobs:
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
+        with:
+          # CON TAGS, y no es un detalle de rendimiento. `tests/test_verificar_yaml.py`
+          # comprueba que el `ref_jueces` por defecto no se quede en una mayor anterior,
+          # y para eso lista los tags. El checkout por defecto es superficial y sin
+          # tags, así que esa prueba se declaraba `skipTest` — SIEMPRE, y sólo aquí.
+          #
+          # Medido el 2026-09-08: la única comprobación que protege el valor por
+          # defecto se saltaba justo en el único sitio donde la suite corre sola. Un
+          # guardián que no se ejecuta donde importa es decorativo, y peor que no
+          # tenerlo: figura en la lista de lo que está protegido.
+          fetch-depth: 0
 
       - name: Versión de python
         # Los jueces son de biblioteca estándar: si esto deja de bastar, es un

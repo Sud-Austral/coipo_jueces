@@ -3,7 +3,7 @@
 # Se invoca desde el ci.yml de cada app:
 #
 #     jueces:
-#       uses: Sud-Austral/coipo_jueces/.github/workflows/verificar.yml@v1
+#       uses: Sud-Austral/coipo_jueces/.github/workflows/verificar.yml@v2
 #       with:
 #         modo: advisory        # advisory | bloqueante
 #         perfil: aplicacion    # aplicacion | encuadre_operativo

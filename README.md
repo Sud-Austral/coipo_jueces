@@ -7,7 +7,7 @@ Verificadores ejecutables de la flota COIPO / CONAF. Se distribuyen como
 # .github/workflows/ci.yml de cualquier app
 jobs:
   jueces:
-    uses: Sud-Austral/coipo_jueces/.github/workflows/verificar.yml@v1
+    uses: Sud-Austral/coipo_jueces/.github/workflows/verificar.yml@v2
     with:
       modo: advisory        # advisory | bloqueante
       perfil: aplicacion    # aplicacion | encuadre_operativo

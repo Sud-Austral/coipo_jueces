@@ -94,9 +94,8 @@ excepción:
 
 1. **`UI-3`, `UI-10` y `UI-15` pasaron de `AVISA` a `BLOQUEA`** al firmarse
    `identidad/ESTANDAR_UI.md` el 2026-09-07. Es literalmente el primer criterio.
-2. **`ref_jueces` cambió de semántica.** Su valor por defecto pasó de `v1` a
-   vacío, y vacío ahora significa «la misma referencia con la que se invocó este
-   workflow». Es un cambio en las entradas de `verificar.yml`.
+2. **`ref_jueces` cambió de semántica.** Su valor por defecto dejó de ser `v1`.
+   Es un cambio en las entradas de `verificar.yml`.
 
 Y trae `j13` (interfaz), la clave `adopta:` de `.semilla`, y los cuatro textos
 del gate que describían un estado ya superado.
@@ -106,18 +105,55 @@ del gate que describían un estado ya superado.
 `semilla/ESQUELETO`— iban en `modo: advisory`, así que `v2` no puede poner rojo
 el despliegue de nadie. `coipo_prensa2` fija un SHA y no se ve afectada.
 
+### `v2.0.1`, 2026-09-08 — y `v2.0.0` está ROTA
+
+**`v2` apunta a `v2.0.1` (`7b4b2632`).** Si usas `@v2`, ya tienes esto.
+
+> ## ⚠ NO USES `@v2.0.0`
+>
+> `v2.0.0` (`69d50046`) **falla siempre**, en cualquier repositorio, incluso en
+> `modo: advisory`. Su `ref_jueces` tiene `default: ""` y el paso que intentaba
+> deducir la referencia del contexto muere con:
+>
+> ```
+> ##[error]No se pudo determinar con que version de los jueces verificar.
+>   job_workflow_ref=''  ref_jueces=''
+> ```
+>
+> `advisory` no salva: el fallo es del paso, no de `correr.py`, así que el job
+> sale rojo entero. **Es un tag anotado e inmutable: no se puede arreglar, sólo
+> avisar.** La salida es subir a `@v2` o `@v2.0.1`; o, si de verdad hay que
+> quedarse en ese commit, pasar `ref_jueces` explícito.
+>
+> Estuvo publicado unas horas y `v2` lo apuntó durante ese rato. Si algún
+> repositorio quedó rojo por esto, el síntoma es el de arriba.
+
+Qué arregla `v2.0.1`: el `default` de `ref_jueces` vuelve a ser la mayor literal
+(`v2`), y `tests/test_verificar_yaml.py` impide que se quede atrás — con
+`fetch-depth: 0` en `autotest.yml`, porque sin tags esa prueba se saltaba sola y
+**justo en el CI**, que era el único sitio donde corre sin que nadie la invoque.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
 mayor anterior sigue apuntando donde apuntaba, y eso es exactamente lo que se
 compra al no moverla.
 
-> **Lo que NO hay que hacer y antes se podía:** fijar el `uses:` a `@v2` y dejar
-> `ref_jueces` en `v1`. Desde el 2026-09-08 es imposible — el motor se deduce de
-> la referencia del propio reusable— pero conviene saber por qué se cerró: hasta
-> entonces el `uses:` fijaba **el YAML** y `ref_jueces` fijaba **el código**, así
-> que se podían separar en silencio. `coipo_prensa2` fijaba un SHA creyendo que
-> congelaba los jueces y sólo congelaba el YAML.
+> **Las dos mitades se pueden separar, y sigue siendo posible.** El `uses:` fija
+> **el YAML**; `ref_jueces` fija **el código de los jueces**. Un `uses:@<sha>` sin
+> `ref_jueces` congela el YAML y deja el motor siguiendo el `vN` móvil — que es lo
+> que le pasaba a `coipo_prensa2`, fijando un SHA y creyendo que congelaba los
+> jueces.
+>
+> **La única forma de congelar las dos es pasar `ref_jueces` con el mismo SHA del
+> `uses:`**, y hay que mover las dos líneas a la vez. Es lo que hace hoy
+> `coipo_prensa2`.
+>
+> Se intentó cerrarlo del todo haciendo que el motor se dedujera de
+> `github.job_workflow_ref`. **No se puede:** ese campo llega **vacío** en los
+> pasos de un workflow reusable —existe en las reclamaciones del token OIDC, no en
+> el contexto que ve `run:`—, medido en una ejecución real el 2026-09-08. Esa
+> versión es `v2.0.0` y está rota; ver abajo.
 
 ## Comprobar qué está publicado de verdad
 
