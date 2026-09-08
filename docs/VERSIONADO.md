@@ -133,6 +133,46 @@ Qué arregla `v2.0.1`: el `default` de `ref_jueces` vuelve a ser la mayor litera
 `fetch-depth: 0` en `autotest.yml`, porque sin tags esa prueba se saltaba sola y
 **justo en el CI**, que era el único sitio donde corre sin que nadie la invoque.
 
+### `v2.0.2` y `v2.0.3`, 2026-09-08 — la revisión adversaria
+
+**`v2` apunta a `v2.0.3`** (`git rev-list -n1 v2.0.3` da el commit). `v2.0.2`
+(`84006329`) arregló que el guardián del `default` no corriera en el CI y tres
+defectos suyos; `v2.0.3` cierra lo que salió de una revisión adversaria de 40
+hallazgos sobre el motor entero. Todo compatible: ningún repositorio cambia de
+veredicto, salvo dos casos que estaban mal:
+
+- `coipo_n8n` pasa de rojo a `NO_APLICA` en `j11`: software de terceros —compose
+  sin `build:` y ni una línea de Python— no tiene que escribir un `/health`; lo
+  expone la imagen y lo vigila el healthcheck. Las tres condiciones a la vez: un
+  repositorio vacío sigue sin ser N/A.
+- Un juez con hallazgos **nunca** sale `SIN_EVALUAR`: los hallazgos mandan en la
+  etiqueta y lo no evaluado sigue en su lista. Antes el informe decía «no comprobó
+  nada» y a la vez emitía `::error::` y exit 1. El exit no cambia.
+
+Qué más arregla, por si algún síntoma le suena:
+
+- `carga_yaml` ya no revienta con `command: --5`, y rechaza anclas y alias en
+  posición de valor (`x: &a`, `<<: *a`, `- *a`) con `YamlNoSoportado` en vez de
+  colgarlos de la raíz en silencio. Un BOM al inicio de `.env.example` ya no
+  produce cinco bloqueantes falsos.
+- `adopta:` **vacío** en `.semilla` es `SIN_EVALUAR` con motivo, no un
+  `NO_APLICA` gratis.
+- `j13` deja de leer comentarios CSS: ni un `/* prefers-reduced-motion */` de
+  cabecera hace de bloque, ni tapa un bloque selectivo; y en el `@media` oscuro
+  ve **todas** las reglas, no sólo la primera.
+- `correr.py`: un juez mal nombrado (`j7_x.py`) o que revienta sale con exit 1 y
+  lo dice; y las salidas del job llevan centinela (`estado=no_corrio`,
+  `bloqueantes=-1`) para que el workflow no lea vacío como cero.
+- `verificar.yml`: el artefacto lleva modo, perfil, etiqueta e intento en el
+  nombre —dos jobs del mismo run ya no chocan— y `autotest.yml` fija todos sus
+  `uses:` a SHA.
+- `semilla.lock` resellado: `verify-banner.mjs` cambió en la fábrica (filete
+  por gerencia). Hasta que la fábrica fusione esa rama, su `main` y este lock no
+  coinciden — el paso «lock de la mayor vigente» de `coherencia.yml` lo dice.
+
+Doce pruebas nuevas en `tests/test_revision_2026_09_08.py`, una por defecto
+reproducido; 175 verdes.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la

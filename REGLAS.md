@@ -6,7 +6,8 @@ código listado aquí tiene que emitirlo algún juez. Lo verifica
 `tests/test_reglas_citadas.py`, y falla en las dos direcciones.
 
 **Por qué existe.** La versión anterior de estos jueces citaba códigos `D-NN` de
-un `DECRETOS.md` que no existe en ningún repositorio. Una regla que bloquea un
+un `DECRETOS.md` que sólo existe en `borradores/` de la fábrica —cuarentena, no
+vinculante—: el archivo estaba, su autoridad no. Una regla que bloquea un
 despliegue citando un documento inexistente no se puede discutir, ni corregir,
 ni derogar: solo se puede suprimir. Un código que no puede nombrar su fuente es
 una regla que alguien se inventó, y este archivo es lo que lo hace visible.

@@ -110,7 +110,15 @@ jobs:
         env:
           PEDIDO: ${{ inputs.ref_jueces }}
           PROPIO: ${{ github.job_workflow_ref }}
+          MODO: ${{ inputs.modo }}
+          PERFIL: ${{ inputs.perfil }}
+          SOLO: ${{ inputs.jueces }}
         run: |
+          # Nombre de artefacto UNICO por invocacion. Con `jueces-${{ github.job }}-N`
+          # dos llamadas a este reusable en el mismo run (advisory y bloqueante, o
+          # dos perfiles) chocaban con 409 en 'Guardar los hallazgos'.
+          etiqueta=$(printf '%s' "${SOLO:-todos}" | tr -c 'A-Za-z0-9' '-' | sed 's/-*$//')
+          echo "artefacto=jueces-${MODO}-${PERFIL}-${etiqueta:-todos}-${GITHUB_RUN_ATTEMPT:-1}" >> "$GITHUB_OUTPUT"
           if [ -n "$PEDIDO" ]; then
             ref="$PEDIDO"
             origen="el input ref_jueces"
@@ -147,7 +155,14 @@ jobs:
         id: correr
         env:
           PYTHONIOENCODING: utf-8
+        env:
+          MODO: ${{ inputs.modo }}
+          PERFIL: ${{ inputs.perfil }}
+          SOLO: ${{ inputs.jueces }}
         run: |
+          # Los inputs entran por `env:` y no como `${{ }}` dentro del shell: un
+          # valor con comillas rompia el script antes de llegar a correr.py, y uno
+          # con `$(...)` se EJECUTABA. El paso motor ya lo hacia asi.
           # `run:` se ejecuta con `bash -e`: si correr.py sale distinto de 0, el
           # paso aborta EN ESA LÍNEA. Sin el `|| codigo=$?`, el modo bloqueante
           # nunca llegaría a las salidas del job ni al resumen — justo cuando
@@ -155,9 +170,9 @@ jobs:
           codigo=0
           python3 .coipo_jueces/jueces/correr.py \
             --repo . \
-            --modo "${{ inputs.modo }}" \
-            --perfil "${{ inputs.perfil }}" \
-            --jueces "${{ inputs.jueces }}" \
+            --modo "$MODO" \
+            --perfil "$PERFIL" \
+            --jueces "$SOLO" \
             --resumen "$RUNNER_TEMP/RESUMEN.md" \
             --json "$RUNNER_TEMP/hallazgos.json" || codigo=$?
           exit $codigo
@@ -173,7 +188,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 · 2026-09-05
         with:
-          name: jueces-${{ github.job }}-${{ github.run_attempt }}
+          name: ${{ steps.motor.outputs.artefacto }}
           path: |
             ${{ runner.temp }}/RESUMEN.md
             ${{ runner.temp }}/hallazgos.json

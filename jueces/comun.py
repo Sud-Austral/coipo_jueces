@@ -155,8 +155,14 @@ class Resultado:
         SIN_EVALUAR porque uno frena el despliegue y el otro no: ver el
         comentario del campo `no_aplica`.
         """
+        # Los hallazgos mandan. j11, j06 y j08 anotan la AUSENCIA de /health,
+        # .env.example o .gitignore antes de llamar a comprobo(), y el informe
+        # decia "este juez NO comprobo nada" mientras emitia ::error:: y exit 1.
+        # Dos estados a la vez, que es justo lo que este metodo promete no dar.
+        if self.hallazgos:
+            return "HALLAZGOS"
         if self.comprobado:
-            return "HALLAZGOS" if self.hallazgos else "OK"
+            return "OK"
         if self.no_aplica:
             return "NO_APLICA"
         return "SIN_EVALUAR"
@@ -228,7 +234,10 @@ class Repo:
         """
         p = self.raiz / relativa
         try:
-            return p.read_text(encoding="utf-8", errors="replace")
+            # utf-8-sig y no utf-8: un BOM al inicio de .env.example o .gitignore
+            # dejaba "﻿DATABASE_HOST=" fuera de `^\s*CLAVE=` y producia
+            # bloqueantes falsos en j06, j08, j09 y j01. Sin BOM lee identico.
+            return p.read_text(encoding="utf-8-sig", errors="replace")
         except (OSError, IsADirectoryError):
             return None
 
@@ -272,7 +281,10 @@ def _desescalar(texto: str) -> Any:
         return False
     if t in ("null", "~"):
         return None
-    if t.lstrip("-").isdigit():
+    # `re.fullmatch` y no `lstrip("-").isdigit()`: "--5" pasaba el segundo y
+    # reventaba en int(), tumbando al juez entero con un ValueError por un
+    # `command: --5` en el compose. Medido el 2026-09-08.
+    if re.fullmatch(r"-?\d+", t):
         return int(t)
     return t
 
@@ -355,7 +367,13 @@ def carga_yaml(texto: str) -> dict[str, Any]:
             raise YamlNoSoportado(f"línea {n}: tabulación en la indentación")
         cuerpo = linea.strip()
 
-        if cuerpo.startswith(("&", "*")):
+        # En YAML real la ancla va en posicion de VALOR (`x-comun: &comun`), el
+        # alias en `<<: *comun` o en `- *puerto`. Solo mirar el inicio de linea
+        # los dejaba pasar y los colgaba de la raiz como cadenas. Medido el
+        # 2026-09-08 con un compose de anclas: el parser lo interpretaba mal EN
+        # SILENCIO, que es lo contrario de lo que promete el docstring.
+        if (cuerpo.startswith(("&", "*", "<<"))
+                or re.search(r"(?::\s*|^-\s+)[&*][A-Za-z0-9_.-]+\s*$", cuerpo)):
             raise YamlNoSoportado(f"línea {n}: anclas/alias no soportados")
         if cuerpo == "---":
             raise YamlNoSoportado(f"línea {n}: documentos múltiples no soportados")
@@ -505,6 +523,17 @@ class Adopcion:
     declarado: frozenset[str] | None
     numero: int | None = None
     linea: str | None = None
+
+    @property
+    def vacia(self) -> bool:
+        """`adopta:` presente y sin ninguna capa: `adopta:` o `adopta: ,`.
+
+        No es «adopta todo» ni «no adopta nada»: es un error de escritura, y un
+        juez que lo leyera como N/A se apagaria en silencio con exit 0. Medido el
+        2026-09-08. Se reporta como NO EVALUADO, con la linea, y no cuenta como
+        supresion porque no declara nada que suprimir.
+        """
+        return self.declarado is not None and not self.declarado
 
     def adopta(self, capa: str) -> bool:
         return self.declarado is None or capa in self.declarado

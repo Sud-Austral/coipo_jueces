@@ -101,8 +101,13 @@ class PruebaRepositorioVacio(CasoConRepo):
     Su repositorio no tiene backend ni compose —sólo un workflow de Pages— y aun
     así hay algo sirviendo en vm2:8114 bajo `reserva-bienestar.conaf.cl`, marcado
     `unhealthy` desde hace días. Lo que corre en producción no tiene código
-    correspondiente en el repositorio, y el veredicto tiene que decir las dos
-    cosas a la vez: falta `/health`, Y no se pudo evaluar el healthcheck.
+    correspondiente en el repositorio, y el informe tiene que decir las dos
+    cosas: falta `/health`, Y no se pudo evaluar el healthcheck.
+
+    Hasta el 2026-09-08 esta prueba exigía la ETIQUETA `SIN_EVALUAR` con
+    bloqueantes dentro: «dos estados a la vez», justo lo que `veredicto`
+    promete no dar. Ahora los hallazgos mandan en la etiqueta y lo no evaluado
+    sigue en su lista, en el mismo informe. Lo que no cambia: nunca es OK.
     """
 
     MODULO = j11
@@ -110,8 +115,9 @@ class PruebaRepositorioVacio(CasoConRepo):
     def test_sin_compose_ni_endpoint(self):
         self.repo.escribe("README.md", "# nada que desplegar\n")
         r = self.repo.juzga()
-        self.assertEqual("SIN_EVALUAR", r.veredicto,
-                         "cero comprobaciones no puede leerse como conforme")
+        self.assertEqual("HALLAZGOS", r.veredicto,
+                         "falta /health: la etiqueta lo dice, no lo esconde tras SIN_EVALUAR")
+        self.assertFalse(r.comprobado, "y sigue sin haber comprobado nada")
         self.assertTrue(r.bloqueantes, "falta /health y eso sí es un hallazgo")
         self.assertTrue(r.no_evaluado, r.no_evaluado)
 

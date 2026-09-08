@@ -21,6 +21,7 @@ import argparse
 import importlib.util
 import json
 import os
+import traceback
 import re
 import sys
 from dataclasses import asdict
@@ -47,7 +48,10 @@ def descubrir(directorio: Path, perfil: str, solo: list[str]) -> list[tuple[str,
     for archivo in sorted(directorio.glob("j*.py")):
         m = PATRON_JUEZ.match(archivo.name)
         if not m:
-            continue
+            # Antes: `continue`. Un `j7_uno.py` o `j15-x.py` se ignoraba y el resumen
+            # seguia contando N jueces como si nada: una regla apagada sin aviso, que
+            # es justo lo que la cabecera de este archivo promete no permitir.
+            raise JuezInvalido(f"{archivo.name}: no sigue el patron jNN_nombre.py")
         nombre = f"j{m.group(1)}"
         if solo and nombre not in solo:
             continue
@@ -132,6 +136,14 @@ def main() -> int:
     args = p.parse_args()
 
     solo = [x for x in re.split(r"[,\s]+", args.jueces) if x]
+
+    # Centinela en las salidas del job ANTES de correr nada: si este script muere
+    # a medias, el workflow no puede leer `bloqueantes=` vacio y tratarlo como 0.
+    # Se sobreescribe al terminar.
+    salida_gh = os.environ.get("GITHUB_OUTPUT")
+    if salida_gh:
+        with open(salida_gh, "a", encoding="utf-8") as fh:
+            fh.write("estado=no_corrio\nbloqueantes=-1\navisos=-1\nsupresiones=-1\n")
     repo = Repo(args.repo)
     en_github = os.environ.get("GITHUB_ACTIONS") == "true"
 
@@ -157,9 +169,19 @@ def main() -> int:
         return 1
 
     resultados: list[Resultado] = []
+    reventados: list[str] = []
     for nombre, modulo in modulos:
-        r = Resultado(juez=nombre, descripcion=(modulo.__doc__ or "").strip().splitlines()[0])
-        modulo.comprobar(repo, r)
+        doc = (modulo.__doc__ or "").strip().splitlines()
+        r = Resultado(juez=nombre, descripcion=doc[0] if doc else nombre)
+        try:
+            modulo.comprobar(repo, r)
+        except Exception as e:  # noqa: BLE001 -- un juez roto no tumba a los demas
+            # Se registra y se sigue, pero NO se disimula: al final el proceso sale 1
+            # en cualquier modo. Un juez que revienta no es SIN_EVALUAR: es un defecto
+            # del gate, y un gate con un juez roto no verifica lo que dice verificar.
+            traceback.print_exc()
+            r.no_evaluado.append(f"EL JUEZ REVENTO: {type(e).__name__}: {e}")
+            reventados.append(nombre)
         informar(r, modo=args.modo, en_github=en_github)
         resultados.append(r)
 
@@ -190,9 +212,9 @@ def main() -> int:
     # YAML: un heredoc anidado en un bloque escalar de YAML depende de la
     # indentación relativa del terminador, se rompe con cualquier reformateo y
     # no se puede probar. Aquí sí hay tests.
-    salida_gh = os.environ.get("GITHUB_OUTPUT")
     if salida_gh:
         with open(salida_gh, "a", encoding="utf-8") as fh:
+            fh.write("estado=corrio\n")
             fh.write(f"bloqueantes={total_b}\n")
             fh.write(f"avisos={total_a}\n")
             fh.write(f"supresiones={total_s}\n")
@@ -257,6 +279,12 @@ def main() -> int:
         # se publica, para que "advisory" no acabe significando "invisible".
         print(f"::warning::{total_b} hallazgo(s) bloqueante(s) en modo advisory. "
               f"Ver RESUMEN.md.")
+    if reventados:
+        aviso = (f"{len(reventados)} juez/jueces reventaron con una excepcion: "
+                 f"{', '.join(reventados)}. Un gate con un juez roto no verifica lo "
+                 "que dice verificar: se sale con 1 en cualquier modo.")
+        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
+        return 1
     return 0
 
 

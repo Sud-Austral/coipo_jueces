@@ -71,8 +71,12 @@ jobs:
           t = open('.github/workflows/verificar.yml', encoding='utf-8').read()
           assert t.lstrip().startswith('#'), 'el archivo debe empezar por comentario o clave'
           assert 'workflow_call' in t, 'el reusable perdió su disparador'
-          assert re.search(r'uses: actions/[a-z-]+@[0-9a-f]{40}', t), \
-              'D-29: las actions de terceros van fijadas a SHA de 40 caracteres, no a tag'
+          # TODOS los `uses:`, no 'alguno': antes bastaba con que UNO llevara SHA y un
+          # `@v4` colado pasaba. Medido el 2026-09-08 con un YAML de prueba.
+          usos = re.findall(r'^\s*-?\s*uses:\s*(\S+)', t, re.M)
+          assert usos, 'el reusable no declara ningun uses:'
+          sin_sha = [u for u in usos if not re.search(r'@[0-9a-f]{40}$', u)]
+          assert not sin_sha, f'uses: sin SHA de 40 caracteres: {sin_sha}'
           print('verificar.yml ok')
           "
 

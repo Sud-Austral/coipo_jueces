@@ -362,9 +362,27 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     if not repo.tiene_git():
         r.no_evaluado.append(f"{repo.raiz} no es un repositorio git")
         return
+
+    compose = repo.texto("docker-compose.yml") or ""
+    if compose and "build:" not in compose and not _archivos_python(repo):
+        # Software de terceros -- coipo_n8n es el caso, y AGENTS.md lo declara
+        # excepcion legitima: un compose cuyos servicios son todos imagenes ajenas
+        # (sin `build:`) y ni una linea de Python propia. El /health lo expone la
+        # imagen y lo vigila el healthcheck del compose; exigirle un endpoint
+        # escrito aqui ponia rojo al repositorio que es referencia de calibracion.
+        # Medido el 2026-09-08.
+        #
+        # LAS TRES CONDICIONES A LA VEZ, a proposito: un repositorio VACIO tampoco
+        # tiene Python, y ese tiene que seguir siendo SIN_EVALUAR, no N/A. La
+        # primera version de este atajo miraba solo el Python y una prueba lo cazo.
+        r.no_corresponde(
+            "software de terceros: el compose solo usa imagenes ajenas (sin `build:`) "
+            "y no hay codigo Python propio. El servicio lo provee la imagen y su salud "
+            "la contrasta el healthcheck del compose, no un endpoint escrito aqui")
+        return
+
     comprobar_endpoint(repo, r)
     comprobar_coherencia_healthcheck(repo, r)
-
 
 if __name__ == "__main__":
     ejecutar("j11", "/health: que un fallo no se disfrace de app sana "
