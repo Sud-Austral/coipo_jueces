@@ -155,7 +155,9 @@ jobs:
         id: correr
         env:
           PYTHONIOENCODING: utf-8
-        env:
+          # Un solo `env:`. v2.0.3 llevaba DOS en este paso: PyYAML se queda con el
+          # ultimo sin avisar y GitHub rechaza el archivo entero -- ningun consumidor
+          # de @v2 pudo correr. tests/test_workflows_yaml.py lo impide desde entonces.
           MODO: ${{ inputs.modo }}
           PERFIL: ${{ inputs.perfil }}
           SOLO: ${{ inputs.jueces }}
