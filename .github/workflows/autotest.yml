@@ -91,3 +91,18 @@ jobs:
         # comprobaciones no es conformidad»). El paso llevaba el perfil por
         # defecto y por tanto fallaba siempre.
         run: python3 jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo
+
+  # La única validación del reusable que cuenta es LLAMARLO. `v2.0.3` salió con
+  # la suite verde, el paso «El YAML del reusable parsea» verde, y GitHub la
+  # rechazó entera: dos `env:` en un paso, que PyYAML tolera y GitHub no. Ningún
+  # consumidor de `@v2` pudo correr hasta que el tag volvió atrás.
+  #
+  # `ref_jueces: github.sha` y no el tag: se prueba el motor de ESTE commit. Si
+  # este job sale rojo, el tag no se publica. Y `uses:` local, sin SHA, a
+  # propósito: el archivo que se valida es el de la rama, no uno publicado.
+  el-reusable-lo-valida-github:
+    uses: ./.github/workflows/verificar.yml
+    with:
+      modo: bloqueante
+      perfil: encuadre_operativo
+      ref_jueces: ${{ github.sha }}

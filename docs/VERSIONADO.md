@@ -173,6 +173,48 @@ Qué más arregla, por si algún síntoma le suena:
 Doce pruebas nuevas en `tests/test_revision_2026_09_08.py`, una por defecto
 reproducido; 175 verdes.
 
+### `v2.0.4`, 2026-09-08 — y `v2.0.3` está ROTA
+
+**`v2` apunta a `v2.0.4`.** Si usas `@v2`, ya tienes esto.
+
+> ## ⚠ NO USES `@v2.0.3`
+>
+> `v2.0.3` (`e26a0014`) **falla siempre**, en cualquier repositorio y en
+> cualquier modo, y ni siquiera llega a tener jobs: GitHub rechaza el archivo.
+> El síntoma, en el run del llamante:
+>
+> ```
+> X This run likely failed because of a workflow file issue.
+> ```
+>
+> sin log y sin pasos. Dos causas, las dos en `verificar.yml` y las dos
+> invisibles para la suite: el paso `correr` llevaba **dos claves `env:`**
+> (PyYAML se queda con la última sin avisar) y un comentario del `run:` tenía
+> una **expresión vacía `${{ }}`** — GitHub evalúa las expresiones también
+> dentro de los comentarios del shell. La misma clase de desastre que
+> `v2.0.0`: un tag anotado no se arregla, sólo se avisa. `actionlint` señala
+> las dos; conviene pasarlo en local antes de publicar.
+>
+> `v2` apuntó a `v2.0.3` durante unos doce minutos (20:46–20:58 del
+> 2026-09-08) y volvió a `v2.0.2` de forma provisional hasta `v2.0.4`. Un run
+> de `coipo_atraso_personal` cayó en esa ventana; el resto de la flota fija
+> SHA o no llama todavía.
+
+Lo que protege desde `v2.0.4`, y por qué dos cosas:
+
+- `tests/test_workflows_yaml.py`: un escáner de claves repetidas, sin PyYAML
+  (aquí no hay), que caza el archivo de `v2.0.3` tal cual. Es barato y corre en
+  local antes del push.
+- **`autotest.yml` llama al reusable** (`uses: ./.github/workflows/verificar.yml`)
+  con `ref_jueces: ${{ github.sha }}`. La única validación que cuenta es la de
+  GitHub, y sólo la hace al invocar el archivo. Antes ninguna prueba lo
+  invocaba: el reusable que juzga a 24 repositorios nunca se había ejecutado a
+  sí mismo en su propio CI.
+
+Lección para `Publicar`, arriba: **la suite verde no es la validación del
+YAML**. Antes de mover `v2`, mirar que el run de `Autotest` del commit incluya
+el job `el-reusable-lo-valida-github` en verde.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
