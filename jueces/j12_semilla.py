@@ -90,7 +90,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import (Repo, Resultado, ejecutar, leer_adopcion,  # noqa: E402
+                   suprimido)
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -120,6 +121,9 @@ def _huella(ruta: Path) -> str | None:
 
 
 MARCADOR = ".semilla"
+
+# La capa que este juez exige que `.semilla` declare adoptar. Ver comun.py.
+CAPA = "semilla"
 VERSION = re.compile(r"^\s*version:\s*(?P<version>\S+)", re.MULTILINE)
 
 
@@ -133,6 +137,24 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "semilla de la flota, así que sus archivos son suyos aunque se llamen "
             "igual. Si SÍ se sembró y alguien borró el marcador, restaurarlo es lo "
             "que vuelve a encender esta comprobación.")
+        return
+
+    # El marcador existe, pero puede declarar que adopta OTRA capa y no ésta. Ver
+    # `leer_adopcion` en comun.py: la clave ausente adopta todo, así que esto sólo
+    # se dispara cuando alguien la escribió a propósito.
+    adopcion = leer_adopcion(repo.texto(MARCADOR))
+    if not adopcion.adopta(CAPA):
+        razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que las "
+                 "piezas congeladas de este repositorio NO se comparan contra el "
+                 "lock. Es legítimo en una aplicación que adopta un estándar de la "
+                 "flota sin haberse sembrado con la semilla; deja de serlo si el "
+                 "repositorio SÍ se sembró.")
+        r.no_corresponde(razon)
+        # Y se cuenta como supresión, no sólo como aviso informativo: esta es la
+        # única vía por la que un repositorio puede apagarse un juez a sí mismo, y
+        # `comun.py` explica por qué esa puerta se paga. Sale con `::warning::` y
+        # exige su fila en DEUDA.md, igual que un `coipo-jueces:ignorar`.
+        r.supresiones.append(f"{MARCADOR} declara no adoptar `{CAPA}` — {razon}")
         return
 
     esperado = _lock()

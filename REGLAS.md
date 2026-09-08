@@ -40,10 +40,10 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `G8-9` | `j11` | `GET /health` existe, sin autenticación, sin redirección, y con `text()` si usa SQLAlchemy 2.x | Guía 8, punto 9 | BLOQUEA |
 | `G8-11` | `j11` | un fallo de datos no se disfraza de aplicación sana | Guía 8, punto 11 | AVISA (ver nota) |
 | `G8-10` | `j08` | qué llega al servidor con el `rsync` anclado: un `.env` en un subdirectorio **sí** viaja; lo versionado bajo el `data/` de la raíz **nunca** llega | Guía 8, punto 10 | BLOQUEA / AVISA |
-| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz) | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita | BLOQUEA |
-| `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
-| `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz) | `identidad/ESTANDAR_UI.md`, UI-10 | BLOQUEA |
-| `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
+| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz, con `adopta:` incluyendo `semilla` o sin esa clave) | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita | BLOQUEA |
+| `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
+| `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-10 | BLOQUEA |
+| `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
 | `DK-3` | `j01` | ningún servicio del compose levanta un motor de base de datos | `DOCKER.md`, «La base de datos no está en el `docker-compose.yml`» | BLOQUEA |
 | `DK-4` | `j01` | hay `.dockerignore` en la raíz cuando se construye con `context: .`, y excluye `.env` | `DOCKER.md`, «conviene un `.dockerignore` en la raíz» | BLOQUEA / AVISA |
 
@@ -78,6 +78,28 @@ y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
 | `NG-1` | `j01` | `proxy_pass` a un nombre literal sin `resolver` en el nginx **interno** | Ningún documento. Lo implementan por su cuenta `COIPO_USUARIOS`, `coipo_n8n` y `coipo_seguimiento_madera`; siete repos más no. El comportamiento de nginx (resolución única al arrancar) sí es verificable. **La versión anterior de este juez justificaba la regla con un «despliegue a uat roto con exit 22» que no consta en ningún sitio.** |
 | `OPS-1` | `j01` | los servicios declaran `mem_limit` | Ningún documento. Solo `coipo_n8n` lo hace, en sus cuatro servicios. El arreglo exige medir la RAM de la VM antes, así que la regla no puede bloquear. |
 | `CI-1` | `j06` | la versión de python/node del CI coincide con la que construyen los Dockerfile | Ningún documento. Divergencia real medida en `coipo_prensa2` (CI 3.11, imágenes 3.13/3.14) y `COIPO_ENTREGA_PLANTA` (CI node 20, Dockerfile node 22): el CI prueba sobre un runtime que no es el que se despliega. |
+
+### Nota sobre el alcance: la clave `adopta:`
+
+`SEM-1` y las `UI-N` se encienden con el mismo archivo, `.semilla`, y eso las
+tenía cableadas al mismo interruptor: declarar una encendía la otra.
+
+Se rompió al intentar declararlo en un repositorio real. `coipo_prensa2` puede y
+debe cumplir el estándar de interfaz, pero **nunca se sembró**: ocho de sus
+archivos coinciden en ruta con `semilla.lock` sin venir de ahí —su propio
+`backend/Dockerfile`, su propio `frontend/nginx.conf`, su `requirements.txt`—.
+Poner el marcador para adoptar la interfaz le habría encendido **ocho `SEM-1`
+bloqueantes sobre archivos legítimamente suyos**: exactamente el desastre que
+`j12` documenta haber causado ya una vez.
+
+La clave `adopta:` separa las dos declaraciones. `j12` exige que incluya
+`semilla`; `j13`, que incluya `interfaz`. **La clave ausente adopta todo**, así
+que ningún `.semilla` escrito antes de esto cambia de veredicto.
+
+**Roza la puerta que `comun.py` cierra a propósito** —un repositorio no puede
+declararse `no_aplica` a sí mismo— y por eso se paga: el `no_aplica` **cita la
+línea literal y su número**, y **se cuenta como supresión**, con `::warning::` y
+su fila en `DEUDA.md`. Reclamar menos de lo que corresponde no sale gratis.
 
 ### Nota sobre `G8-11`
 

@@ -66,7 +66,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import (Repo, Resultado, ejecutar, leer_adopcion,  # noqa: E402
+                   suprimido)
 
 PERFILES = ("aplicacion",)
 
@@ -87,6 +88,11 @@ PERFILES = ("aplicacion",)
 # Sale gratis, además: `sembrar.py` ya lo escribe en todo proyecto nuevo, así
 # que el corte entre lo nuevo y lo heredado no cuesta editar ni un archivo.
 MARCADOR = ".semilla"
+
+# La capa que este juez exige que `.semilla` declare adoptar. Un repositorio que
+# NO se sembro puede adoptar solo esta -- `adopta: interfaz` -- y entonces j12
+# se declara N/A sin que sus piezas propias salgan rojas. Ver comun.py.
+CAPA = "interfaz"
 
 ES_CSS = re.compile(r"\.css$", re.IGNORECASE)
 ES_PRUEBA = re.compile(
@@ -357,6 +363,19 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "NUEVOS. Una aplicación anterior no lo incumple — no existía cuando "
             "se escribió. Se adopta añadiendo el marcador, que es lo que hace "
             "`semilla/sembrar.py` en todo proyecto sembrado")
+        return
+
+    # El marcador existe, pero puede declarar que adopta otras capas y no ésta.
+    adopcion = leer_adopcion(repo.texto(MARCADOR))
+    if not adopcion.adopta(CAPA):
+        razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que este "
+                 "repositorio no declara seguir el estándar de interfaz. Quitar la "
+                 "capa no arregla nada: los defectos siguen ahí, sin nadie que los "
+                 "cuente.")
+        r.no_corresponde(razon)
+        # Se cuenta como supresión: es la única vía por la que un repositorio se
+        # apaga un juez a sí mismo, y esa puerta se paga. Ver comun.py.
+        r.supresiones.append(f"{MARCADOR} declara no adoptar `{CAPA}` — {razon}")
         return
 
     hojas = _hojas(repo)

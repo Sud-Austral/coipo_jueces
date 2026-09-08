@@ -100,5 +100,88 @@ class PruebaSemilla(CasoConRepo):
         self.assertEqual("SIN_EVALUAR", r.veredicto)
 
 
+class PruebaAdopcion(PruebaSemilla):
+    """La clave `adopta:` de `.semilla`, en las dos direcciones.
+
+    Estas pruebas se escribieron porque al implementar `adopta:` NINGUNA de las
+    existentes se rompió. Cero pruebas rotas es cero cobertura: se podía
+    implementar la clave entera, romperla, y la suite salía verde con sus 137.
+    Es el mismo patrón que `comun.py` denuncia —cero hallazgos con cero
+    comprobaciones no es conformidad— aplicado a la propia suite.
+    """
+
+    def _con_adopta(self, valor, contenido=CONTENIDO):
+        self.repo.escribe(".semilla", "version: 2026-09-05\nadopta: " + valor + "\n")
+        self.repo.escribe(CONGELADO, contenido)
+
+    def test_sin_clave_adopta_se_juzga_todo(self):
+        """La retrocompatibilidad, fijada como contrato y no como accidente.
+
+        Los `.semilla` que `sembrar.py` escribió antes de existir esta clave no
+        la llevan. Que la ausencia signifique «adopta todo» es lo que hace que
+        ningún veredicto de la flota cambie al desplegar esto.
+        """
+        self._sembrado(CONTENIDO + "# editado\n")
+        self.assertBloquea("pieza CONGELADA")
+
+    def test_adopta_sin_semilla_es_no_aplica_y_dice_por_que(self):
+        """Y la razón tiene que NOMBRAR la línea que la produjo.
+
+        Un `no_aplica` autodeclarado que no se puede leer es indistinguible de
+        uno honesto. La pieza congelada está EDITADA a propósito: sin la clave
+        esto sería un bloqueante.
+        """
+        self._con_adopta("interfaz", CONTENIDO + "# editado\n")
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto)
+        self.assertEqual([], r.hallazgos)
+        self.assertTrue(r.no_aplica, "tiene que decir por qué")
+        self.assertIn(".semilla:2", r.no_aplica[0])
+        self.assertIn("adopta: interfaz", r.no_aplica[0])
+
+    def test_adopta_sin_semilla_se_cuenta_como_supresion(self):
+        """Se paga. Es la única vía por la que un repositorio se apaga un juez a
+        sí mismo, y `comun.py` explica por qué esa puerta no puede salir gratis:
+        sale con `::warning::` y exige su fila en DEUDA.md."""
+        self._con_adopta("interfaz", CONTENIDO + "# editado\n")
+        r = self.repo.juzga()
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+
+    def test_adopta_con_semilla_sigue_bloqueando(self):
+        """Declararlo explícitamente no relaja nada."""
+        self._con_adopta("semilla, interfaz", CONTENIDO + "# editado\n")
+        self.assertBloquea("pieza CONGELADA")
+
+    def test_adopta_comentado_no_declara_nada(self):
+        """El peor caso posible si el patrón se copiara mal.
+
+        Un `# adopta: interfaz` dentro de un comentario que apagara j12 sería una
+        puerta trasera invisible en un diff. La expresión exige que la clave
+        empiece la línea tras espacios, y `#` no es espacio en blanco.
+        """
+        self.repo.escribe(".semilla", "# adopta: interfaz\nversion: 2026-09-05\n")
+        self.repo.escribe(CONGELADO, CONTENIDO + "# editado\n")
+        self.assertBloquea("pieza CONGELADA")
+
+    def test_adopta_en_mayusculas_y_sin_espacio(self):
+        """`adopta:SEMILLA` cuenta igual: nadie debería perder o ganar un juez
+        por un espacio o una mayúscula."""
+        self.repo.escribe(".semilla", "version: 2026-09-05\nadopta:SEMILLA\n")
+        self.repo.escribe(CONGELADO, CONTENIDO + "# editado\n")
+        self.assertBloquea("pieza CONGELADA")
+
+    def test_adopta_desconocido_no_apaga_este_juez_en_silencio(self):
+        """Un typo —`adopta: semila`— no puede apagar el juez sin decirlo.
+
+        Sale NO_APLICA, que es lo correcto porque la lista no incluye la capa,
+        pero la razón cita la línea literal: quien lea el resumen ve el typo.
+        """
+        self._con_adopta("semila", CONTENIDO + "# editado\n")
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto)
+        self.assertIn("semila", r.no_aplica[0])
+        self.assertEqual(1, len(r.supresiones), "y se cuenta, no sale gratis")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -253,5 +253,59 @@ class PruebaDeclaracion(CasoConRepo):
         self.assertTrue(r.bloqueantes, "y bloquean: el estándar está firmado")
 
 
+class PruebaAdopcionInterfaz(CasoConRepo):
+    """La capa `interfaz` de `adopta:`, y por qué existe.
+
+    El estándar de interfaz y las piezas congeladas son dos declaraciones
+    DISTINTAS, y `.semilla` las tenía cableadas al mismo interruptor porque j13
+    reutilizó el marcador de j12. Se rompió al intentar declararlo en un
+    repositorio real: `coipo_prensa2` puede cumplir el estándar de interfaz y
+    NUNCA se sembró, así que el marcador le habría encendido ocho `SEM-1`
+    bloqueantes sobre archivos legítimamente suyos.
+    """
+
+    MODULO = j13
+
+    CSS_MALO = (":root { --v: #064928; }\n"
+                "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
+                ".t { color: var(--v); transition: all .2s; }\n")
+
+    def test_adopta_interfaz_enciende_j13(self):
+        """El caso que motiva toda la clave: adoptar la interfaz SIN declararse
+        sembrado. El mismo CSS que sin marcador no se juzga, aquí sí."""
+        self.repo.escribe(".semilla", "version: 2026-09-07\nadopta: interfaz\n")
+        self.repo.escribe("src/estilos.css", self.CSS_MALO)
+        r = self.repo.juzga()
+        self.assertEqual("HALLAZGOS", r.veredicto)
+        self.assertTrue(r.bloqueantes, "el estándar está firmado: bloquean")
+
+    def test_adopta_solo_semilla_apaga_j13(self):
+        """Y en la otra dirección: quien declara sólo la procedencia no recibe el
+        estándar de interfaz. Sin las dos pruebas, un NO_APLICA podría estar
+        tapando que el juez no mira nada."""
+        self.repo.escribe(".semilla", "version: 2026-09-07\nadopta: semilla\n")
+        self.repo.escribe("src/estilos.css", self.CSS_MALO)
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto)
+        self.assertEqual([], r.hallazgos)
+        self.assertIn(".semilla:2", r.no_aplica[0])
+        self.assertEqual(1, len(r.supresiones), "se cuenta como supresión")
+
+    def test_sin_clave_adopta_se_juzga_igual_que_antes(self):
+        """Retrocompatibilidad: los `.semilla` anteriores a esta clave no la
+        llevan, y su comportamiento no puede cambiar."""
+        self.repo.escribe(".semilla", SEMILLA)
+        self.repo.escribe("src/estilos.css", self.CSS_MALO)
+        r = self.repo.juzga()
+        self.assertEqual("HALLAZGOS", r.veredicto)
+
+    def test_adopta_comentado_no_apaga_este_juez(self):
+        """Un `# adopta: semilla` comentado no puede apagar j13 en silencio."""
+        self.repo.escribe(".semilla", "# adopta: semilla\nversion: 2026-09-07\n")
+        self.repo.escribe("src/estilos.css", self.CSS_MALO)
+        r = self.repo.juzga()
+        self.assertEqual("HALLAZGOS", r.veredicto)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
