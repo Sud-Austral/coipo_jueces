@@ -42,9 +42,13 @@ on:
         type: string
         default: ""
       ref_jueces:
-        description: "Tag o SHA de coipo_jueces con el que verificar."
+        description: >-
+          Tag o SHA de coipo_jueces con el que verificar. VACIO (por defecto) =
+          la MISMA referencia con la que se invoco este workflow, deducida de
+          `github.job_workflow_ref`. Solo se rellena para fijar el motor a un
+          commit distinto del YAML a proposito.
         type: string
-        default: v1
+        default: ""
     outputs:
       bloqueantes:
         description: "Número de hallazgos de severidad BLOQUEA."
@@ -77,11 +81,51 @@ jobs:
           # basta y ahorra minutos en repos con muchos commits.
           fetch-depth: 1
 
+      # EL MOTOR VIENE DE LA MISMA REFERENCIA QUE EL YAML, y eso arregla un
+      # defecto que costo un diagnostico entero.
+      #
+      # Este workflow descarga el CODIGO de los jueces en un segundo checkout.
+      # Hasta el 2026-09-08, la referencia de ese checkout era `ref_jueces`, con
+      # `v1` por defecto -- un tag MOVIL. Consecuencia medida en coipo_prensa2:
+      # fijar el `uses:` a un SHA congelaba el YAML y NO el codigo, asi que el
+      # comentario que decia "si un @v1 movido la pusiera roja, no se sabria si
+      # fallo la regla o el codigo" era falso. Y al publicar v2 habria sido peor:
+      # quien usara @v2 habria ejecutado el YAML de v2 con los jueces de v1.
+      #
+      # `github.job_workflow_ref` es la referencia con la que se invoco ESTE
+      # reusable -- p. ej. `Sud-Austral/coipo_jueces/.github/workflows/
+      # verificar.yml@refs/tags/v2`. Tomando lo que va tras la ultima `@`, el
+      # motor y el YAML no pueden separarse nunca mas, y `@v1` sigue ejecutando
+      # los jueces de v1 aunque `v2` exista.
+      - name: Con que version de los jueces se verifica
+        id: motor
+        env:
+          PEDIDO: ${{ inputs.ref_jueces }}
+          PROPIO: ${{ github.job_workflow_ref }}
+        run: |
+          if [ -n "$PEDIDO" ]; then
+            ref="$PEDIDO"
+            origen="el input ref_jueces"
+          else
+            ref="${PROPIO##*@}"
+            ref="${ref#refs/tags/}"
+            ref="${ref#refs/heads/}"
+            origen="la referencia del propio reusable ($PROPIO)"
+          fi
+          if [ -z "$ref" ]; then
+            echo "::error::No se pudo determinar con que version de los jueces verificar."
+            echo "  job_workflow_ref='$PROPIO'  ref_jueces='$PEDIDO'"
+            echo "  Un gate que no sabe que codigo esta ejecutando no verifica nada."
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Jueces: $ref  (de $origen)"
+
       - name: Los jueces
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
         with:
           repository: Sud-Austral/coipo_jueces
-          ref: ${{ inputs.ref_jueces }}
+          ref: ${{ steps.motor.outputs.ref }}
           path: .coipo_jueces
           fetch-depth: 1
 
