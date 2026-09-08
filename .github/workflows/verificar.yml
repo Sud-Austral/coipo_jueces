@@ -43,12 +43,12 @@ on:
         default: ""
       ref_jueces:
         description: >-
-          Tag o SHA de coipo_jueces con el que verificar. VACIO (por defecto) =
-          la MISMA referencia con la que se invoco este workflow, deducida de
-          `github.job_workflow_ref`. Solo se rellena para fijar el motor a un
-          commit distinto del YAML a proposito.
+          Tag o SHA de coipo_jueces con el que verificar. Por defecto, la MAYOR
+          a la que pertenece este YAML. Pasalo explicito para fijar el motor a un
+          commit concreto: es lo que hace coipo_prensa2, y es lo unico que hace
+          que un pin a SHA congele de verdad las dos mitades.
         type: string
-        default: ""
+        default: v2
     outputs:
       bloqueantes:
         description: "Número de hallazgos de severidad BLOQUEA."
@@ -92,11 +92,19 @@ jobs:
       # fallo la regla o el codigo" era falso. Y al publicar v2 habria sido peor:
       # quien usara @v2 habria ejecutado el YAML de v2 con los jueces de v1.
       #
-      # `github.job_workflow_ref` es la referencia con la que se invoco ESTE
-      # reusable -- p. ej. `Sud-Austral/coipo_jueces/.github/workflows/
-      # verificar.yml@refs/tags/v2`. Tomando lo que va tras la ultima `@`, el
-      # motor y el YAML no pueden separarse nunca mas, y `@v1` sigue ejecutando
-      # los jueces de v1 aunque `v2` exista.
+      # SE INTENTO DEDUCIRLO DE `github.job_workflow_ref` Y NO SE PUEDE. Medido el
+      # 2026-09-08 en una ejecucion real: ese campo llega VACIO en los pasos de un
+      # workflow reusable. Existe en las reclamaciones del token OIDC, no en el
+      # contexto `github` que ve `run:`. La ejecucion fallo, y fallo RUIDOSAMENTE,
+      # que era justo el punto de la comprobacion de mas abajo: si hubiera caido a
+      # un valor por defecto en silencio, el gate habria verificado con un motor
+      # que nadie eligio.
+      #
+      # Asi que el defecto se cierra por las dos vias que si funcionan:
+      #   - el valor por defecto es la MAYOR de este YAML, y una prueba de este
+      #     repositorio comprueba que no se quede atras (tests/test_verificar_yaml.py);
+      #   - quien quiera garantia total pasa `ref_jueces` explicito junto al SHA del
+      #     `uses:`, que es lo que hace coipo_prensa2.
       - name: Con que version de los jueces se verifica
         id: motor
         env:
