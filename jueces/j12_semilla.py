@@ -143,6 +143,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # `leer_adopcion` en comun.py: la clave ausente adopta todo, así que esto sólo
     # se dispara cuando alguien la escribió a propósito.
     adopcion = leer_adopcion(repo.texto(MARCADOR))
+    if adopcion.vacia:
+        r.no_evaluado.append(
+            f"{adopcion.cita(MARCADOR)}: la clave `adopta:` esta VACIA. No declara "
+            "nada, y leerla como N/A apagaria este juez en silencio. O se quita la "
+            "clave (= adopta todo) o se listan las capas.")
+        return
     if not adopcion.adopta(CAPA):
         razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que las "
                  "piezas congeladas de este repositorio NO se comparan contra el "

@@ -69,18 +69,32 @@ Un juez nuevo se valida contra el código que **ya se sabe bueno**. Si sale rojo
 sobre un repo cuyo comportamiento es correcto, el verificador está mal — no el
 código. Cada juez lleva su tabla de calibración en el docstring.
 
-Estado de la flota con los **nueve** jueces, medido el 2026-09-07 en modo
-advisory. El noveno, `j13_interfaz`, sólo AVISA y sólo sobre repositorios que
-**declaran** seguir el estándar de interfaz: hoy, ninguno de estos seis.
+Estado de la flota con los **nueve** jueces, medido el **2026-09-08** en modo
+advisory sobre los **24** repositorios `coipo_*`/`COIPO_*` del disco. `j13_interfaz`
+**BLOQUEA** desde la firma del estándar (2026-09-07) y sólo juzga a quien lo
+**declara**: hoy `coipo_atraso_personal` (todo) y `coipo_prensa2` (`adopta:
+interfaz`). Tras esta medición se corrigió un falso positivo de `j11` sobre
+`coipo_n8n` (software de terceros sin Python propio), que aparecía con 1.
 
-| Repositorio | Bloquea | Avisa | No evaluado | Qué encuentra |
-|---|---:|---:|---:|---|
-| `coipo_n8n` | **0** | **0** | 1 | la referencia: `mem_limit` y healthcheck en todos, guards `${VAR:?}`, `resolver` |
-| `COIPO_USUARIOS` | 9 | 8 | 0 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
-| `coipo_prensa2` | **0** | 10 | 0 | **cero bloqueantes** desde el 2026-09-06, al terminar su alineación. Avisan: CI que prueba python 3.11 y node 22 mientras construye 3.14 y 26, `proxy_pass` literal sin `resolver`, healthchecks y `mem_limit` ausentes |
-| `COIPO_ENTREGA_PLANTA` | 2 | 11 | 0 | sin `.dockerignore` con `context: .`; `proxy_pass` literal; CI con node 20 y Dockerfile con 22 |
-| `coipo_master_produccion` | 1 | 1 | 1 | repo de doctrina: no despliega, no se le exige contrato de `.env` |
-| `coipo_jueces` | 0 | 0 | 2 | este mismo repo |
+| Repositorio | Bloquea | Avisa | Qué encuentra |
+|---|---:|---:|---|
+| `coipo_prensa2` | **0** | 9 | **la única aplicación alineada.** `j13` en `OK`. Avisan `OPS-1`, `G8-7` y `NG-1`, los tres declarados en su ficha |
+| `coipo_atraso_personal` | **0** | 0 | el único repositorio **sembrado**; patrón de calibración de `j12`/`j13` |
+| `coipo_master_produccion` | **0** | 0 | la fábrica. Tuvo 1 bloqueante —una credencial versionada— hasta el 2026-09-07 |
+| `coipo_jueces` | **0** | 0 | este repositorio, con 1 supresión declarada en `DEUDA.md` |
+| `coipo_n8n` | **0** | 2 | software de terceros: `j11` `NO_APLICA` desde el 2026-09-08 |
+| `coipo_sitra` · `coipo_entrega_planta_test` | 1 | 2 · 11 | |
+| `COIPO_ENTREGA_PLANTA` | 2 | 11 | sin `.dockerignore` con `context: .`; `proxy_pass` literal; CI node 20 y Dockerfile 22 |
+| 8 repositorios más | 2 | 1–8 | `aireadme`, `cabania`, `dendroenergia`, `moodle`, `notebooklm`, `prevencion_incendio`, `seguimiento_madera`, `vista_catastro` |
+| `COIPO_CHATBOTNORMATIVA` · `COIPO_LICITACION_IA` · `COIPO_PDF_EXCEL` | 3 | 1–2 | |
+| `COIPO_BID_LOSRIOS` | 4 | 2 | |
+| `COIPO_DIRECTORIO` | 6 | 3 | |
+| `COIPO_USUARIOS` | 9 | 8 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
+| `COIPO_SEGUIMIENTO` · `COIPO_SEGUIMIENTOPROYECTO` | **12** | 8 | los dos peores de la flota; `DATABASE_URL` versionada y `5432:5432` publicado |
+
+**Lo que dice la medición completa:** de 24, **cinco** con cero bloqueantes, y
+sólo dos son aplicaciones. Los repositorios con 5–7 comprobaciones no están más
+sanos que los de 18: son los que el gate apenas puede mirar.
 
 Cada uno de esos 12 bloqueantes es un defecto real y verificable, no una
 preferencia de estilo. Y `coipo_n8n` en verde es tan importante como los rojos:
@@ -129,7 +143,7 @@ el `DEUDA.md` de la app.
 | `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
 | `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
-| `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **sólo avisa** |
+| `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo

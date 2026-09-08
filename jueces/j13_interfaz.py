@@ -124,7 +124,41 @@ USO_QUE_EXIGE_CONTRASTE = re.compile(
     r"(?:^|[;{])\s*(?:color|border(?:-[a-z]+)?|outline(?:-color)?|fill|stroke)"
     r"\s*:[^;}]*var\(\s*(--[a-zA-Z0-9_-]+)")
 
-MOVIMIENTO_REDUCIDO = re.compile(r"prefers-reduced-motion")
+# La REGLA `@media ... prefers-reduced-motion`, no la palabra suelta. Con la
+# palabra, un comentario de cabecera que la nombrara hacia que el juez tomara el
+# siguiente `{...}` cualquiera como "el bloque". Ocurrio el 2026-09-08 al escribir
+# el propio comentario que explica el bloque en coipo_prensa2.
+MOVIMIENTO_REDUCIDO = re.compile(r"@media[^{]*prefers-reduced-motion")
+
+# Solo el SELECTOR del tema oscuro. El cuerpo se saca por conteo de llaves con
+# `_bloques_oscuros`, porque `BLOQUE_OSCURO` corta en la PRIMERA `}`.
+SELECTOR_OSCURO = re.compile(
+    r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)")
+
+
+def _sin_comentarios(texto: str) -> str:
+    r"""Quita los `/* ... */` sustituyendolos por sus saltos de linea.
+
+    Asi ninguna regex ve texto comentado, y los numeros de linea de los hallazgos
+    siguen apuntando al archivo real: cada comentario deja tantos `\n` como tenia.
+    """
+    return re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), texto, flags=re.S)
+
+
+def _bloques_oscuros(texto: str) -> list[str]:
+    r"""Los cuerpos ENTEROS de cada bloque de tema oscuro, por conteo de llaves.
+
+    `BLOQUE_OSCURO` con `(.*?)\}` cortaba en la primera llave de cierre: dentro de
+    `@media (prefers-color-scheme: dark) { :root {...} .x {...} }` solo veia la
+    primera regla y los tokens redefinidos en la segunda salian como huerfanos.
+    Medido el 2026-09-08.
+    """
+    cuerpos = []
+    for m in SELECTOR_OSCURO.finditer(texto):
+        llave = texto.find("{", m.end())
+        if llave >= 0:
+            cuerpos.append(_cuerpo_del_media(texto, llave))
+    return cuerpos
 HAY_MOVIMIENTO = re.compile(r"\b(?:transition|animation)(?:-[a-z]+)?\s*:")
 
 
@@ -186,7 +220,7 @@ def comprobar_tema_oscuro(repo: Repo, r: Resultado, hojas: list[str]) -> None:
     """
     con_tema = []
     for ruta in hojas:
-        texto = repo.texto(ruta)
+        texto = _sin_comentarios(repo.texto(ruta) or "")
         if texto and BLOQUE_OSCURO.search(texto):
             con_tema.append((ruta, texto))
 
@@ -209,7 +243,7 @@ def comprobar_tema_oscuro(repo: Repo, r: Resultado, hojas: list[str]) -> None:
             continue
 
         redefinidos = set()
-        for bloque in BLOQUE_OSCURO.findall(texto):
+        for bloque in _bloques_oscuros(texto):
             for nombre, _valor in TOKEN_COLOR.findall(bloque):
                 redefinidos.add(nombre)
 
@@ -271,7 +305,7 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
     """UI-15 — apagar una transición y dejar ocho vivas cumple la letra, no la función."""
     con_movimiento = []
     for ruta in hojas:
-        texto = repo.texto(ruta)
+        texto = _sin_comentarios(repo.texto(ruta) or "")
         if texto and HAY_MOVIMIENTO.search(texto):
             con_movimiento.append((ruta, texto))
 
@@ -367,6 +401,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
     # El marcador existe, pero puede declarar que adopta otras capas y no ésta.
     adopcion = leer_adopcion(repo.texto(MARCADOR))
+    if adopcion.vacia:
+        r.no_evaluado.append(
+            f"{adopcion.cita(MARCADOR)}: la clave `adopta:` esta VACIA. No declara "
+            "nada, y leerla como N/A apagaria este juez en silencio. O se quita la "
+            "clave (= adopta todo) o se listan las capas.")
+        return
     if not adopcion.adopta(CAPA):
         razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que este "
                  "repositorio no declara seguir el estándar de interfaz. Quitar la "
