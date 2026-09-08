@@ -3,14 +3,23 @@
 
 Implementa tres reglas del estándar de interfaz de la flota.
 
-  TODAS AVISAN, y no por prudencia: `identidad/ESTANDAR_UI.md` de
-  `coipo_master_produccion` **está en cuarentena y sin firmar**, así que sus
-  códigos `UI-N` viven en la tabla «Reglas sin fuente escrita» de `REGLAS.md`, y
-  `tests/test_reglas_citadas.py::PruebaSeveridad` falla si una regla de esa tabla
-  llama a `bloquea()`. La prueba es lo que hace cumplir la firma. El día que
-  alguien firme el documento, la fila se mueve a «Reglas vigentes», se añade el
-  prefijo `UI-N` a «Documentos fuente», y sólo entonces estas tres pueden subir a
-  BLOQUEA.
+  LAS TRES BLOQUEAN desde el **2026-09-07**, día en que se firmó
+  `identidad/ESTANDAR_UI.md` de `coipo_master_produccion` (Luis Monsalve,
+  Profesional UIA). Hasta entonces avisaban, y no por prudencia: un documento
+  generado por IA y sin firmar no es una fuente escrita en el sentido que esa
+  palabra tiene en `REGLAS.md`, así que los códigos `UI-N` vivían en la tabla
+  «Reglas sin fuente escrita» y `tests/test_reglas_citadas.py::PruebaSeveridad`
+  fallaba si una regla de esa tabla llamaba a `bloquea()`.
+
+  **La prueba es lo que hizo cumplir la firma**, y sigue vigente en la otra
+  dirección: para revocar esto se devuelven las filas a esa tabla y se cambian
+  estas llamadas a `r.avisa(`; `PruebaSeveridad` vuelve a impedir el paso sola.
+
+  Esta cabecera decía lo contrario —«TODAS AVISAN … está en cuarentena y sin
+  firmar»— hasta el 2026-09-08, mientras el código de más abajo ya llamaba a
+  `bloquea()`. El commit de la firma cambió las llamadas y no tocó el docstring.
+  Quien abriera este archivo para entender por qué su build se puso rojo leía que
+  este juez no podía bloquear.
 
 LAS TRES, Y POR QUÉ ESTAS Y NO OTRAS
   Son las únicas del estándar que se pueden comprobar leyendo archivos sin

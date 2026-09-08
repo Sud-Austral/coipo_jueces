@@ -1,5 +1,34 @@
 # Filas para `REGLAS.md` — las reglas de interfaz (`UI-N`)
 
+> # EJECUTADO EL 2026-09-07. ESTE ARCHIVO YA NO PIDE NADA.
+>
+> Era un checklist: qué pegar en `REGLAS.md` para que `j13` pudiera viajar. Se
+> pegó. **Se conserva como registro de cómo se hizo, no como tarea pendiente**, y
+> todo lo que sigue está en pasado aunque su redacción original fuera en futuro.
+>
+> **Qué pasó de verdad, y difiere de lo que este archivo anticipaba.** La sección
+> «Dónde van» dice *«en “Reglas sin fuente escrita”, NO en “Reglas vigentes”»*, y
+> eso fue cierto durante unas horas. El **mismo 2026-09-07** se firmó
+> `identidad/ESTANDAR_UI.md` (Luis Monsalve, Profesional UIA), la fuente pasó a
+> ser escrita, y las tres filas subieron a **«Reglas vigentes» con severidad
+> BLOQUEA**. `PruebaSeveridad` no lo impidió porque ya no había nada que impedir:
+> impide bloquear **sin** fuente firmada, que es justo lo contrario.
+>
+> **La suite está en verde** (137 pruebas, 16 subtests). El bloque de abajo que
+> dice «LA SUITE ESTÁ EN ROJO HASTA QUE SE PEGUEN ESTAS FILAS» describe el estado
+> del 2026-09-07 por la mañana, y ése es su valor: enseña que el mecanismo cazó
+> un juez cuyos códigos el catálogo no conocía.
+>
+> **Lo único de aquí que sigue siendo trabajo pendiente** es la línea final de la
+> tabla de calibración, y hay que leerla con el dato nuevo: el 2026-09-08 se
+> volvió a medir y `coipo_atraso_personal` —el único repositorio que declara, y
+> por tanto el único patrón vivo de `j12` y `j13`— sale con **1 `SEM-1`
+> bloqueante**. Su «OK, 1 comprobación» de `j13` sigue siendo cierto, pero ese
+> «1» significa que sólo se ejercitó `comprobar_foco`: ese repositorio no tiene
+> tema oscuro ni movimiento que apagar, así que **`UI-3` y `UI-15` nunca han
+> corrido contra un repositorio real**, sólo contra los fixtures sintéticos de
+> `tests/test_j13_interfaz.py`.
+
 **Este archivo no es el catálogo: es lo que hay que pegar en él.** Lo escribió un
 asistente de IA el 2026-09-07 y `REGLAS.md` no se toca desde aquí a propósito —
 el catálogo lo edita quien lo mantiene, no quien propone una regla.

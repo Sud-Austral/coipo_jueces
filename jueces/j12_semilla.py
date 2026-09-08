@@ -51,13 +51,34 @@ que no tiene nada que ver con su contenido, y un juez que falla por algo que no
 importa se suprime en una semana. Se compara el contenido con `\\r\\n` pasado a
 `\\n`, que es lo que git guarda.
 
-CALIBRACIÓN INVERSA (medida el 2026-09-05)
-  Ningún repositorio de la flota se sembró con esta semilla todavía, así que
-  NINGUNO tiene estos archivos y todos deben salir `NO_APLICA`. Si alguno sale
-  rojo hoy, el juez está mal.
+CALIBRACIÓN INVERSA (vuelta a medir el 2026-09-07, sobre los 15 repositorios
+`coipo_*` del disco)
+  De los quince, **catorce salen `NO_APLICA`**: no llevan `.semilla`, así que sus
+  archivos son suyos aunque se llamen igual. Eso es lo correcto y es lo que este
+  juez existe para no romper.
 
-  La semilla materializada, en cambio, tiene que salir VERDE con 22
-  comprobaciones: es lo que verifica que el lock esté al día.
+  El decimoquinto es `coipo_atraso_personal`, **el único de la flota que sí se
+  sembró**, y sale con **1 `SEM-1` bloqueante** sobre `frontend/nginx.conf` por
+  tres líneas de comentario: conserva la justificación del `resolver` con un
+  incidente que la fábrica borró DESPUÉS de sembrarlo. El hallazgo es correcto
+  —el archivo está editado respecto del lock— pero la causa está en la fábrica,
+  no en la aplicación.
+
+  Hasta el 2026-09-08 esta sección decía «ningún repositorio se sembró todavía,
+  así que NINGUNO tiene estos archivos … si alguno sale rojo hoy, el juez está
+  mal». Dejó de ser cierto en cuanto se sembró el primero, y nadie lo actualizó.
+  Leída al pie de la letra, mandaba concluir que el juez estaba mal cuando lo que
+  estaba desalineado era la semilla de ese repositorio.
+
+  **Lo que importa del episodio:** este juez sólo tiene UN patrón de calibración
+  vivo, porque sólo hay un repositorio sembrado. Medir una regla nueva contra un
+  patrón sucio no distingue si falló la regla o el repositorio. Antes de tocar
+  `j12` o `j13`, comprobar que ese patrón esté limpio.
+
+  La semilla materializada tiene que salir VERDE. Registra **1 comprobación**, no
+  22: `comprobar()` llama a `r.comprobo()` una sola vez, con el recuento dentro
+  del mensaje —«21 de 21 presentes»—. El «22» de esta línea nunca correspondió a
+  nada que el juez emitiera.
 """
 
 from __future__ import annotations
