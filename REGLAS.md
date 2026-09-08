@@ -59,13 +59,19 @@ y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
 > tabla. `SEM-1` también estaba, pero sí tiene fuente escrita —`semilla/README.md`—
 > y pasó a la tabla de arriba.
 
-> Las `UI-N` llegan aquí por otro camino, y conviene no confundirlo: **su fuente
-> existe** —`identidad/ESTANDAR_UI.md`— pero **está en cuarentena y nadie la ha
-> firmado**. Un documento generado por IA y sin firmar no es una fuente escrita
-> en el sentido que esa palabra tiene aquí; darlo por tal repetiría el error de
-> `DECRETOS.md`. Así que se quedan en esta tabla, y `PruebaSeveridad` impide que
-> bloqueen: **la prueba es lo que hace cumplir la firma**. Qué hay que hacer el
-> día que se firme está en [`FILAS_REGLAS_UI.md`](FILAS_REGLAS_UI.md).
+> **Las `UI-N` estuvieron aquí y ya no están.** Mientras
+> `identidad/ESTANDAR_UI.md` estuvo sin firmar no era una fuente escrita en el
+> sentido que esa palabra tiene aquí —darlo por tal habría repetido el error de
+> `DECRETOS.md`—, así que vivían en esta tabla y `PruebaSeveridad` impedía que
+> bloquearan. **La prueba es lo que hizo cumplir la firma.** El documento se firmó
+> el **2026-09-07** (Luis Monsalve, Profesional UIA) y las tres filas subieron a
+> «Reglas vigentes». Para revocarlo, se devuelven aquí y se cambian las llamadas a
+> `r.avisa(`: `PruebaSeveridad` vuelve a impedirlo sola.
+>
+> Este párrafo describía hasta el 2026-09-07 una tabla que ya no las contenía, y
+> ninguna prueba lo detectó: `PruebaSeveridad` lee **filas de tabla**, no
+> blockquotes. El catálogo se contradecía a sí mismo en veinte líneas y el gate
+> salía verde.
 
 | Código | Juez | Qué comprueba | Qué respalda hoy la regla |
 |---|---|---|---|
