@@ -61,12 +61,14 @@ y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
 > y pasó a la tabla de arriba.
 
 > **Las `UI-N` estuvieron aquí y ya no están.** Mientras
-> `identidad/ESTANDAR_UI.md` estuvo sin firmar no era una fuente escrita en el
-> sentido que esa palabra tiene aquí —darlo por tal habría repetido el error de
-> `DECRETOS.md`—, así que vivían en esta tabla y `PruebaSeveridad` impedía que
-> bloquearan. **La prueba es lo que hizo cumplir la firma.** El documento se firmó
-> el **2026-09-07** (Luis Monsalve, Profesional UIA) y las tres filas subieron a
-> «Reglas vigentes». Para revocarlo, se devuelven aquí y se cambian las llamadas a
+> `identidad/ESTANDAR_UI.md` estuvo sin firmar (antes del 2026-09-07) no era una
+> fuente escrita en el sentido que esa palabra tiene aquí —darlo por tal habría
+> repetido el error de `DECRETOS.md`—, así que vivían en esta tabla y
+> `PruebaSeveridad` impedía que bloquearan. **La prueba es lo que hizo cumplir la
+> firma.** El documento se firmó el **2026-09-07** (Luis Monsalve, Profesional
+> UIA; §1-7) y el **2026-09-08** (§8 móvil, por delegación) y las tres filas
+> `UI-3`, `UI-10` y `UI-15` subieron a «Reglas vigentes» junto con `UI-16` a
+> `UI-20` del §8. Para revocar, se devuelven aquí y se cambian las llamadas a
 > `r.avisa(`: `PruebaSeveridad` vuelve a impedirlo sola.
 >
 > Este párrafo describía hasta el 2026-09-07 una tabla que ya no las contenía, y

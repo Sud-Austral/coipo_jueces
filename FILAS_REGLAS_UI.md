@@ -58,10 +58,11 @@ el catálogo lo edita quien lo mantiene, no quien propone una regla.
 **Y no es una cautela: es una consecuencia mecánica.**
 
 El documento que sostiene estos códigos —`identidad/ESTANDAR_UI.md` de
-`coipo_master_produccion`— **está en cuarentena y sin firmar**. Un documento
-generado por IA y no firmado no es una fuente escrita en el sentido que esa
-palabra tiene en este catálogo; darlo por tal repetiría el error que `REGLAS.md`
-existe para impedir.
+`coipo_master_produccion`— **está firmado**: §1-7 el 2026-09-07 (Luis Monsalve,
+Profesional UIA) y §8 (móvil) el 2026-09-08 (por delegación expresa). Antes de
+la firma, un documento generado por IA y no firmado no era una fuente escrita en
+el sentido que esa palabra tiene en este catálogo; darlo por tal habría repetido
+el error que `REGLAS.md` existe para impedir.
 
 Y la tabla de «sin fuente escrita» promete que sus reglas no bloquean, promesa
 que `test_reglas_citadas.py::PruebaSeveridad` hace cumplir: **si una regla de esa
