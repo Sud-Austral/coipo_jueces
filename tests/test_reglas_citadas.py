@@ -2,8 +2,11 @@
 
 EL DEFECTO QUE ESTAS PRUEBAS CIERRAN se encontró en este mismo repositorio: los
 jueces `j01`, `j06` y `j09` bloqueaban despliegues citando códigos `D-06`,
-`D-27`, `D-28`, `D-31` y `D-37` de un `DECRETOS.md` que **no existe en ningún
-repositorio de la organización**. Los generó un asistente y nadie los escribió.
+`D-27`, `D-28`, `D-31` y `D-37` de un `DECRETOS.md` que **no estaba versionado en
+ningún repositorio cuando empezaron a citarlo**. Los generó un asistente y nadie
+los escribió. Hoy el archivo existe en `borradores/` de la fábrica, o sea en
+cuarentena y sin mandar: la frase original, que decía «no existe en ningún
+repositorio», dejó de ser cierta el 2026-09-05 y se corrigió el 2026-09-09.
 
 Una regla así no se puede discutir, ni corregir, ni derogar: cuando estorba, lo
 único que se puede hacer es suprimirla. Y un verificador cuyo único camino de
