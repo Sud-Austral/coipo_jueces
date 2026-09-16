@@ -248,6 +248,31 @@ Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 
 y el run de `Autotest` de `3866d7e` con `el-reusable-lo-valida-github` en verde —
 la lección de `v2.0.3`, que la suite verde no valida el YAML.
 
+### `v2.0.8`, 2026-09-15 — un backtick dentro de una plantilla
+
+**`v2` apunta a `v2.0.8`.** Una sola pieza sellada cambia,
+`frontend/scripts/verify-banner.mjs`, y por un defecto que se publicó en
+`v2.0.7`: el comentario que se le añadió llevaba rutas **entre backticks**, y ese
+arnés HTML vive dentro de una plantilla de JavaScript. Un backtick la termina, así
+que el archivo entero dejaba de parsear:
+
+```
+SyntaxError: Unexpected identifier 'estilos'
+```
+
+`npm run verificar:banner` moría ahí, en cualquier aplicación que lo corriera.
+
+**Radio de explosión de `v2.0.7`, que es lo que importa aquí:** el tag estuvo
+vigente unos veinte minutos y ningún repositorio de la flota corrió
+`verificar:banner` en esa ventana —`coipo_atraso_personal` no llegó a ese paso y
+`coipo_prensa2` fija SHA—. El único que lo ejecutó fue el CI de la propia fábrica,
+que es exactamente donde tenía que aparecer: el job `semilla-materializada`
+siembra un proyecto y le corre lo que correrá su aplicación.
+
+**La lección, que ya estaba escrita una vez para `v2.0.3`:** la suite verde no
+valida lo que no ejecuta. `tests/` no toca ese `.mjs` y el gate tampoco; lo único
+que lo prueba es correrlo. En local se comprueba con `node --check`.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
