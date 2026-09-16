@@ -215,6 +215,39 @@ Lección para `Publicar`, arriba: **la suite verde no es la validación del
 YAML**. Antes de mover `v2`, mirar que el run de `Autotest` del commit incluya
 el job `el-reusable-lo-valida-github` en verde.
 
+### `v2.0.7`, 2026-09-15 — el lock, tras arreglar la semilla
+
+**`v2` apunta a `v2.0.7`.** No cambia ni un juez: lo único que cambia es
+`semilla.lock`, porque `semilla/CONGELADO/` de la fábrica se corrigió en tres
+piezas y ganó una cuarta.
+
+| Pieza sellada | Por qué cambió |
+|---|---|
+| `backend/app/core/auditoria/clasificacion.py` | `log_acceso.ip_red` y `ua_familia` no declaraban `accion_al_vencer`; el módulo **reventaba al importarse**. Pasan a `ELIMINAR` |
+| `backend/tests/conftest.py` | el guard metía el `DATABASE_HOST` del `.env` local en la denylist de producción: desarrollar con Postgres en `localhost` abortaba la suite con código 2 |
+| `frontend/scripts/verify-banner.mjs` | su ayuda decía `npm run verify:banner` —el script es `verificar:banner`— y el arnés enlazaba `componentes.css`, que no existe |
+| **nueva** `backend/tests/contrato/test_todo_importa.py` | importa cada módulo de `app/` y falla nombrando cuál. Va sellada para correr en la compuerta `t0` de **cada** aplicación: el defecto de la primera fila llevaba meses llegando a cada aplicación nueva porque el CI sólo importaba `app.main` |
+
+**Por qué es `v2.x` y no una mayor**, medido antes de publicar y no deducido —
+los tres criterios de «Cuándo toca una mayor nueva», uno por uno:
+
+1. Ningún juez nuevo y ninguna regla cambia de severidad. `jueces/` no se toca.
+2. `verificar.yml` no cambia: ninguna entrada nueva, ninguna semántica distinta.
+3. **Nadie que hoy esté verde se pone rojo.** Corriendo el gate con este lock:
+
+   | Repositorio | Qué le llega | Resultado |
+   |---|---|---|
+   | `coipo_atraso_personal` | `@v2` móvil, `modo: advisory` en `ci.yml` y `deploy.yml`; su `.semilla` no declara `adopta:`, así que `j12` sí lo juzga | 19 comprobaciones, **3 bloqueantes**, `exit 0`: advisory los publica y no rompe el build. Se cierran pasándole `sembrar.py --destino . --actualizar`, que reescribe sólo lo sellado |
+   | `coipo_prensa2` | nada: fija el SHA `84006329` (v2.0.2) en el `uses:` **y** en `ref_jueces`, las dos mitades | 22 comprobaciones, 0 bloqueantes, 9 avisos, 1 supresión — idéntico a antes |
+   | `coipo_n8n` | no llama al reusable | 11 comprobaciones, 0 bloqueantes |
+   | la plantilla de `semilla/ESQUELETO` | `@v2` móvil, advisory | sembrada de cero: 21 comprobaciones, **0 bloqueantes, 0 avisos** |
+
+   Es el mismo razonamiento con el que se publicó `v2`, con los números de hoy.
+
+Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 skip),
+y el run de `Autotest` de `3866d7e` con `el-reusable-lo-valida-github` en verde —
+la lección de `v2.0.3`, que la suite verde no valida el YAML.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
