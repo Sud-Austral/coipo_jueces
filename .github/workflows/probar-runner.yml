@@ -1,0 +1,27 @@
+# Prueba aislada: comprueba que los jueces corren en un runner self-hosted.
+#
+# Existe porque la cuota de Actions del plan Free se agota y la compuerta deja
+# de arrancar, bloqueando despliegues que en si mismos son gratis. Antes de
+# apuntar la compuerta de siete repositorios a un runner propio hay que saber
+# si ese runner tiene lo unico que los jueces necesitan: git y python3.
+#
+# No despliega nada y corre en modo advisory: si el runner no sirve, lo unico
+# que pasa es que este workflow sale rojo.
+name: Probar el runner de los jueces
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Etiqueta del runner a probar (p. ej. conaf-uat, conaf-ci)
+        type: string
+        required: false
+        default: conaf-uat
+
+jobs:
+  probar:
+    uses: ./.github/workflows/verificar.yml
+    with:
+      modo: advisory
+      perfil: encuadre_operativo
+      runner: ${{ inputs.runner }}
