@@ -49,6 +49,14 @@ on:
           que un pin a SHA congele de verdad las dos mitades.
         type: string
         default: v2
+      runner:
+        description: >-
+          Etiqueta del runner donde corren los jueces. `ubuntu-latest` (por
+          defecto) consume cuota de Actions; la etiqueta de un runner
+          self-hosted no consume nada. Los jueces son de biblioteca estandar,
+          asi que basta con que la maquina tenga git y python3.
+        type: string
+        default: ubuntu-latest
     outputs:
       bloqueantes:
         description: "Número de hallazgos de severidad BLOQUEA."
@@ -63,7 +71,7 @@ permissions:
 jobs:
   verificar:
     name: jueces (${{ inputs.modo }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     # Sin timeout, un juez con un bucle infinito encola todos los despliegues
     # siguientes: la concurrencia de esta flota nunca cancela en las ramas que
     # despliegan.

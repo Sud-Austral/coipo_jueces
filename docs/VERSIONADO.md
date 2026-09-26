@@ -273,6 +273,26 @@ siembra un proyecto y le corre lo que correrá su aplicación.
 valida lo que no ejecuta. `tests/` no toca ese `.mjs` y el gate tampoco; lo único
 que lo prueba es correrlo. En local se comprueba con `node --check`.
 
+### `v2.0.9`, 2026-09-26 — el runner se puede elegir
+
+La organizacion agoto los 2000 min/mes de Actions del plan Free y eso bloqueo
+despliegues a produccion: siete repositorios tienen su `deploy` con `needs:`
+hacia este reusable, asi que sin cuota la compuerta no arranca y el despliegue
+—que corre en un runner self-hosted y es GRATIS— nunca llega a ejecutarse.
+
+Se anade el input `runner`, que por defecto vale `ubuntu-latest`. Apuntandolo a
+la etiqueta de un runner self-hosted, la compuerta deja de consumir cuota sin
+perder ni una comprobacion. Los jueces son de biblioteca estandar, asi que a la
+maquina solo se le piden `git` y `python3`.
+
+**Por que es `v2.x` y no `v3`:** el input es opcional y su valor por defecto
+reproduce el comportamiento anterior. Quien no lo pase no nota nada, que es
+justamente el criterio de esta casa para no forzar una mayor.
+
+**Radio de explosion:** ninguno. Con el default, `runs-on` resuelve a
+`ubuntu-latest` igual que antes. Solo cambia el comportamiento de quien pase
+`runner:` explicitamente.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
