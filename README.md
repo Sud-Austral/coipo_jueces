@@ -144,6 +144,8 @@ el `DEUDA.md` de la app.
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
 | `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
 | `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
+| `j14_timeout` | `WF-1` | `timeout-minutes` dentro de un job cuyo cuerpo es `uses:`, donde no es una clave válida: GitHub rechaza el **archivo de workflow entero**, no ese job | ✅ AVISA. **Cero casos vivos** en la flota (2026-09-27): la detección positiva vive en `tests/test_j14_timeout.py` |
+| `j15_cuota` | `CUOTA-1` | un job que corre **gratis** (runner self-hosted) colgado con `needs:` de un job que corre **de pago** (runner de GitHub): sin cuota de Actions el de pago no arranca y el gratis nunca se ejecuta. Resuelve la cadena a través del `uses:` —reusable local, y el input `runner:` de `verificar.yml`— y lo que no puede resolver lo declara **no evaluado**, nunca silencio | ✅ AVISA. Causa raíz del incidente del **2026-09-26**. Calibración inversa: **8 repositorios / 10 avisos** sobre el estado anterior al arreglo, **0 de 32** sobre el de hoy |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo

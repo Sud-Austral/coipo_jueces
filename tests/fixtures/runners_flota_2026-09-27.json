@@ -1,0 +1,776 @@
+{
+  "_procedencia": {
+    "que": "runner REAL que uso cada job, observado en ejecuciones de GitHub Actions",
+    "como": "API de GitHub: /repos/{repo}/actions/runs -> /jobs, leyendo labels y runner_name",
+    "quien": "agente de servidor (sesion coipo-cron-master-e1), con acceso a vm2 y vm3",
+    "cuando": "2026-09-27, ~03:10 UTC",
+    "ventana": "los 8 runs mas recientes de cada repositorio en ese momento",
+    "limites_del_instrumento": [
+      "MEZCLA ESTADOS: al mirar 8 runs por repo, hay filas anteriores a la migracion a conaf-ci del 26-sep. Las de coipo_api con ubuntu-24.04 son de ANTES y hoy esos mismos jobs corren en conaf-ci.",
+      "NO es exhaustivo: un job que no se haya ejecutado en esos 8 runs no aparece.",
+      "runner_name vacio significa que el job NO llego a arrancar (cuota agotada) o que es un job llamador de un uses:, que se distingue por labels=[]."
+    ],
+    "resumen": {
+      "jobs": 84,
+      "self_hosted": 54,
+      "facturables": 22,
+      "sin_runs_on": 8
+    }
+  },
+  "jobs": [
+    {
+      "repo": "coipo_api",
+      "job": "pruebas / imagenes",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_api",
+      "job": "pruebas / backend",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_api",
+      "job": "pruebas / frontend",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_api",
+      "job": "pruebas / jueces / jueces (advisory)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_api",
+      "job": "verificar / jueces (advisory)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_api",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_api",
+      "job": "deploy",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_api",
+      "job": "backend",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_api",
+      "job": "frontend",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_api",
+      "job": "imagenes",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_api",
+      "job": "jueces / jueces (advisory)",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Frontend (lint + tests + build + audit)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Collector (tests + audit)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Backend (pytest + audit)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Docker build (gmail-boletin)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Jueces COIPO (advisory) / jueces (advisory)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Docker build (collector)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Sin contenido de prensa versionado",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Docker build (backend)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Docker build (frontend)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Boletin por correo (pytest + audit)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Deploy prod",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "Deploy UAT",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_prensa2",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_usuarios",
+      "job": "T0 (gate de salida a producción)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_usuarios",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_usuarios",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_usuarios",
+      "job": "deploy",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "vigilar",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "cifras",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "secretos",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "nginx",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "etl",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "visor",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_boton_rojo",
+      "job": "desplegar",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "aviso-servidor",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "suite / backend",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "puerta-datos / puerta-datos",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "suite / jueces / jueces (bloqueante)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "verificar / jueces (bloqueante)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "suite / frontend",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "suite / imagenes",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "suite / puerta-datos / puerta-datos",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "deploy",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "imagenes",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "backend",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "frontend",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "jueces / jueces (bloqueante)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_atraso_personal",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_grafana",
+      "job": "verificar / jueces (advisory)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_grafana",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-uat"
+      ],
+      "runner": "vm3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_grafana",
+      "job": "deploy",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_umami",
+      "job": "verificar / jueces (advisory)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_umami",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-uat"
+      ],
+      "runner": "vm3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_umami",
+      "job": "deploy",
+      "labels": [],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_prevension_ministerial",
+      "job": "verificar / jueces (advisory)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prevension_ministerial",
+      "job": "desplegar / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_prevension_ministerial",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_prevension_ministerial",
+      "job": "react-doctor",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_neo4j",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-uat"
+      ],
+      "runner": "vm3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_archivo",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010310",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_archivo",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-uat"
+      ],
+      "runner": "vm3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_n8n",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010178",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_n8n",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-uat"
+      ],
+      "runner": "vm3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_contrato2",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010015",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_contrato2",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-uat"
+      ],
+      "runner": "vm3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_nexe",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_nexe",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010020",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_nexe",
+      "job": "build",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010021",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_nexe",
+      "job": "deploy",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010036",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_entrega_planta",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_entrega_planta",
+      "job": "update-pip-graph",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010566",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_entrega_planta",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_dendroenergia",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_dendroenergia",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010190",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_dendroenergia",
+      "job": "update-pip-graph",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010048",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_inventario_planta",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_inventario_planta",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010040",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_seguimiento_madera",
+      "job": "deploy / deploy",
+      "labels": [
+        "self-hosted",
+        "conaf-prod"
+      ],
+      "runner": "vm2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_seguimiento_madera",
+      "job": "call-readme-generator / Generate and validate README",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner": "GitHub Actions 1000010180",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_master_produccion",
+      "job": "coherencia",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci3",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_master_produccion",
+      "job": "semilla-en-windows",
+      "labels": [
+        "windows-latest"
+      ],
+      "runner": "",
+      "self_hosted": false
+    },
+    {
+      "repo": "coipo_master_produccion",
+      "job": "semilla-materializada",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci2",
+      "self_hosted": true
+    },
+    {
+      "repo": "coipo_master_produccion",
+      "job": "la-fabrica-se-juzga / jueces (bloqueante)",
+      "labels": [
+        "conaf-ci"
+      ],
+      "runner": "vm3-ci",
+      "self_hosted": true
+    }
+  ]
+}
