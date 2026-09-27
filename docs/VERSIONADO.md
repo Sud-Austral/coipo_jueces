@@ -293,6 +293,55 @@ justamente el criterio de esta casa para no forzar una mayor.
 `ubuntu-latest` igual que antes. Solo cambia el comportamiento de quien pase
 `runner:` explicitamente.
 
+### `v2.0.10`, 2026-09-27 — el lock, otra vez, y esta vez el rojo lo cazo el propio j12
+
+**`v2` apunta a `v2.0.10`.** Ni un juez cambia. Lo unico que cambia es una linea de
+`semilla.lock`: el hash de `backend/requirements-base.txt`.
+
+Qué pasó, en orden, porque la secuencia es la lección:
+
+1. El 2026-09-26 se le puso techo de mayor a `sqlalchemy` en la semilla
+   (`>=2.0.52,<2.2` en vez de un rango abierto), tras dos averías de producción en la
+   misma semana causadas por SQLAlchemy 2.1.
+2. Se actualizó el fichero en `semilla/CONGELADO/` **y** en las dos aplicaciones que lo
+   usan, `coipo_api` y `coipo_atraso_personal`. Los tres quedaron byte a byte idénticos.
+3. **No se volvió a sellar.** Así que el lock publicado seguía describiendo el contenido
+   anterior.
+4. `j12` hizo exactamente su trabajo: `[BLOQUEA] SEM-1 backend/requirements-base.txt`,
+   «es una pieza CONGELADA de la semilla y está editada». En `coipo_atraso_personal`,
+   que corre los jueces en **bloqueante**, eso puso el CI en rojo.
+
+Y la parte incómoda: durante unas horas pareció un falso positivo. Los tres ficheros
+eran idénticos, así que «está editada» sonaba a error del juez. No lo era. **El juez no
+compara la app contra la semilla: la compara contra el lock**, que es lo único que viaja
+al CI de cada aplicación. La semilla y las apps se habían movido juntas y el lock se
+había quedado atrás — que es literalmente el fallo que el paso «El semilla.lock publicado
+esta al dia» de `coipo_master_produccion` existe para cazar, y lo cazó.
+
+Nota para quien busque el lock: **no está en `coipo_master_produccion`.** Vive aquí,
+porque tiene que ser público para que lo lea el CI de cada app. Buscarlo en la fábrica y
+no encontrarlo hizo perder tiempo.
+
+**Por qué es `v2.x` y no una mayor** — los tres criterios, medidos:
+
+1. Ningún juez nuevo y ninguna regla cambia de severidad. `jueces/` no se toca.
+2. `verificar.yml` no cambia: ninguna entrada nueva, ninguna semántica distinta.
+3. **Nadie que hoy esté verde se pone rojo.** Corrido antes de mover el tag, con el lock
+   viejo y con el nuevo:
+
+   | Repositorio | Con el lock de `v2.0.9` | Con este lock |
+   |---|---|---|
+   | `coipo_atraso_personal` (`@v2`, **bloqueante**) | **1 bloqueante**: `SEM-1` sobre `requirements-base.txt` | 22 comprobaciones, **0 bloqueantes**, 0 avisos |
+   | `coipo_api` (`@v2`, advisory) | 0 bloqueantes, 6 avisos | 0 bloqueantes, los mismos 6 avisos |
+   | `coipo_prensa2` | no le llega: fija el SHA `0c6e8b6d` en el `uses:` **y** en `ref_jueces` | idéntico |
+
+   Es el único caso hasta hoy en que mover el lock **quita** un bloqueante en vez de
+   arriesgar uno nuevo: el rojo lo estaba causando el lock viejo.
+
+Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 skip), y la
+calibración de este repositorio contra sí mismo en `--modo bloqueante --perfil
+encuadre_operativo` → 6 jueces, 6 comprobaciones, **0 bloqueantes**, 1 supresión.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
