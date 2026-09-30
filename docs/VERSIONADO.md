@@ -342,6 +342,48 @@ Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 
 calibración de este repositorio contra sí mismo en `--modo bloqueante --perfil
 encuadre_operativo` → 6 jueces, 6 comprobaciones, **0 bloqueantes**, 1 supresión.
 
+### `v2.0.11`, 2026-09-30 — el lock, por tercera vez: resellado en local y no publicado
+
+**`v2` apunta a `v2.0.11`.** Ni un juez cambia. Cambia `semilla.lock` (23 archivos): cinco
+entradas, tres con hash nuevo y dos nuevas.
+
+| Pieza sellada | Qué pasó |
+|---|---|
+| `backend/app/dominio/modelo/identidad.py` | cambió (la fábrica, commit `f1d776a`, 2026-09-29: la clase `Identidad` estaba definida dos veces) |
+| `backend/app/adaptadores/salida/iam/cliente_iam.py` | cambió |
+| `backend/tests/arquitectura/test_capas.py` | cambió |
+| **nueva** `backend/app/adaptadores/salida/iam/mapeo_claims.py` | `conftest.py` la pedía y no existía |
+| **nueva** `backend/tests/contrato/test_la_semilla_importa.py` | importa todo `app/` y ejecuta el mapeo de claims |
+
+La secuencia, que es la lección repetida de `v2.0.10`: `semilla/CONGELADO/` cambió el
+2026-09-29; el lock se resello **en local** ese mismo día y **no se commiteó ni se publicó**.
+El lock publicado (`v2.0.10`, sellado el 2026-09-26) seguía describiendo la semilla anterior,
+y el CI de la fábrica (`coherencia.yml`) quedó rojo en `coherencia` (pasos «lock al día» de
+`main` y de la mayor) y en `semilla-materializada` (`j12`: `SEM-1` sobre los tres archivos que
+cambiaron). Se reprodujo en local paso a paso; no se leyeron los logs de GitHub.
+
+**Por qué es `v2.x` y no una mayor** — los tres criterios, uno por uno:
+
+1. Ningún juez nuevo y ninguna regla cambia de severidad. `jueces/` no se toca.
+2. `verificar.yml` no cambia.
+3. **Nadie que hoy esté verde en su build se pone rojo.** Medido sobre las seis aplicaciones con
+   `.semilla` que había en un disco local (no son las 24 de la flota), comparando cada archivo
+   sellado contra el lock viejo y el nuevo:
+
+   | Repositorio | `modo:` | Con este lock |
+   |---|---|---|
+   | `coipo_visor_saff`, `coipo_visor_sidco` | advisory | **3 hallazgos `SEM-1` nuevos** (`identidad.py`, `cliente_iam.py`, `test_capas.py`: aún tienen la versión anterior). `advisory` los publica y no rompe el build. Se cierran con `sembrar.py --destino . --actualizar` |
+   | `coipo_avisete`, `coipo_api` | advisory | dejan de tener 3 hallazgos `SEM-1`: sus archivos ya eran los nuevos |
+   | `coipo_prevension_ministerial`, `COIPO_PRENSA2` | no medido | ningún archivo que cambió en este lock les difiere de él; sus diferencias (`Dockerfile`, `nginx.conf`, `pytest.ini`, `conftest.py`) ya existían con el lock viejo |
+
+   Quien tenga la versión anterior de `identidad.py` tiene el defecto de la clase duplicada:
+   `cliente_iam.py` construye la primera y la segunda la pisa, y el callback del primer login
+   falla con `TypeError`. Ese es el motivo de que el hallazgo convenga, no sólo moleste.
+
+Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 skip), y la
+calibración de este repositorio contra sí mismo en `--modo bloqueante --perfil
+encuadre_operativo` → 6 jueces, 6 comprobaciones, **0 bloqueantes**, 1 supresión.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
