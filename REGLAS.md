@@ -41,7 +41,7 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `G8-9` | `j11` | `GET /health` existe, sin autenticación, sin redirección, y con `text()` si usa SQLAlchemy 2.x | Guía 8, punto 9 | BLOQUEA |
 | `G8-11` | `j11` | un fallo de datos no se disfraza de aplicación sana | Guía 8, punto 11 | AVISA (ver nota) |
 | `G8-10` | `j08` | qué llega al servidor con el `rsync` anclado: un `.env` en un subdirectorio **sí** viaja; lo versionado bajo el `data/` de la raíz **nunca** llega | Guía 8, punto 10 | BLOQUEA / AVISA |
-| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz, con `adopta:` incluyendo `semilla` o sin esa clave) | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita | BLOQUEA |
+| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz, con `adopta:` incluyendo `semilla` o sin esa clave). **Ventana de compatibilidad:** si el archivo no está editado sino que coincide con `semilla.lock.anterior` (el lock previo al último resellado), está *desfasado*: AVISA con fecha hasta `ventana_hasta` (inclusive) y BLOQUEA después, con otro mensaje | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita. La ventana: decisión D2 (2026-10-12) de `docs/PLAN-DE-COHERENCIA.md` en `coipo_master_produccion` | BLOQUEA / AVISA (ver nota) |
 | `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
 | `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-10 | BLOQUEA |
 | `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
@@ -103,6 +103,29 @@ que ningún `.semilla` escrito antes de esto cambia de veredicto.
 declararse `no_aplica` a sí mismo— y por eso se paga: el `no_aplica` **cita la
 línea literal y su número**, y **se cuenta como supresión**, con `::warning::` y
 su fila en `DEUDA.md`. Reclamar menos de lo que corresponde no sale gratis.
+
+### Nota sobre `SEM-1`: la ventana de compatibilidad
+
+`j12` compara la aplicación contra el **lock**, no contra la semilla, y el lock
+viaja con el tag móvil `v2`. Cada vez que se resella, `v2` salta de golpe y toda
+aplicación sembrada con la semilla anterior quedaría en `SEM-1` «editada» por un
+archivo que no tocó. Para que eso no ocurra, `semilla/sellar.py --escribir` deja
+junto al lock un `semilla.lock.anterior` con dos fechas (`movido`,
+`ventana_hasta`), y `j12` distingue:
+
+| La pieza... | Resultado |
+|---|---|
+| coincide con el lock vigente | nada |
+| lleva `coipo-jueces:ignorar(SEM-1)` | supresión contada, en cualquier fecha |
+| coincide con el lock **anterior**, hoy ≤ `ventana_hasta` | **AVISA**, con las dos fechas y `sembrar.py --actualizar` |
+| coincide con el lock **anterior**, hoy > `ventana_hasta` | **BLOQUEA** como «desfasada, no editada» |
+| no coincide con ninguno | **BLOQUEA** como «editada», exactamente como antes |
+
+La ventana no la elige la aplicación, no relaja nada sobre una pieza editada y no
+tiene interruptor externo. Si `semilla.lock.anterior` existe y no se puede leer, se
+ignora y se anota como no evaluado: el resultado es entonces el de antes de la
+ventana, nunca uno más indulgente. Guarda sólo el lock **inmediatamente**
+anterior; una aplicación dos resellados atrás se juzga como editada.
 
 ### Nota sobre `G8-11`
 

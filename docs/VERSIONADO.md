@@ -33,50 +33,56 @@ alguien se queda atrás.
 
 ## Publicar
 
-```bash
-# 0. la suite y la calibración, antes de nada
-python3 -m unittest discover -s tests
-# perfil encuadre_operativo: este repo no despliega, y con 'aplicacion'
-# j01 y j06 salen SIN_EVALUAR, que en modo bloqueante es exit 1
-python3 jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo
+**Los comandos no viven aquí.** El procedimiento —fusionar a `main`, crear el
+tag anotado, reapuntar el móvil, qué comprobar después— está escrito **una sola
+vez**, en `docs/publicar-los-jueces.md` de `coipo_master_produccion` (privado: es
+la fábrica, no este repositorio). Este archivo conserva la **política**, que es
+lo que no cambia aunque cambien los pasos.
 
-# 1. la rama entra en main
-git checkout main
-git merge --ff-only jueces-fase-1
-git push origin main
+> Hasta el 2026-10-12 había aquí una copia del procedimiento, y no coincidía con
+> la de la fábrica: sus ejemplos eran de `v1` cuando la mayor vigente es `v2`,
+> cableaba una rama de trabajo concreta (`jueces-fase-1`) y presentaba el
+> `push -f` como un paso de rutina, mientras la fábrica lo trata como operación
+> irreversible. Dos copias del mismo procedimiento es la enfermedad que este
+> repositorio existe para curar, así que se quitó la de aquí en vez de
+> «sincronizarla»: una copia sincronizada hoy vuelve a separarse mañana.
 
-# 2. el tag inmutable. `-a` = anotado: lleva autor, fecha y mensaje propios.
-#    Un tag ligero (`git tag v1.0.0` a secas) es solo un puntero sin autoría,
-#    y para una interfaz pública eso es perder la única traza de quién publicó
-#    qué y cuándo — que es exactamente lo que Contraloría pregunta.
-git tag -a v1.0.0 -m "j09 (secretos versionados) + infraestructura de jueces"
-git push origin v1.0.0
+La política:
 
-# 3. el tag móvil de la serie. `-f` porque ya existe y hay que reapuntarlo.
-git tag -f v1 v1.0.0^{commit}
-git push -f origin v1
-```
-
-`v1.0.0^{commit}` no es adorno: sin eso, `v1` apuntaría al **objeto tag**
-`v1.0.0` en vez de al commit, y quedaría un tag que apunta a otro tag. GitHub
-Actions lo resuelve igual, pero `git describe` y media herramienta se
-confunden.
-
-## Publicaciones siguientes
-
-Repetir solo los pasos 2 y 3 con el número nuevo:
-
-```bash
-git tag -a v1.0.1 -m "j01: falso positivo con context: ./backend"
-git push origin v1.0.1
-git tag -f v1 v1.0.1^{commit}
-git push -f origin v1
-```
-
-**El `push -f` sobre `v1` es el único force-push legítimo de este repositorio.**
-Es seguro porque `v1` es un puntero, no historia: no se reescribe ningún commit
-y nadie pierde trabajo. Un `push -f` sobre `main` o sobre un `vN.N.N` es otra
-cosa y no se hace nunca.
+1. **Hay dos clases de tag, y ya están en la tabla de arriba.** `vN.N.N` es
+   anotado e **inmutable**: no se mueve, no se borra y no se rehace —`v2.0.0` y
+   `v2.0.3` salieron rotos y la única salida fue avisar y publicar el siguiente—.
+   `vN` es el **móvil** y es el único que se reapunta, siempre al *commit* de un
+   `vN.N.N` y nunca al objeto tag, para que `git describe` y las herramientas que
+   resuelven tags no se confundan.
+2. **Qué número toca** lo decide «Cuándo toca una mayor nueva», más abajo, y se
+   **mide antes de publicar**, no se supone. Es `vN.x` sólo si nadie que hoy está
+   verde se pone rojo; en cualquier otro caso es la mayor siguiente.
+3. **El `push -f` del tag móvil es el único force-push legítimo de este
+   repositorio.** Es seguro porque el móvil es un puntero, no historia: no se
+   reescribe ningún commit y nadie pierde trabajo. Un `push -f` sobre `main` o
+   sobre un `vN.N.N` es otra cosa y no se hace nunca. Y aun siendo legítimo, cambia
+   lo que corre en el CI de toda la flota sin que nadie toque una aplicación:
+   exige la autorización explícita de una persona, no se hace por inercia. Una
+   mayor congelada (`v1`) no se reapunta nunca.
+4. **Antes de mover el móvil, tres comprobaciones**, y ninguna se salta:
+   - la suite entera en verde, `python -m unittest discover -s tests`: el tag
+     publica también los comentarios y los docstrings;
+   - la calibración inversa de este repositorio contra sí mismo,
+     `python jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo`.
+     El perfil es `encuadre_operativo` porque este repositorio no despliega: con
+     `aplicacion`, `j01` y `j06` salen `SIN_EVALUAR`, que en modo bloqueante es
+     exit 1;
+   - el run de `Autotest` del commit, con el job `el-reusable-lo-valida-github` en
+     verde. **La suite verde no es la validación del YAML de los workflows**: sólo
+     GitHub la hace, y sólo al invocar el archivo (ver `v2.0.3` más abajo).
+5. **El lock viaja con el tag.** Si `semilla/CONGELADO/` cambió en la fábrica,
+   `semilla.lock` se resella **en el mismo tag**; sin eso, `j12` acusa de «editada»
+   a toda aplicación sembrada por un archivo que no tocó. Con el lock viaja el
+   `semilla.lock.anterior` que deja `sellar.py`, que es lo que le da a `j12` su
+   ventana de compatibilidad (ver la nota sobre `SEM-1` en [`REGLAS.md`](../REGLAS.md)).
+   Resellar el lock es una publicación como cualquier otra: tiene su propio `vN.x`
+   y su propia medición del radio de explosión, como las de `v2.0.10` y `v2.0.11`.
 
 ## Cuándo toca una mayor nueva
 
