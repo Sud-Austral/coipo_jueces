@@ -93,3 +93,10 @@ es limpio, cuando tiene hallazgos y cuando el verificador no pudo mirar
 [tests/test_tres_estados.py]. Pero elegir el modo en el que corre cada
 repositorio es una decision de una persona, y esa persona no esta en el
 codigo.
+
+## Actualización 2026-10-24
+
+Un motivo adicional, VERIFICADO en el comentario de `.github/workflows/probar-runner.yml`: la cuota de
+Actions del plan Free se agota y la compuerta deja de arrancar, bloqueando despliegues que en sí
+mismos son gratis. De ahí la entrada `runner` de `verificar.yml`. Cuántas veces ocurrió: no lo comprobé.
+

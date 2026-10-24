@@ -13,6 +13,17 @@ jobs:
       perfil: aplicacion    # aplicacion | encuadre_operativo
 ```
 
+Entradas opcionales del workflow (VERIFICADO en `.github/workflows/verificar.yml`):
+
+| Entrada | Valor por defecto | Para qué |
+|---|---|---|
+| `jueces` | vacío (todos los del perfil) | lista separada por espacios, p. ej. `j01 j09` |
+| `ref_jueces` | `v2` | tag o SHA de `coipo_jueces` con el que se verifica; pasarlo explícito junto al SHA del `uses:` congela de verdad YAML y motor |
+| `runner` | `ubuntu-latest` | etiqueta del runner; uno self-hosted no consume cuota de Actions (necesita `git` y `python3`) |
+
+Salidas: `bloqueantes` (número de hallazgos `BLOQUEA`) y `supresiones`. Versionado y
+publicación de tags: [`docs/VERSIONADO.md`](docs/VERSIONADO.md).
+
 A mano, sobre cualquier repositorio y sin instalar nada:
 
 ```bash
@@ -168,6 +179,16 @@ que se ignora en silencio.
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+Ejecutado el 2026-10-24 sobre `origin/main`: 181 pruebas, OK, 1 omitida (`skipped=1`; no
+investigué cuál es, y la regla de arriba dice que un `skip` es un fallo). Corre en CI con
+`.github/workflows/autotest.yml`; `.github/workflows/probar-runner.yml` (manual) comprueba que un
+runner self-hosted sirve para los jueces.
+
+## Más documentación
+
+[`CLAUDE.md`](CLAUDE.md) (guía para agentes) · [`REGLAS.md`](REGLAS.md) · [`DEUDA.md`](DEUDA.md) ·
+[`insumos/00-PROBLEMA.md`](insumos/00-PROBLEMA.md) · [`insumos/01-SOLUCION.md`](insumos/01-SOLUCION.md)
 
 Un `skip` es un fallo: una dependencia ausente falla con instrucciones, nunca se
 salta. Un test permanentemente saltado tiene el mismo color que uno que pasa.
