@@ -79,8 +79,13 @@ La política:
 5. **El lock viaja con el tag.** Si `semilla/CONGELADO/` cambió en la fábrica,
    `semilla.lock` se resella **en el mismo tag**; sin eso, `j12` acusa de «editada»
    a toda aplicación sembrada por un archivo que no tocó. Con el lock viaja el
-   `semilla.lock.anterior` que deja `sellar.py`, que es lo que le da a `j12` su
-   ventana de compatibilidad (ver la nota sobre `SEM-1` en [`REGLAS.md`](../REGLAS.md)).
+   `semilla.lock.historial` que mantiene `sellar.py`: las huellas de cada lock
+   publicado antes, que es lo que le permite a `j12` decir «atrasada» (AVISA,
+   siempre) en vez de «editada» (BLOQUEA) (ver la nota sobre `SEM-1` en
+   [`REGLAS.md`](../REGLAS.md)). Se publica en el mismo commit que el lock, y no se
+   edita a mano: sólo crece. Hasta el 2026-10-24 viajaba en su lugar un
+   `semilla.lock.anterior` con una ventana de 30 días (D2); el plazo no tenía
+   fuente —lo eligió una IA como valor por omisión— y esa decisión lo eliminó.
    Resellar el lock es una publicación como cualquier otra: tiene su propio `vN.x`
    y su propia medición del radio de explosión, como las de `v2.0.10` y `v2.0.11`.
 

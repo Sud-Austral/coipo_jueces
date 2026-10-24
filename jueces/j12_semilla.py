@@ -80,60 +80,103 @@ CALIBRACIÓN INVERSA (vuelta a medir el 2026-09-07, sobre los 15 repositorios
   del mensaje —«21 de 21 presentes»—. El «22» de esta línea nunca correspondió a
   nada que el juez emitiera.
 
-LA VENTANA DE COMPATIBILIDAD: DESFASADA NO ES EDITADA (D2, 2026-10-12)
-======================================================================
+CALIBRACIÓN INVERSA DEL HISTORIAL (2026-10-24, con el lock de 42 piezas y su
+historial de 10 bloques sembrado desde git)
+  Sobre las diez aplicaciones sembradas del disco que adoptan la semilla
+  (`adopta:` con `semilla`, o sin la clave): `coipo_anillo_evacuacion`,
+  `coipo_api`, `coipo_atraso_personal`, `coipo_avisete`, `coipo_camara_deteccion`,
+  `coipo_firms`, `coipo_gestion_incendio`, `coipo_saff_paralelo`,
+  `coipo_visor_saff` y `coipo_visor_sidco`.
+
+  - El `j12` publicado (`c4fec81`) con ese mismo lock: las diez en rojo, 79
+    `BLOQUEA` (7+8+10+6+7+7+7+9+9+9), casi todos por piezas sólo atrasadas.
+  - Este `j12`: **5 `BLOQUEA` en 3 aplicaciones, y los 5 son ediciones de
+    verdad**. Ninguna huella coincide con NINGUNA versión que la fábrica tuvo en
+    git (no sólo las selladas), y el git log de cada aplicación tiene el commit
+    que la editó: `coipo_api` (`clasificacion.py`, `conftest.py`,
+    `test_la_semilla_importa.py`, sembrada el 2026-09-15 «con sus cuatro
+    defectos corregidos» a mano), `coipo_atraso_personal` (`mapeo_claims.py`,
+    2026-09-25) y `coipo_visor_saff` (`identidad.py`, 2026-10-07). Las otras
+    siete, cero `BLOQUEA`. El resto —89 piezas— AVISA como atrasada.
+  - Una aplicación sembrada de cero ese día (`git init` + `sembrar.py --gerencia
+    1_SECOM`) sale `OK`, 42 de 42 presentes.
+  - Lo que deja abierto: `.dockerignore` se selló hasta el 2026-09-09 y después
+    la fábrica lo excluyó a propósito (`NO_SE_SELLA` de `sellar.py`: cada
+    aplicación lo amplía). Las cinco que conservan el de esa fecha AVISAN como
+    «retirada» hasta que lo adapten. No es falso —es la semilla de su fecha—,
+    pero es un aviso que no pide nada urgente; si se vuelve ruido, el arreglo es
+    de la fábrica (no meter en el historial lo que hoy está en `NO_SE_SELLA`),
+    no una supresión aquí.
+
+ATRASADA NO ES EDITADA: EL HISTORIAL (decisión del 2026-10-24)
+===============================================================
 Este juez no compara la aplicación contra la semilla: la compara contra el LOCK,
 que es lo único que viaja al CI de cada aplicación (`docs/VERSIONADO.md`,
 `v2.0.10`). Y el lock viaja con el tag móvil `v2`. Cada vez que se resella, `v2`
-salta de golpe y TODA aplicación sembrada con la semilla anterior pasa a `SEM-1`
+salta de golpe y TODA aplicación sembrada con la semilla anterior pasaba a `SEM-1`
 «es una pieza CONGELADA y está editada» por un archivo que ella no tocó. Ya se
 midió: el radio de explosión de `v2.0.11` dio tres `SEM-1` nuevos en cada una de
 dos aplicaciones sembradas, por piezas que sólo estaban atrasadas (`VERSIONADO.md`,
-tabla de `v2.0.11`; sólo no rompió el build porque iban en advisory). Acusar a
-alguien de lo que no hizo es la
-receta del falso positivo que enseña a suprimir al juez, y la regla es otra:
-editada y desfasada son dos defectos distintos, con dos mensajes y dos plazos.
+tabla de `v2.0.11`; sólo no rompió el build porque iban en advisory).
 
-Para distinguirlos, `semilla/sellar.py --escribir` de la fábrica deja junto al
-lock un `semilla.lock.anterior`: el lock que había ANTES del último resellado, con
-dos fechas en la cabecera (`# movido:` y `# ventana_hasta:`). Para cada pieza que
-no coincide con el lock vigente, en este orden:
+Y la fábrica lo dice con todas las letras, en `FILOSOFIA.md`, §3, de
+coipo_master_produccion: «Una pieza congelada de una versión anterior no es una
+pieza editada. Es la fábrica de su fecha. Un juez que acusa de "editada" a una app
+por tener el molde con el que nació viola este principio.» Lo decidió Luis
+Monsalve el 2026-10-24: una pieza que sólo está atrasada AVISA SIEMPRE, sin
+plazo; sólo una editada de verdad BLOQUEA.
 
-  1. coincide con el vigente              -> nada. Nunca hay hallazgo.
-  2. lleva `coipo-jueces:ignorar(SEM-1)`  -> supresión contada, como siempre. Va
-                                             ANTES que la ventana: quien se suprime
-                                             a sí mismo paga lo mismo en cualquier
-                                             fecha.
-  3. coincide con el ANTERIOR, y hoy <= `ventana_hasta` (inclusive)
-                                          -> AVISA, con las dos fechas en el mensaje.
-  4. coincide con el ANTERIOR, y hoy >  `ventana_hasta`
-                                          -> BLOQUEA: «desfasada», no «editada».
-  5. no coincide con ninguno              -> BLOQUEA «editada», exactamente como
-                                             antes de existir la ventana.
+Para distinguirlas, `semilla/sellar.py --escribir` de la fábrica mantiene junto al
+lock un `semilla.lock.historial`: las huellas de CADA lock publicado antes del
+vigente, en bloques que empiezan por `# vigente_hasta: AAAA-MM-DD`, la fecha en que
+ese lock dejó de ser el vigente. Sólo crece. Para cada pieza que la aplicación
+tiene, en este orden:
 
-LO QUE LA VENTANA NO ES, porque es lo que habría que vigilar:
-  - No es una supresión ni la elige la aplicación. La fija la fábrica, viaja en el
-    tag publicado y se lee en un archivo que el repositorio de la aplicación no
+  1. coincide con el lock vigente          -> nada. Nunca hay hallazgo.
+  2. lleva `coipo-jueces:ignorar(SEM-1)`   -> supresión contada, como siempre.
+  3. coincide con una huella del historial -> AVISA «atrasada: es la versión de la
+                                              semilla publicada hasta el AAAA-MM-DD»
+                                              (la fecha más reciente en que esa
+                                              huella fue la vigente), con
+                                              `sembrar.py --actualizar` de arreglo.
+  4. no coincide con ninguna               -> BLOQUEA «editada», como siempre.
+
+Una pieza que la semilla RETIRÓ del lock (`db/0000_plataforma.sql`, partido el
+2026-10-24 en `db/0000_0N_*.sql`) sigue en el historial: si la aplicación la tiene
+tal cual, AVISA como atrasada —con un arreglo distinto, porque `--actualizar` trae
+las piezas nuevas pero no borra la vieja—; si no coincide con nada, no se juzga:
+ya no es una pieza congelada, y las reglas miran hacia adelante (`FILOSOFIA.md`, §4).
+
+Esto reemplaza la «ventana de compatibilidad» de D2 (2026-10-12): un único
+`semilla.lock.anterior` que avisaba 30 días y después bloqueaba como «desfasada».
+El plazo de 30 días no tenía fuente: fue un valor por omisión que eligió una IA al
+registrar D2, nadie lo midió ni lo fijó Luis, y la decisión del 2026-10-24 lo
+elimina. Este juez ya no lee `semilla.lock.anterior`; `sellar.py --escribir` lo
+incorpora al historial y lo borra.
+
+LO QUE EL HISTORIAL NO ES, porque es lo que habría que vigilar:
+  - No es una supresión ni lo elige la aplicación. Lo escribe la fábrica, viaja en
+    el tag publicado y se lee de un archivo que el repositorio de la aplicación no
     contiene.
   - No relaja nada sobre una pieza EDITADA. Sólo reconoce un contenido que fue,
-    byte a byte, el vigente de la semilla; cualquier diferencia cae en 5.
-  - No tiene interruptor externo. La fecha de hoy sale de `_hoy()` y no de una
-    variable de entorno a propósito: una variable que mueva «hoy» sería una forma
-    de prorrogar la ventana sin que nada lo cuente, que es justo lo que la
-    supresión paga. Las pruebas parchean `_hoy`, como parchean `LOCK`.
-  - Ante la duda bloquea. Si `semilla.lock.anterior` existe y no se puede leer
-    —sin fecha, fecha imposible, sin entradas— se IGNORA y se anota en
-    `no_evaluado`, de modo que el resultado es el de antes de la ventana: un
-    archivo roto no puede ocultar un bloqueo, y tampoco puede romperse en silencio.
+    byte a byte, el vigente de la semilla en algún lock publicado; cualquier
+    diferencia cae en 4.
+  - Ante la duda, no es más indulgente. Sin historial (un lock publicado antes del
+    2026-10-24, o un checkout que no lo trae) el juez se comporta como antes de
+    D2: atrasada = editada, y lo anota en `no_evaluado`. Con un historial que
+    existe y no se entiende —sin `# formato: 1`, una fecha imposible, una entrada
+    fuera de bloque, un bloque vacío, bytes que no son UTF-8— se IGNORA entero y
+    se anota: un archivo roto no puede ocultar un bloqueo.
 
 LÍMITES CONOCIDOS, sin disimular:
-  - El archivo guarda sólo el lock INMEDIATAMENTE anterior. Una aplicación dos
-    resellados atrás no está cubierta y se juzga como editada.
-  - «Hoy» es la fecha local de la máquina que corre el juez (UTC en un runner de
-    GitHub). El último día puede cerrar unas horas antes o después según la zona.
-  - Pasada la ventana el archivo debería retirarse en el siguiente resellado.
-    Mientras siga ahí, bloquea con el mensaje de «desfasada», que es más exacto
-    que «editada» y lleva el mismo arreglo.
+  - El historial se sembró, el 2026-10-24, desde la historia de git de
+    `semilla.lock` en coipo_jueces (`sellar.py --con-historia-git`). La fecha de
+    cada bloque es la del commit que lo reemplazó, no la del movimiento del tag
+    `v2`. Una aplicación sembrada desde un árbol de la fábrica que nunca se selló
+    (copió una pieza entre dos resellados) tiene una huella que ningún lock
+    publicó, y se juzga como editada.
+  - La huella atrasada se reconoce por pieza, no por lock entero: una aplicación
+    con piezas de tres semillas distintas avisa tres veces, cada una con su fecha.
 """
 
 from __future__ import annotations
@@ -168,43 +211,37 @@ def _lock() -> dict[str, str]:
     return salida
 
 
-# Las dos fechas de la cabecera de `semilla.lock.anterior`. Se anclan al inicio de
-# línea, tras el `#`, y exigen una fecha completa: una línea de prosa del
-# encabezado que mencione «movido:» no cuenta como declaración. Espacios y
-# tabuladores, no `\s`: `\s` cruzaría un salto de línea y casaría `#` solo en una
-# línea con una fecha en la siguiente.
-MOVIDO = re.compile(r"^#[ \t]*movido:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$", re.MULTILINE)
-VENTANA_HASTA = re.compile(
-    r"^#[ \t]*ventana_hasta:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$", re.MULTILINE)
+# El contrato de `semilla.lock.historial` con `semilla/sellar.py` de la fábrica,
+# que lo escribe con estas mismas expresiones (se repiten allí: la dependencia va
+# al revés, por el lock). Espacios y tabuladores, no `\s`: `\s` cruzaría un salto de
+# línea. `CABECERA_DE_BLOQUE` reconoce la intención y `VIGENTE_HASTA` la forma
+# completa: una cabecera de bloque con la fecha mal escrita hace ilegible el
+# archivo, no se lee como un comentario más.
+FORMATO_HISTORIAL = "1"
+FORMATO = re.compile(r"^#[ \t]*formato:[ \t]*(\S+)[ \t]*$")
+CABECERA_DE_BLOQUE = re.compile(r"^#[ \t]*vigente_hasta:")
+VIGENTE_HASTA = re.compile(r"^#[ \t]*vigente_hasta:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$")
 
 
-def _ruta_anterior() -> Path:
-    """`semilla.lock.anterior`, junto al lock. Sale de `LOCK` para que las pruebas,
-    que parchean `LOCK`, parcheen también este sin saberlo."""
-    return LOCK.with_name(LOCK.name + ".anterior")
+def _ruta_historial() -> Path:
+    """`semilla.lock.historial`, junto al lock. Sale de `LOCK` para que las pruebas,
+    que parchean `LOCK`, parcheen también éste sin saberlo."""
+    return LOCK.with_name(LOCK.name + ".historial")
 
 
-def _hoy() -> datetime.date:
-    """La fecha de hoy, en una función de módulo para que sea INYECTABLE.
+def _historial() -> dict[str, dict[str, datetime.date]] | None:
+    """ruta -> {huella -> hasta cuándo fue la vigente}, o None.
 
-    Sin variable de entorno a propósito: ver «Lo que la ventana no es» en el
-    docstring del módulo. Las pruebas parchean esta función, no el reloj."""
-    return datetime.date.today()
+    None significa SÓLO «no hay `semilla.lock.historial`». Si el archivo existe pero
+    no se puede usar, LEVANTA `ValueError` con el motivo: un archivo roto que se
+    leyera como «no hay historial» sería indistinguible de uno que nunca se publicó,
+    y nadie se enteraría de que el historial prometido no está funcionando.
 
-
-def _anterior() -> tuple[dict[str, str], datetime.date, datetime.date] | None:
-    """(ruta -> huella del lock anterior, movido, ventana_hasta), o None.
-
-    None significa SÓLO «no hay `semilla.lock.anterior`»: sin ventana, el juez se
-    comporta como antes de que existiera.
-
-    Si el archivo existe pero no se puede usar, LEVANTA `ValueError` con el
-    motivo, y no devuelve None. Son dos situaciones distintas y confundirlas es el
-    fallo que este repositorio denuncia en todas partes: un archivo roto que se
-    leyera como «no hay ventana» sería indistinguible de uno que nunca se publicó,
-    y nadie se enteraría de que la ventana prometida no está funcionando.
+    Una huella que aparece en varios bloques (la pieza no cambió entre dos
+    resellados) se queda con la fecha MÁS RECIENTE: es hasta cuándo la semilla la
+    estuvo publicando.
     """
-    ruta = _ruta_anterior()
+    ruta = _ruta_historial()
     if not ruta.exists():
         return None
     try:
@@ -212,27 +249,42 @@ def _anterior() -> tuple[dict[str, str], datetime.date, datetime.date] | None:
     except (OSError, UnicodeDecodeError) as e:
         raise ValueError(f"no se pudo leer el archivo ({type(e).__name__})") from e
 
-    fechas = []
-    for nombre, patron in (("movido", MOVIDO), ("ventana_hasta", VENTANA_HASTA)):
-        m = patron.search(texto)
-        if not m:
-            raise ValueError(f"falta la cabecera `# {nombre}: AAAA-MM-DD`")
-        try:
-            fechas.append(datetime.date.fromisoformat(m.group(1)))
-        except ValueError as e:
-            raise ValueError(f"`{nombre}: {m.group(1)}` no es una fecha") from e
-    movido, ventana_hasta = fechas
-    if ventana_hasta < movido:
-        raise ValueError(f"`ventana_hasta` ({ventana_hasta}) es anterior a "
-                         f"`movido` ({movido}): la ventana nacería cerrada")
-
-    hashes: dict[str, str] = {}
-    for linea in texto.splitlines():
-        if (m := ENTRADA.match(linea.strip())):
-            hashes[m.group("ruta")] = m.group("huella")
-    if not hashes:
-        raise ValueError("no tiene ninguna entrada `<sha256>  <ruta>`")
-    return hashes, movido, ventana_hasta
+    formato = None
+    hasta: datetime.date | None = None
+    en_el_bloque = 0
+    salida: dict[str, dict[str, datetime.date]] = {}
+    for n, crudo in enumerate(texto.splitlines(), start=1):
+        linea = crudo.strip()
+        if (m := FORMATO.match(linea)):
+            formato = m.group(1)
+            continue
+        if CABECERA_DE_BLOQUE.match(linea):
+            m = VIGENTE_HASTA.match(linea)
+            if not m:
+                raise ValueError(f"línea {n}: `vigente_hasta:` sin una fecha AAAA-MM-DD")
+            if hasta is not None and en_el_bloque == 0:
+                raise ValueError(f"el bloque `vigente_hasta: {hasta}` no tiene entradas")
+            try:
+                hasta = datetime.date.fromisoformat(m.group(1))
+            except ValueError as e:
+                raise ValueError(f"línea {n}: `{m.group(1)}` no es una fecha") from e
+            en_el_bloque = 0
+            continue
+        if (m := ENTRADA.match(linea)):
+            if hasta is None:
+                raise ValueError(f"línea {n}: una entrada antes de cualquier `# vigente_hasta:`")
+            en_el_bloque += 1
+            por_huella = salida.setdefault(m.group("ruta"), {})
+            previa = por_huella.get(m.group("huella"))
+            por_huella[m.group("huella")] = hasta if previa is None else max(previa, hasta)
+    if formato is None:
+        raise ValueError("falta la línea `# formato: 1`: no es un historial")
+    if formato != FORMATO_HISTORIAL:
+        raise ValueError(f"`formato: {formato}` no es uno que este juez sepa leer "
+                         f"(lee el {FORMATO_HISTORIAL})")
+    if hasta is not None and en_el_bloque == 0:
+        raise ValueError(f"el bloque `vigente_hasta: {hasta}` no tiene entradas")
+    return salida
 
 
 def _huella(ruta: Path) -> str | None:
@@ -249,52 +301,90 @@ MARCADOR = ".semilla"
 CAPA = "semilla"
 VERSION = re.compile(r"^\s*version:\s*(?P<version>\S+)", re.MULTILINE)
 
+ACTUALIZAR = (
+    "desde el checkout de coipo_master_produccion, `python semilla/sembrar.py "
+    "--destino <ruta-de-esta-aplicacion> --actualizar` (documentado en "
+    "`semilla/README.md`; con la fábrica al lado, desde esta aplicación sirve "
+    "`--destino .` con `python ../coipo_master_produccion/semilla/sembrar.py`). "
+    "Reescribe SÓLO las piezas selladas y deja intacto lo que la aplicación adaptó; "
+    "exige el árbol de trabajo limpio, para que el diff se pueda revisar.")
 
-def _desfasada(r: Resultado, ruta: str, movido: datetime.date,
-               ventana_hasta: datetime.date, hoy: datetime.date) -> None:
-    """Una pieza que es, byte a byte, la del lock ANTERIOR: atrasada, no editada.
 
-    AVISA hasta `ventana_hasta` inclusive y BLOQUEA después. El arreglo es el mismo
-    en los dos lados de la fecha —`sembrar.py --actualizar`—; lo que cambia es sólo
-    si el plazo ya venció, y por eso la severidad es lo único que depende de `hoy`.
-    """
-    arreglo = (
-        "ponla al día, no la edites a mano: desde el checkout de "
-        "coipo_master_produccion, `python semilla/sembrar.py --destino "
-        "<ruta-de-esta-aplicacion> --actualizar` (documentado en `semilla/README.md`; "
-        "con la fábrica al lado, desde esta aplicación sirve `--destino .` con "
-        "`python ../coipo_master_produccion/semilla/sembrar.py`). "
-        "Reescribe SÓLO las piezas selladas y deja intacto lo que la aplicación "
-        "adaptó; exige el árbol de trabajo limpio, para que el diff se pueda revisar.")
+def _atrasada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
+    """Una pieza que es, byte a byte, la de un lock publicado antes: atrasada, no editada.
 
-    if hoy <= ventana_hasta:
-        r.avisa(
-            "SEM-1", ruta,
-            f"pieza CONGELADA de una versión ANTERIOR de la semilla (se movió el "
-            f"{movido}): no está editada, está sin actualizar. La ventana de "
-            f"compatibilidad llega hasta el {ventana_hasta} inclusive; desde el "
-            f"{ventana_hasta + datetime.timedelta(days=1)} esto pasa a bloquear",
-            "la aplicación sigue funcionando con el Dockerfile, el nginx o el "
-            "archivo que sea de la versión anterior de la semilla; no recibe las "
-            f"correcciones que la semilla trae desde el {movido} y el defecto que "
-            "cerraron sigue vivo en esta aplicación hasta que se actualice",
-            arreglo=arreglo,
-        )
-        return
-
-    r.bloquea(
+    AVISA siempre, sin plazo (FILOSOFIA.md §3 y la decisión del 2026-10-24): es la
+    fábrica de su fecha, y la aplicación se pone al día cuando quiera."""
+    r.avisa(
         "SEM-1", ruta,
-        f"pieza CONGELADA desfasada: coincide con una versión ANTERIOR de la "
-        f"semilla (se movió el {movido}) y la ventana de compatibilidad venció el "
-        f"{ventana_hasta}. No está editada: está sin actualizar",
-        "la aplicación corre con la versión anterior de esta pieza y no recibe las "
-        f"correcciones de la semilla desde el {movido}; el plazo para ponerla al "
-        "día venció, y desfasada y editada acaban en lo mismo —la corrección no "
-        "llega a esta aplicación y nadie se entera—",
-        arreglo=arreglo + " Sólo si de verdad no se puede actualizar todavía, "
-                "suprímela con `coipo-jueces:ignorar(SEM-1) <motivo>` en la primera "
-                "línea: se cuenta y se publica.",
+        f"pieza CONGELADA atrasada: es la versión de la semilla publicada hasta el "
+        f"{hasta}. No está editada: la semilla la mejoró después",
+        "la aplicación sigue funcionando con el Dockerfile, el nginx o el archivo que "
+        f"sea de la semilla vigente hasta el {hasta}; las correcciones que la semilla "
+        "trajo después no le llegan hasta que se actualice",
+        arreglo="ponla al día cuando convenga, no la edites a mano: " + ACTUALIZAR,
     )
+
+
+def _retirada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
+    """Una pieza que el lock vigente ya no nombra, tal como la publicó una semilla anterior."""
+    r.avisa(
+        "SEM-1", ruta,
+        f"pieza CONGELADA atrasada: es la versión de la semilla publicada hasta el "
+        f"{hasta}, y el lock de hoy ya no la sella (la semilla la partió en otras, o "
+        "dejó de congelarla)",
+        f"la aplicación conserva esta pieza como era en la semilla vigente hasta el "
+        f"{hasta}; lo que la semilla cambió después en su lugar no le llega",
+        arreglo="ya no es una pieza sellada, así que `sembrar.py --actualizar` no la "
+                "toca y este aviso no se cierra solo. Mira qué hizo la semilla con ella "
+                f"(`git log -- semilla/CONGELADO/{ruta}` en coipo_master_produccion). "
+                "Si la partió en otras —`db/0000_plataforma.sql` pasó a "
+                "`db/0000_0N_*.sql` el 2026-10-24—, `--actualizar` trae las nuevas SIN "
+                "borrar ésta y quedarían las dos: con una base ya desplegada, decide "
+                "antes cuál se aplica. Si dejó de congelarla porque cada aplicación la "
+                "amplía —`.dockerignore`, desde el 2026-09-09—, es tuya: adáptala o "
+                "tráela de la semilla de hoy, y el aviso desaparece.",
+    )
+
+
+def _editada(r: Resultado, ruta: str) -> None:
+    r.bloquea(
+        "SEM-1", ruta, "es una pieza CONGELADA de la semilla y está editada",
+        "este archivo es idéntico en toda la flota a propósito: cierra un fallo "
+        "que ya ocurrió y la corrección tiene que llegar a todas las "
+        "aplicaciones a la vez. Una copia editada deja de recibir las "
+        "correcciones y nadie se entera — es exactamente cómo `DOCKER.md` acabó "
+        "en 10 repositorios con 3 contenidos distintos",
+        arreglo="si el cambio sólo sirve para esta aplicación, sácalo a un "
+                "archivo propio que NO esté en el lock. Si el cambio es bueno "
+                "para toda la flota, hazlo en `semilla/CONGELADO/` de "
+                "coipo_master_produccion, vuelve a sellar, y llega a todas. "
+                "Si de verdad hace falta la excepción aquí, suprímela con "
+                "`coipo-jueces:ignorar(SEM-1) <motivo>` en la primera línea: "
+                "se cuenta y se publica.",
+    )
+
+
+def _leer_historial(r: Resultado) -> dict[str, dict[str, datetime.date]]:
+    """El historial, o `{}` con la razón anotada en `no_evaluado`. Nunca más indulgente."""
+    nombre = _ruta_historial().name
+    regenerar = ("Lo escribe `python semilla/sellar.py --escribir <ruta>/semilla.lock` "
+                 "en coipo_master_produccion.")
+    try:
+        historial = _historial()
+    except ValueError as e:
+        r.no_evaluado.append(
+            f"{nombre} existe pero no se pudo leer: {e}. Se IGNORA entero, así que una "
+            "pieza de una semilla anterior se juzgará como EDITADA, nunca con más "
+            "indulgencia. " + regenerar)
+        return {}
+    if historial is None:
+        r.no_evaluado.append(
+            f"no hay {nombre} junto al lock: este juez no puede distinguir una pieza "
+            "ATRASADA de una EDITADA y juzga las dos como editadas, como antes del "
+            "2026-10-24. " + regenerar)
+        return {}
+    return historial
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
@@ -357,20 +447,9 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     r.comprobo(f"piezas congeladas de la semilla {version} "
                f"({len(presentes)} de {len(esperado)} presentes)")
 
-    # La ventana de compatibilidad (ver el docstring del módulo). Se lee ANTES del
-    # bucle y no cuando aparece la primera diferencia, para que un archivo roto se
-    # anote siempre y no sólo cuando casualmente hace falta.
-    anterior = None
-    try:
-        anterior = _anterior()
-    except ValueError as e:
-        r.no_evaluado.append(
-            f"{_ruta_anterior().name} existe pero no se pudo leer: {e}. Se IGNORA la "
-            "ventana de compatibilidad, así que una pieza que coincida con la semilla "
-            "anterior se juzgará como EDITADA, igual que antes de que la ventana "
-            "existiera. Lo escribe `python semilla/sellar.py --escribir "
-            "<ruta>/semilla.lock` en coipo_master_produccion.")
-    hoy = _hoy() if anterior else None
+    # Se lee ANTES del bucle y no cuando aparece la primera diferencia, para que
+    # un archivo roto o ausente se anote siempre y no sólo cuando hace falta.
+    historial = _leer_historial(r)
 
     for ruta in sorted(presentes):
         actual = _huella(repo.ruta(ruta))
@@ -380,30 +459,29 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         if actual == esperado[ruta]:
             continue
 
-        lineas = repo.lineas(ruta)
-        if (motivo := suprimido(lineas, 0, "SEM-1")):
+        if (motivo := suprimido(repo.lineas(ruta), 0, "SEM-1")):
             r.supresiones.append(f"{ruta} pieza congelada editada — {motivo}")
             continue
 
-        if anterior and anterior[0].get(ruta) == actual:
-            _desfasada(r, ruta, anterior[1], anterior[2], hoy)
+        if (hasta := historial.get(ruta, {}).get(actual)) is not None:
+            _atrasada(r, ruta, hasta)
             continue
 
-        r.bloquea(
-            "SEM-1", ruta, "es una pieza CONGELADA de la semilla y está editada",
-            "este archivo es idéntico en toda la flota a propósito: cierra un fallo "
-            "que ya ocurrió y la corrección tiene que llegar a todas las "
-            "aplicaciones a la vez. Una copia editada deja de recibir las "
-            "correcciones y nadie se entera — es exactamente cómo `DOCKER.md` acabó "
-            "en 10 repositorios con 3 contenidos distintos",
-            arreglo="si el cambio sólo sirve para esta aplicación, sácalo a un "
-                    "archivo propio que NO esté en el lock. Si el cambio es bueno "
-                    "para toda la flota, hazlo en `semilla/CONGELADO/` de "
-                    "coipo_master_produccion, vuelve a sellar, y llega a todas. "
-                    "Si de verdad hace falta la excepción aquí, suprímela con "
-                    "`coipo-jueces:ignorar(SEM-1) <motivo>` en la primera línea: "
-                    "se cuenta y se publica.",
-        )
+        _editada(r, ruta)
+
+    # Las piezas que la semilla RETIRÓ del lock y siguen en el historial. Sólo se
+    # mira si coinciden con lo que se publicó: si no coinciden, ya no son piezas
+    # congeladas y no hay regla que mire hacia atrás (FILOSOFIA.md, §4).
+    for ruta in sorted(set(historial) - set(esperado)):
+        if not repo.existe(ruta):
+            continue
+        actual = _huella(repo.ruta(ruta))
+        if actual is None or (hasta := historial[ruta].get(actual)) is None:
+            continue
+        if (motivo := suprimido(repo.lineas(ruta), 0, "SEM-1")):
+            r.supresiones.append(f"{ruta} pieza retirada de la semilla — {motivo}")
+            continue
+        _retirada(r, ruta, hasta)
 
 
 if __name__ == "__main__":

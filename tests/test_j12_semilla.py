@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import datetime
 import hashlib
-import os
 import sys
 import unittest
 from pathlib import Path
-from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ayuda import CasoConRepo, RepoSintetico, hay_git  # noqa: E402
@@ -187,40 +185,46 @@ class PruebaAdopcion(PruebaSemilla):
 
 
 # --------------------------------------------------------------------------
-# La ventana de compatibilidad (D2, 2026-10-12)
+# El historial: atrasada no es editada (decisión del 2026-10-24)
 # --------------------------------------------------------------------------
 
-# Todo sintético. «Anterior» es otra versión inventada de la misma pieza: ningún
-# contenido ni huella sale de un repositorio de CONAF.
-ANTERIOR = "server {\n    listen 7000;\n}\n"
-MOVIDO = "2026-10-14"
-HASTA = "2026-11-13"
-DENTRO = "2026-10-20"
-ULTIMO_DIA = HASTA
-DIA_SIGUIENTE = "2026-11-14"
-MUCHO_DESPUES = "2027-03-01"
+# Todo sintético. Tres versiones inventadas de la misma pieza, de la más vieja a la
+# vigente: ningún contenido ni huella sale de un repositorio de CONAF.
+V1 = "server {\n    listen 6000;\n}\n"
+V2 = "server {\n    listen 7000;\n}\n"
+VIGENTE = CONTENIDO
+HASTA_V1 = "2026-09-05"
+HASTA_V2 = "2026-10-24"
+RETIRADA = "db/0000_vieja.sql"
+RETIRADA_V1 = "-- una pieza que la semilla partió después\n"
 
 
-def texto_anterior(entradas: dict[str, str] | None = None, movido: str = MOVIDO,
-                   hasta: str = HASTA) -> str:
-    """Un `semilla.lock.anterior` bien formado, con el contrato que escribe
-    `sellar.py --escribir`. `entradas` es ruta -> CONTENIDO (se calcula la huella)."""
-    entradas = {CONGELADO: ANTERIOR} if entradas is None else entradas
-    cuerpo = "".join(f"{huella(c)}  {r}\n" for r, c in entradas.items())
-    return ("# semilla.lock.anterior — archivo de prueba, sintético.\n#\n"
-            f"# movido: {movido}\n# ventana_hasta: {hasta}\n#\n"
-            f"# {len(entradas)} archivos.\n\n{cuerpo}")
+def bloque(hasta: str, entradas: dict[str, str]) -> str:
+    """Un bloque del historial; `entradas` es ruta -> CONTENIDO (se calcula la huella)."""
+    return f"\n# vigente_hasta: {hasta}\n" + "".join(
+        f"{huella(c)}  {r}\n" for r, c in entradas.items())
 
 
-class PruebaVentana(unittest.TestCase):
-    """Una pieza del lock ANTERIOR está desfasada, no editada.
+def texto_historial(*bloques: str, formato: str = "1") -> str:
+    """Un `semilla.lock.historial` con el contrato de `sellar.py --escribir`."""
+    return ("# semilla.lock.historial — archivo de prueba, sintético.\n#\n"
+            f"# formato: {formato}\n# {len(bloques)} bloques.\n" + "".join(bloques))
 
-    Mover `v2` pone en `SEM-1` a toda aplicación sembrada con la semilla anterior
-    por un archivo que ella no tocó (`VERSIONADO.md`, `v2.0.11`). La ventana lo
-    distingue: AVISA con fecha hasta `ventana_hasta`, BLOQUEA después. Y la regla
-    que más importa de esta clase es la contraria: **ninguna combinación de
-    ventana, fecha o archivo roto produce un hallazgo sobre una pieza que coincide
-    con el lock vigente**, ni oculta el bloqueo de una pieza realmente editada.
+
+def historial_de_dos() -> str:
+    """V1 publicada hasta HASTA_V1 (con la pieza que después se retiró) y V2 hasta HASTA_V2."""
+    return texto_historial(bloque(HASTA_V1, {CONGELADO: V1, RETIRADA: RETIRADA_V1}),
+                           bloque(HASTA_V2, {CONGELADO: V2}))
+
+
+class PruebaHistorial(unittest.TestCase):
+    """Una pieza de una semilla anterior está ATRASADA, no editada, y AVISA siempre.
+
+    `FILOSOFIA.md` §3 de la fábrica: «una pieza congelada de una versión anterior no
+    es una pieza editada». Y la regla que más importa de esta clase es la contraria:
+    **ninguna combinación de historial —ausente, roto o degenerado— produce un
+    hallazgo sobre una pieza que coincide con el lock vigente**, ni oculta el
+    bloqueo de una pieza realmente editada.
     """
 
     def setUp(self):
@@ -229,268 +233,285 @@ class PruebaVentana(unittest.TestCase):
         self.repo = RepoSintetico(j12)
         self.addCleanup(self.repo.cierra)
         self.lock = Path(self.repo.dir) / "semilla.lock.prueba"
-        self.lock.write_text(f"{huella(CONTENIDO)}  {CONGELADO}\n", encoding="utf-8")
-        # `_ruta_anterior()` sale de `LOCK`, así que parchear `LOCK` mueve ambos.
-        self.anterior = Path(str(self.lock) + ".anterior")
+        self.lock.write_text(f"{huella(VIGENTE)}  {CONGELADO}\n", encoding="utf-8")
+        # `_ruta_historial()` sale de `LOCK`, así que parchear `LOCK` mueve ambos.
+        self.historial = Path(str(self.lock) + ".historial")
         self._real, j12.LOCK = j12.LOCK, self.lock
         self.addCleanup(lambda: setattr(j12, "LOCK", self._real))
 
     # -- ayudas ---------------------------------------------------------------
 
-    def sembrado(self, contenido: str) -> None:
+    def sembrado(self, contenido: str, **otras: str) -> None:
         self.repo.escribe(".semilla", "version: 2026-09-05\n")
         self.repo.escribe(CONGELADO, contenido)
+        for ruta, texto in otras.items():
+            self.repo.escribe(ruta, texto)
 
-    def juzga_el(self, fecha: str):
-        """Juzga fingiendo que hoy es `fecha`, parcheando `_hoy`, no el reloj."""
-        with mock.patch.object(j12, "_hoy",
-                               return_value=datetime.date.fromisoformat(fecha)):
-            return self.repo.juzga()
+    def con_historial(self, texto: str | None = None) -> None:
+        self.historial.write_text(historial_de_dos() if texto is None else texto,
+                                  encoding="utf-8")
 
     def hallazgo(self, r):
         self.assertEqual(1, len(r.hallazgos), [h.mensaje for h in r.hallazgos])
         return r.hallazgos[0]
 
-    # -- dentro de la ventana: avisa ------------------------------------------
-
-    def test_dentro_de_la_ventana_avisa_y_no_bloquea(self):
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(ANTERIOR)
-        r = self.juzga_el(DENTRO)
-        self.assertEqual([], r.bloqueantes)
+    def assertAtrasada(self, r, hasta: str, archivo: str = CONGELADO):
         h = self.hallazgo(r)
-        self.assertEqual("SEM-1", h.regla)
-        self.assertEqual(CONGELADO, h.archivo)
-        self.assertIn("pieza CONGELADA de una versión ANTERIOR de la semilla", h.mensaje)
-        self.assertNotIn(
-            "es una pieza CONGELADA de la semilla y está editada", h.mensaje,
-            "no puede acusar de editar lo que la aplicación no tocó")
-
-    def test_el_aviso_trae_las_fechas_y_el_arreglo(self):
-        """Un aviso con fecha límite que no la dice no es un aviso con fecha."""
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(ANTERIOR)
-        h = self.hallazgo(self.juzga_el(DENTRO))
-        self.assertIn(MOVIDO, h.mensaje)
-        self.assertIn(HASTA, h.mensaje)
-        self.assertIn("2026-11-14", h.mensaje, "y el día en que empieza a bloquear")
-        self.assertIn("sembrar.py", h.arreglo)
-        self.assertIn("--actualizar", h.arreglo)
+        self.assertEqual([], r.bloqueantes, "una pieza atrasada no bloquea, nunca")
+        self.assertEqual(("SEM-1", archivo), (h.regla, h.archivo))
+        self.assertIn("atrasada", h.mensaje)
+        self.assertIn(f"publicada hasta el {hasta}", h.mensaje)
+        self.assertNotIn("es una pieza CONGELADA de la semilla y está editada", h.mensaje,
+                         "no puede acusar de editar lo que la aplicación no tocó")
         self.assertTrue(h.manifestacion.strip(), "un hallazgo sin manifestación no existe")
-        self.assertIn("versión anterior de la semilla", h.manifestacion)
-
-    def test_el_ultimo_dia_de_la_ventana_todavia_avisa(self):
-        """`ventana_hasta` es INCLUSIVE: un plazo que vence a medianoche del día
-        anterior al que dice es un plazo mal escrito."""
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(ANTERIOR)
-        r = self.juzga_el(ULTIMO_DIA)
-        self.assertEqual([], r.bloqueantes)
-        self.assertEqual(1, len(r.hallazgos))
-
-    def test_antes_de_la_fecha_de_movido_tambien_avisa(self):
-        """Un reloj adelantado o atrasado no convierte el aviso en bloqueo."""
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(ANTERIOR)
-        r = self.juzga_el("2026-10-01")
-        self.assertEqual([], r.bloqueantes)
-        self.assertEqual(1, len(r.hallazgos))
-
-    # -- fuera de la ventana: bloquea -----------------------------------------
-
-    def test_fuera_de_la_ventana_bloquea_como_desfasada(self):
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(ANTERIOR)
-        for fecha in (DIA_SIGUIENTE, MUCHO_DESPUES):
-            with self.subTest(hoy=fecha):
-                r = self.juzga_el(fecha)
-                h = self.hallazgo(r)
-                self.assertEqual([h], r.bloqueantes)
-                self.assertIn(f"la ventana de compatibilidad venció el {HASTA}", h.mensaje)
-                self.assertIn("desfasada", h.mensaje)
-                self.assertIn("No está editada", h.mensaje)
-                self.assertIn(MOVIDO, h.mensaje)
-                self.assertIn("--actualizar", h.arreglo)
-                self.assertTrue(h.manifestacion.strip())
-
-    # -- ni vigente ni anterior: editada, como siempre ------------------------
-
-    def test_ni_vigente_ni_anterior_bloquea_como_editada(self):
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(CONTENIDO + "# un cambio inocente de una app con prisa\n")
-        for fecha in (DENTRO, ULTIMO_DIA, DIA_SIGUIENTE):
-            with self.subTest(hoy=fecha):
-                r = self.juzga_el(fecha)
-                self.assertBloqueaEditada(r)
-
-    def test_editar_la_version_anterior_tampoco_la_salva(self):
-        """Partir de la pieza anterior y retocarla es una edición. La ventana
-        reconoce un contenido que FUE el vigente, byte a byte, nada más."""
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        self.sembrado(ANTERIOR + "# y ademas lo toque\n")
-        self.assertBloqueaEditada(self.juzga_el(DENTRO))
+        return h
 
     def assertBloqueaEditada(self, r):
         h = self.hallazgo(r)
         self.assertEqual([h], r.bloqueantes)
         self.assertIn("es una pieza CONGELADA de la semilla y está editada", h.mensaje)
-        self.assertNotIn("ANTERIOR", h.mensaje)
+        self.assertNotIn("atrasada", h.mensaje)
 
-    # -- sin archivo anterior: el comportamiento de siempre -------------------
+    # -- vigente: nada --------------------------------------------------------
 
-    def test_sin_archivo_anterior_se_comporta_como_antes(self):
-        self.assertFalse(self.anterior.exists())
-        self.assertIsNone(j12._anterior())
-        self.sembrado(ANTERIOR)         # sería «desfasada» si hubiera ventana
-        r = self.juzga_el(DENTRO)
+    def test_la_pieza_vigente_no_produce_hallazgo(self):
+        self.con_historial()
+        self.sembrado(VIGENTE)
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos)
+        self.assertEqual([], r.no_evaluado, "con historial legible no hay nada que anotar")
+        self.assertEqual("OK", r.veredicto)
+
+    # -- atrasada: avisa, con fecha y arreglo, sin plazo ----------------------
+
+    def test_atrasada_una_version_avisa_con_su_fecha_y_el_arreglo(self):
+        self.con_historial()
+        self.sembrado(V2)
+        h = self.assertAtrasada(self.repo.juzga(), HASTA_V2)
+        self.assertIn("sembrar.py", h.arreglo)
+        self.assertIn("--actualizar", h.arreglo)
+
+    def test_atrasada_dos_versiones_avisa_y_no_bloquea(self):
+        """La que D2 bloqueaba: con un solo `.anterior`, una aplicación dos
+        resellados atrás se juzgaba como editada. Es la fábrica de su fecha."""
+        self.con_historial()
+        self.sembrado(V1)
+        self.assertAtrasada(self.repo.juzga(), HASTA_V1)
+
+    def test_atrasada_no_tiene_plazo(self):
+        """Sin ventana: no hay fecha a partir de la cual el aviso se vuelva bloqueo.
+        Se comprueba en el contrato, no con el reloj: el módulo ya no tiene `_hoy`."""
+        self.assertFalse(hasattr(j12, "_hoy"), "una fecha de hoy es la puerta a un plazo")
+        self.assertFalse(hasattr(j12, "VENTANA_HASTA"))
+        self.con_historial()
+        self.sembrado(V1)
+        h = self.assertAtrasada(self.repo.juzga(), HASTA_V1)
+        self.assertNotIn("ventana", h.mensaje + h.arreglo)
+
+    def test_una_huella_en_varios_bloques_lleva_la_fecha_mas_reciente(self):
+        """La pieza no cambió entre dos resellados: la semilla la publicó hasta el
+        último, y esa es la fecha que dice el aviso."""
+        self.con_historial(texto_historial(bloque(HASTA_V1, {CONGELADO: V2}),
+                                           bloque(HASTA_V2, {CONGELADO: V2})))
+        self.sembrado(V2)
+        self.assertAtrasada(self.repo.juzga(), HASTA_V2)
+
+    # -- retirada del lock, pero en el historial ------------------------------
+
+    def test_pieza_retirada_del_lock_sin_editar_avisa_como_atrasada(self):
+        """Una pieza que la semilla partió en otras sigue en el historial: tenerla
+        tal cual es tener la fábrica de su fecha."""
+        self.con_historial()
+        self.sembrado(VIGENTE, **{RETIRADA: RETIRADA_V1})
+        h = self.assertAtrasada(self.repo.juzga(), HASTA_V1, archivo=RETIRADA)
+        self.assertIn("ya no la sella", h.mensaje)
+        self.assertIn("no la toca", h.arreglo, "--actualizar no borra lo retirado: se dice")
+
+    def test_pieza_retirada_y_editada_no_se_juzga(self):
+        """Ya no es una pieza congelada: las reglas miran hacia adelante."""
+        self.con_historial()
+        self.sembrado(VIGENTE, **{RETIRADA: RETIRADA_V1 + "-- y es mia\n"})
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos)
+        self.assertEqual("OK", r.veredicto)
+
+    # -- editada: bloquea, con historial o sin él -----------------------------
+
+    def test_editada_bloquea(self):
+        self.con_historial()
+        self.sembrado(VIGENTE + "# un cambio inocente de una app con prisa\n")
+        self.assertBloqueaEditada(self.repo.juzga())
+
+    def test_editar_una_version_anterior_tampoco_la_salva(self):
+        """Partir de la pieza anterior y retocarla es una edición. El historial
+        reconoce un contenido que FUE el vigente, byte a byte, nada más."""
+        self.con_historial()
+        self.sembrado(V2 + "# y ademas lo toque\n")
+        self.assertBloqueaEditada(self.repo.juzga())
+
+    # -- historial ausente: el comportamiento de antes, y lo dice -------------
+
+    def test_sin_historial_atrasada_es_editada_y_se_anota(self):
+        self.assertFalse(self.historial.exists())
+        self.assertIsNone(j12._historial())
+        self.sembrado(V2)               # sería «atrasada» si hubiera historial
+        r = self.repo.juzga()
         self.assertBloqueaEditada(r)
-        self.assertEqual([], r.no_evaluado, "su ausencia no se anota: es el caso normal")
+        notas = [n for n in r.no_evaluado if ".historial" in n]
+        self.assertEqual(1, len(notas), r.no_evaluado)
+        self.assertIn("no hay", notas[0])
+        self.assertIn("EDITADA", notas[0], "dice qué consecuencia tiene")
 
-    # -- archivo anterior ilegible: no oculta el bloqueo, y se anota ----------
+    def test_el_anterior_de_d2_ya_no_se_lee(self):
+        """Un `semilla.lock.anterior` olvidado junto al lock no reabre la ventana."""
+        Path(str(self.lock) + ".anterior").write_text(
+            "# movido: 2026-10-14\n# ventana_hasta: 2099-01-01\n\n"
+            f"{huella(V2)}  {CONGELADO}\n", encoding="utf-8")
+        self.sembrado(V2)
+        self.assertBloqueaEditada(self.repo.juzga())
 
-    def test_anterior_ilegible_no_oculta_el_bloqueo_y_se_anota(self):
-        sin_entradas = texto_anterior({})
+    # -- historial ilegible: no oculta el bloqueo, y se anota -----------------
+
+    def test_historial_ilegible_no_oculta_el_bloqueo_y_se_anota(self):
+        bueno = historial_de_dos()
         casos = {
-            "falta ventana_hasta": texto_anterior().replace(
-                f"# ventana_hasta: {HASTA}\n", ""),
-            "falta movido": texto_anterior().replace(f"# movido: {MOVIDO}\n", ""),
-            "fecha imposible": texto_anterior(hasta="2026-13-45"),
-            "ventana anterior a movido": texto_anterior(movido=HASTA, hasta=MOVIDO),
-            "sin entradas": sin_entradas,
+            "sin formato": bueno.replace("# formato: 1\n", ""),
+            "formato desconocido": historial_de_dos().replace("formato: 1", "formato: 2"),
+            "fecha imposible": bueno.replace(HASTA_V2, "2026-13-45"),
+            "fecha sin forma": bueno.replace(f"vigente_hasta: {HASTA_V2}",
+                                             "vigente_hasta: ayer"),
+            "entrada fuera de bloque": texto_historial(
+                f"\n{huella(V2)}  {CONGELADO}\n", bloque(HASTA_V2, {CONGELADO: V2})),
+            "bloque vacio": texto_historial(f"\n# vigente_hasta: {HASTA_V1}\n",
+                                            bloque(HASTA_V2, {CONGELADO: V2})),
+            "ultimo bloque vacio": texto_historial(bloque(HASTA_V2, {CONGELADO: V2}),
+                                                   f"\n# vigente_hasta: {HASTA_V1}\n"),
             "vacio": "",
-            "basura": "esto no es un lock\n",
+            "basura": "esto no es un historial\n",
         }
         for nombre, texto in casos.items():
             with self.subTest(caso=nombre):
-                self.anterior.write_text(texto, encoding="utf-8")
-                self.repo.escribe(".semilla", "version: 2026-09-05\n")
-                self.repo.escribe(CONGELADO, ANTERIOR)
-                r = self.juzga_el(DENTRO)        # DENTRO de lo que sería la ventana
+                self.con_historial(texto)
+                self.sembrado(V2)
+                r = self.repo.juzga()
                 self.assertBloqueaEditada(r)
-                notas = [n for n in r.no_evaluado if ".anterior" in n]
+                notas = [n for n in r.no_evaluado if ".historial" in n]
                 self.assertEqual(1, len(notas), r.no_evaluado)
                 self.assertIn("no se pudo leer", notas[0])
                 self.assertIn("EDITADA", notas[0], "dice qué consecuencia tiene")
 
-    def test_anterior_con_bytes_que_no_son_utf8(self):
-        self.anterior.write_bytes(b"\xff\xfe\x00\x80 no es texto\n")
-        self.sembrado(ANTERIOR)
-        r = self.juzga_el(DENTRO)
+    def test_historial_con_bytes_que_no_son_utf8(self):
+        self.historial.write_bytes(b"\xff\xfe\x00\x80 no es texto\n")
+        self.sembrado(V2)
+        r = self.repo.juzga()
         self.assertBloqueaEditada(r)
-        self.assertEqual(1, len([n for n in r.no_evaluado if ".anterior" in n]))
+        self.assertEqual(1, len([n for n in r.no_evaluado if ".historial" in n]))
 
-    def test_anterior_que_es_un_directorio(self):
+    def test_historial_que_es_un_directorio(self):
         """Existe pero no se puede leer: otra forma de «ilegible», por OSError."""
-        self.anterior.mkdir()
-        self.sembrado(ANTERIOR)
-        r = self.juzga_el(DENTRO)
+        self.historial.mkdir()
+        self.sembrado(V2)
+        r = self.repo.juzga()
         self.assertBloqueaEditada(r)
-        self.assertEqual(1, len([n for n in r.no_evaluado if ".anterior" in n]))
+        self.assertEqual(1, len([n for n in r.no_evaluado if ".historial" in n]))
 
-    def test_anterior_ilegible_no_aparece_si_no_se_juzga_nada(self):
+    def test_historial_ilegible_no_aparece_si_no_se_juzga_nada(self):
         """La nota sólo sale donde el archivo se habría usado: un repositorio sin
         `.semilla` sigue siendo NO_APLICA y no se llena de ruido."""
-        self.anterior.write_text("basura\n", encoding="utf-8")
+        self.con_historial("basura\n")
         self.repo.escribe(CONGELADO, "server { listen 9999; }\n")
-        r = self.juzga_el(DENTRO)
+        r = self.repo.juzga()
         self.assertEqual("NO_APLICA", r.veredicto)
         self.assertEqual([], r.no_evaluado)
 
-    def test_el_fin_de_linea_del_anterior_no_importa(self):
+    def test_el_fin_de_linea_del_historial_no_importa(self):
         """Se escribe en Windows y se lee en un runner Linux, o al revés."""
-        texto = texto_anterior().replace("\n", "\r\n")
-        self.anterior.write_bytes(texto.encode("utf-8"))
-        self.sembrado(ANTERIOR)
-        r = self.juzga_el(DENTRO)
-        self.assertEqual([], r.bloqueantes)
-        self.assertEqual(1, len(r.hallazgos))
+        self.historial.write_bytes(historial_de_dos().replace("\n", "\r\n").encode("utf-8"))
+        self.sembrado(V1)
+        r = self.repo.juzga()
+        self.assertAtrasada(r, HASTA_V1)
         self.assertEqual([], r.no_evaluado)
 
     def test_se_lee_lo_que_dice_el_contrato(self):
-        self.anterior.write_text(texto_anterior(), encoding="utf-8")
-        hashes, movido, hasta = j12._anterior()
-        self.assertEqual({CONGELADO: huella(ANTERIOR)}, hashes)
-        self.assertEqual(datetime.date(2026, 10, 14), movido)
-        self.assertEqual(datetime.date(2026, 11, 13), hasta)
+        self.con_historial()
+        d = datetime.date.fromisoformat
+        self.assertEqual({CONGELADO: {huella(V1): d(HASTA_V1), huella(V2): d(HASTA_V2)},
+                          RETIRADA: {huella(RETIRADA_V1): d(HASTA_V1)}},
+                         j12._historial())
+
+    def test_un_historial_sin_bloques_es_legible(self):
+        """El de una semilla que todavía no se reselló nunca: no hay versiones
+        anteriores, y decirlo no es un archivo roto."""
+        self.con_historial(texto_historial())
+        self.sembrado(V2)
+        r = self.repo.juzga()
+        self.assertBloqueaEditada(r)
+        self.assertEqual([], r.no_evaluado)
 
     # -- la supresión sigue mandando ------------------------------------------
 
-    def test_la_supresion_tiene_precedencia_sobre_la_ventana(self):
-        """Quien se suprime a sí mismo paga lo mismo en cualquier fecha: la pieza
-        retocada coincide con el lock anterior (que contenía la marca), y aun así
-        sale como supresión contada, no como aviso ni como bloqueo."""
-        con_marca = ("# coipo-jueces:ignorar(SEM-1) cabecera exigida por seguridad\n"
-                     + ANTERIOR)
-        self.anterior.write_text(texto_anterior({CONGELADO: con_marca}),
-                                 encoding="utf-8")
+    def test_la_supresion_tiene_precedencia_sobre_el_historial(self):
+        """Quien se suprime a sí mismo paga lo mismo: la pieza coincide con una
+        versión publicada (que contenía la marca) y aun así sale como supresión
+        contada, no como aviso."""
+        con_marca = ("# coipo-jueces:ignorar(SEM-1) cabecera exigida por seguridad\n" + V2)
+        self.con_historial(texto_historial(bloque(HASTA_V2, {CONGELADO: con_marca})))
         self.sembrado(con_marca)
-        for fecha in (DENTRO, ULTIMO_DIA, DIA_SIGUIENTE):
-            with self.subTest(hoy=fecha):
-                r = self.juzga_el(fecha)
-                self.assertEqual([], r.hallazgos)
-                self.assertEqual(1, len(r.supresiones), r.supresiones)
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos)
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
 
     # -- la regla que más importa: lo vigente nunca acusa ---------------------
 
     def test_un_hash_igual_al_vigente_nunca_produce_hallazgo(self):
-        """Ni con ventana, ni sin ella, ni vencida, ni con el archivo roto, ni con
-        un anterior que (degenerado) trae el mismo hash que el vigente."""
-        anteriores = {
+        """Ni sin historial, ni con él, ni roto, ni con un historial que
+        (degenerado) trae el mismo hash que el vigente."""
+        historiales = {
             "ausente": None,
-            "distinto": texto_anterior(),
-            "igual al vigente": texto_anterior({CONGELADO: CONTENIDO}),
+            "normal": historial_de_dos(),
+            "igual al vigente": texto_historial(bloque(HASTA_V2, {CONGELADO: VIGENTE})),
             "ilegible": "basura\n",
         }
-        for nombre, texto in anteriores.items():
-            for fecha in ("2026-10-01", DENTRO, ULTIMO_DIA, DIA_SIGUIENTE,
-                          MUCHO_DESPUES):
-                with self.subTest(anterior=nombre, hoy=fecha):
-                    if texto is None:
-                        self.anterior.unlink(missing_ok=True)
-                    else:
-                        self.anterior.write_text(texto, encoding="utf-8")
-                    self.sembrado(CONTENIDO)
-                    r = self.juzga_el(fecha)
-                    self.assertEqual([], r.hallazgos,
-                                     [h.mensaje for h in r.hallazgos])
-                    self.assertEqual([], r.supresiones)
-                    self.assertEqual("OK", r.veredicto)
+        for nombre, texto in historiales.items():
+            with self.subTest(historial=nombre):
+                if texto is None:
+                    self.historial.unlink(missing_ok=True)
+                else:
+                    self.con_historial(texto)
+                self.sembrado(VIGENTE)
+                r = self.repo.juzga()
+                self.assertEqual([], r.hallazgos, [h.mensaje for h in r.hallazgos])
+                self.assertEqual([], r.supresiones)
+                self.assertEqual("OK", r.veredicto)
 
-    # -- la ventana se aplica pieza por pieza ---------------------------------
+    # -- el historial se aplica pieza por pieza -------------------------------
 
     def test_cada_pieza_se_juzga_por_su_cuenta(self):
-        """Una vigente, una atrasada y una editada en la MISMA aplicación: nada
-        se contagia de una a otra."""
-        vigentes = {"frontend/nginx.conf": CONTENIDO,
-                    "backend/Dockerfile": "FROM ejemplo:2\n",
-                    "backend/requirements-base.txt": "ejemplo>=2\n"}
+        """Una vigente, dos atrasadas de semillas distintas y una editada en la MISMA
+        aplicación: nada se contagia de una a otra."""
+        vigentes = {"frontend/nginx.conf": VIGENTE,
+                    "backend/Dockerfile": "FROM ejemplo:3\n",
+                    "backend/requirements-base.txt": "ejemplo>=3\n",
+                    "backend/pyproject.toml": "[tool.ejemplo]\nv = 3\n"}
         self.lock.write_text("".join(f"{huella(c)}  {r}\n"
                                      for r, c in vigentes.items()), encoding="utf-8")
-        self.anterior.write_text(texto_anterior({
-            "frontend/nginx.conf": ANTERIOR,
-            "backend/Dockerfile": "FROM ejemplo:1\n",
-            "backend/requirements-base.txt": "ejemplo>=1\n"}), encoding="utf-8")
+        self.con_historial(texto_historial(
+            bloque(HASTA_V1, {"backend/Dockerfile": "FROM ejemplo:1\n",
+                              "backend/pyproject.toml": "[tool.ejemplo]\nv = 1\n"}),
+            bloque(HASTA_V2, {"backend/Dockerfile": "FROM ejemplo:2\n",
+                              "backend/pyproject.toml": "[tool.ejemplo]\nv = 2\n"})))
         self.repo.escribe(".semilla", "version: 2026-09-05\n")
-        self.repo.escribe("frontend/nginx.conf", CONTENIDO)                # vigente
-        self.repo.escribe("backend/Dockerfile", "FROM ejemplo:1\n")        # atrasada
-        self.repo.escribe("backend/requirements-base.txt", "ejemplo>=9\n") # editada
-        r = self.juzga_el(DENTRO)
+        self.repo.escribe("frontend/nginx.conf", VIGENTE)                   # vigente
+        self.repo.escribe("backend/Dockerfile", "FROM ejemplo:2\n")         # atrasada, V2
+        self.repo.escribe("backend/pyproject.toml", "[tool.ejemplo]\nv = 1\n")  # atrasada, V1
+        self.repo.escribe("backend/requirements-base.txt", "ejemplo>=9\n")  # editada
+        r = self.repo.juzga()
         por_archivo = {h.archivo: h for h in r.hallazgos}
-        self.assertEqual({"backend/Dockerfile", "backend/requirements-base.txt"},
-                         set(por_archivo))
+        self.assertEqual({"backend/Dockerfile", "backend/pyproject.toml",
+                          "backend/requirements-base.txt"}, set(por_archivo))
         self.assertEqual([por_archivo["backend/requirements-base.txt"]], r.bloqueantes)
-        self.assertIn("ANTERIOR", por_archivo["backend/Dockerfile"].mensaje)
-
-    # -- «hoy» no tiene interruptor externo -----------------------------------
-
-    def test_hoy_es_la_fecha_del_reloj_y_ninguna_variable_la_mueve(self):
-        """Fijado como contrato: una variable de entorno que moviera «hoy» sería
-        una prórroga de la ventana que nada cuenta, que es lo que la supresión
-        paga. Si algún día se añade, esta prueba se reescribe A PROPÓSITO."""
-        antes = datetime.date.today()
-        with mock.patch.dict(os.environ, {"JUECES_HOY": "2020-01-01"}):
-            hoy = j12._hoy()
-        self.assertIn(hoy, {antes, datetime.date.today()})
+        self.assertIn(HASTA_V2, por_archivo["backend/Dockerfile"].mensaje)
+        self.assertIn(HASTA_V1, por_archivo["backend/pyproject.toml"].mensaje)
 
 
 if __name__ == "__main__":

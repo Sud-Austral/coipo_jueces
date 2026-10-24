@@ -142,7 +142,7 @@ el `DEUDA.md` de la app.
 | `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | ✅ |
 | `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
-| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`). Una pieza que sólo está atrasada —coincide con `semilla.lock.anterior`— AVISA con fecha hasta `ventana_hasta` y BLOQUEA después; ver la nota en [`REGLAS.md`](REGLAS.md) | ✅ |
+| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`). Una pieza que sólo está atrasada —coincide con una huella de `semilla.lock.historial`, cualquier lock publicado antes— AVISA siempre, sin plazo; sólo la editada BLOQUEA. Ver la nota en [`REGLAS.md`](REGLAS.md) | ✅ |
 | `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
