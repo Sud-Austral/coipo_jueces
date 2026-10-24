@@ -137,3 +137,17 @@ consume, y afirma que los verificadores no llevan secretos [README.md]. La
 segunda parte es coherente con la evidencia —no hay manifiestos ni variables
 de configuracion de servicio— pero que hoy no haya ningun secreto en el
 historial completo del repositorio es [VERIFICAR].
+
+## Actualización 2026-10-24 (cambios posteriores a este documento)
+
+Leído en `.github/workflows/` y `docs/VERSIONADO.md` [VERIFICADO]:
+
+- `verificar.yml` ya no tiene solo `modo` y `perfil`: suma las entradas `jueces`, `ref_jueces`
+  (por defecto `v2`) y `runner` (por defecto `ubuntu-latest`), y las salidas `bloqueantes` y
+  `supresiones`. El motivo de `runner`, según el comentario de `probar-runner.yml`: la cuota de
+  Actions del plan Free se agota y la compuerta deja de arrancar.
+- `probar-runner.yml` (manual) corre los jueces en advisory sobre un runner indicado.
+- Se retiró el workflow `readme.yml` («Quitar el README Maintainer automatico», 2026-09-26).
+- Mayor vigente `v2`; el historial de versiones (hasta v2.0.9) está en `docs/VERSIONADO.md`.
+- Hoy hay 15 archivos `tests/test_*.py` (este documento decía once). Suite ejecutada: 181 OK, 1 omitida.
+
