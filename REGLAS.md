@@ -42,7 +42,7 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `G8-9` | `j11` | `GET /health` existe, sin autenticación, sin redirección, y con `text()` si usa SQLAlchemy 2.x | Guía 8, punto 9 | BLOQUEA |
 | `G8-11` | `j11` | un fallo de datos no se disfraza de aplicación sana | Guía 8, punto 11 | AVISA (ver nota) |
 | `G8-10` | `j08` | qué llega al servidor con el `rsync` anclado: un `.env` en un subdirectorio **sí** viaja; lo versionado bajo el `data/` de la raíz **nunca** llega | Guía 8, punto 10 | BLOQUEA / AVISA |
-| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz, con `adopta:` incluyendo `semilla` o sin esa clave) | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita | BLOQUEA |
+| `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz, con `adopta:` incluyendo `semilla` o sin esa clave). **Atrasada no es editada:** si el archivo coincide con una huella de `semilla.lock.historial` (cualquier lock publicado antes del vigente), está *atrasado*: AVISA siempre, sin plazo, con `sembrar.py --actualizar` de arreglo | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita. Lo atrasado: `FILOSOFIA.md`, §3, de `coipo_master_produccion` («una pieza congelada de una versión anterior no es una pieza editada») y la decisión de Luis Monsalve del 2026-10-24, que reemplaza la ventana de D2 | BLOQUEA / AVISA (ver nota) |
 | `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
 | `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-10 | BLOQUEA |
 | `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
@@ -107,6 +107,40 @@ que ningún `.semilla` escrito antes de esto cambia de veredicto.
 declararse `no_aplica` a sí mismo— y por eso se paga: el `no_aplica` **cita la
 línea literal y su número**, y **se cuenta como supresión**, con `::warning::` y
 su fila en `DEUDA.md`. Reclamar menos de lo que corresponde no sale gratis.
+
+### Nota sobre `SEM-1`: atrasada no es editada
+
+`j12` compara la aplicación contra el **lock**, no contra la semilla, y el lock
+viaja con el tag móvil `v2`. Cada vez que se resella, `v2` salta de golpe y toda
+aplicación sembrada con una semilla anterior quedaría en `SEM-1` «editada» por un
+archivo que no tocó. `FILOSOFIA.md`, §3, de la fábrica lo prohíbe: «una pieza
+congelada de una versión anterior no es una pieza editada. Es la fábrica de su
+fecha». Por eso `semilla/sellar.py --escribir` mantiene junto al lock un
+`semilla.lock.historial` con las huellas de **cada** lock publicado antes del
+vigente, en bloques fechados (`# vigente_hasta: AAAA-MM-DD`), que sólo crece, y
+`j12` distingue:
+
+| La pieza... | Resultado |
+|---|---|
+| coincide con el lock vigente | nada |
+| lleva `coipo-jueces:ignorar(SEM-1)` | supresión contada |
+| coincide con una huella del historial | **AVISA**, siempre: «atrasada: es la versión de la semilla publicada hasta el AAAA-MM-DD», con `sembrar.py --actualizar` |
+| no coincide con ninguna | **BLOQUEA** como «editada», como siempre |
+
+Una pieza que el lock vigente ya no nombra pero sí el historial (la semilla la
+partió o dejó de congelarla) AVISA como atrasada si la aplicación la tiene tal
+cual, y no se juzga si no: ya no es una pieza congelada.
+
+El historial no lo elige la aplicación y no relaja nada sobre una pieza editada.
+Si no existe, `j12` se comporta como antes de D2 (atrasada = editada) y lo anota
+como no evaluado; si existe y no se entiende, se ignora entero y se anota: nunca
+un resultado más indulgente.
+
+**Esto reemplaza la ventana de D2 (2026-10-12)**, que guardaba sólo el lock
+inmediatamente anterior en `semilla.lock.anterior`, avisaba 30 días y después
+bloqueaba como «desfasada». El plazo de 30 días no tenía fuente: fue un valor por
+omisión que eligió una IA al registrar D2, nadie lo midió ni lo fijó Luis, y la
+decisión del 2026-10-24 lo elimina. `j12` ya no lee `semilla.lock.anterior`.
 
 ### Nota sobre `G8-11`
 

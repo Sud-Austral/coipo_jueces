@@ -146,7 +146,7 @@ el `DEUDA.md` de la app.
 | `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | ✅ |
 | `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
-| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
+| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`). Una pieza que sólo está atrasada —coincide con una huella de `semilla.lock.historial`, cualquier lock publicado antes— AVISA siempre, sin plazo; sólo la editada BLOQUEA. Ver la nota en [`REGLAS.md`](REGLAS.md) | ✅ |
 | `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
 | `j16_codigo` | `COD-1` · `COD-2` · `COD-3` | código mantenible: ningún archivo de código de más de 1000 líneas (aviso sobre 800), el frontend en TypeScript estricto, y el dominio sin interfaz, red ni base de datos (hexagonal). **Mira hacia adelante**: BLOQUEA en lo sembrado desde el 2026-10-24 (`fabrica:` de `.semilla`), AVISA en lo anterior | 🟡 escrito y calibrado, **sin publicar**: la semilla tiene que cumplirlo antes de mover el tag (`FILOSOFIA.md` de la fábrica, §5) |
 
