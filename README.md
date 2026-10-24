@@ -20,6 +20,10 @@ python3 jueces/correr.py --repo /ruta/al/repo --modo advisory --resumen RESUMEN.
 python3 jueces/j09_secretos.py --repo /ruta/al/repo --modo bloqueante
 ```
 
+## Los jueces miran hacia adelante
+
+La fábrica (`coipo_master_produccion`) tiene escrita su filosofía en `FILOSOFIA.md`: mejora siempre, y lo que ya sembró **no es retrocompatible, y está bien**. Para estos jueces eso significa una sola cosa: una regla nueva lleva fecha de vigencia y **bloquea sólo lo sembrado desde esa fecha** (`fabrica:` en `.semilla`); lo anterior recibe el aviso, ve su deuda, y despliega igual. Un juez que tumba a una aplicación por haber nacido antes de que la fábrica aprendiera algo no la mejora: enseña a suprimirlo. `j16_codigo` es el primero escrito así desde el principio.
+
 ## Por qué existe esto
 
 Está medido en esta flota, no supuesto:
@@ -144,6 +148,7 @@ el `DEUDA.md` de la app.
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
 | `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
 | `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
+| `j16_codigo` | `COD-1` · `COD-2` · `COD-3` | código mantenible: ningún archivo de código de más de 1000 líneas (aviso sobre 800), el frontend en TypeScript estricto, y el dominio sin interfaz, red ni base de datos (hexagonal). **Mira hacia adelante**: BLOQUEA en lo sembrado desde el 2026-10-24 (`fabrica:` de `.semilla`), AVISA en lo anterior | 🟡 escrito y calibrado, **sin publicar**: la semilla tiene que cumplirlo antes de mover el tag (`FILOSOFIA.md` de la fábrica, §5) |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo

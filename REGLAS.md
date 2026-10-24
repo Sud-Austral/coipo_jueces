@@ -21,6 +21,7 @@ una regla que alguien se inventó, y este archivo es lo que lo hace visible.
 | `H-N` | Hallazgo N del estado real del servidor | `referencia/00-HALLAZGOS-Y-ESTADO-REAL.md` |
 | `SEM-N` | La semilla: qué es común a toda la flota y no se edita por aplicación | `semilla/README.md` y `semilla.lock` |
 | `UI-N` | El estándar de interfaz: color derivado de los banners medidos, escalas, estados y accesibilidad | `identidad/ESTANDAR_UI.md` |
+| `COD-N` | El estándar de código: TypeScript, arquitectura hexagonal y tamaño de archivo (regla 9 de `AGENTS.md`, decisión de Luis Monsalve del 2026-10-24) | `docs/ESTANDAR_CODIGO.md` y `FILOSOFIA.md`, §4 y §6 |
 | otros | **sin fuente escrita todavía** | ver la columna «fuente» |
 
 Los dos primeros documentos son privados (viven en `coipo_master_produccion`).
@@ -45,6 +46,9 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
 | `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-10 | BLOQUEA |
 | `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
+| `COD-1` | `j16` | ningún archivo de código versionado pasa de 1000 líneas (sobre 800, aviso). Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-24 o posterior, AVISA si es anterior o falta; sin `.semilla`, NO_APLICA | `docs/ESTANDAR_CODIGO.md`, COD-1 | BLOQUEA / AVISA |
+| `COD-2` | `j16` | el frontend es TypeScript estricto: nada de `.js`/`.jsx` en `frontend/src/` y un `frontend/tsconfig*.json` con `"strict": true`. Misma severidad por fecha | `docs/ESTANDAR_CODIGO.md`, COD-2 | BLOQUEA / AVISA |
+| `COD-3` | `j16` | el dominio (`frontend/src/dominio/`, `backend/app/dominio/`) no importa interfaz, adaptadores, red ni base de datos, y en lo nuevo `frontend/src/dominio/` existe. Misma severidad por fecha | `docs/ESTANDAR_CODIGO.md`, COD-3 | BLOQUEA / AVISA |
 | `DK-3` | `j01` | ningún servicio del compose levanta un motor de base de datos | `DOCKER.md`, «La base de datos no está en el `docker-compose.yml`» | BLOQUEA |
 | `DK-4` | `j01` | hay `.dockerignore` en la raíz cuando se construye con `context: .`, y excluye `.env` | `DOCKER.md`, «conviene un `.dockerignore` en la raíz» | BLOQUEA / AVISA |
 
