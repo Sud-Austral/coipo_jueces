@@ -461,11 +461,11 @@ disco hay UNA: `coipo_firms` (`fabrica: 2026-10-23`), y pasa (`OK`, seis
 Entró por error `HUSKY_AUDIT.md` en la raíz (`3ba3775`), la salida de una
 auditoría ajena; se quitó en la rama `arreglos-auditoria-2026-10-25`.
 
-### Sin publicar: rama `arreglos-auditoria-2026-10-25`
+### `v2.0.14`, 2026-10-25 — los arreglos de la auditoría
 
 Arreglos de una auditoría del 2026-10-25 (cada uno con su prueba, escrita antes y
-vista fallar, y su mutación). **No se ha publicado**: lo que sigue es el radio
-medido para quien decida su número.
+vista fallar, y su mutación), rama `arreglos-auditoria-2026-10-25`, PR #10. Lo que
+sigue es el radio medido antes de decidir su número.
 
 Medido sobre los mismos 88 repositorios, `main` (`1a2d589`) contra la rama,
 perfil `aplicacion`, modo bloqueante:
@@ -489,7 +489,14 @@ perfil `aplicacion`, modo bloqueante:
 
 Por la letra de «Cuándo toca una mayor nueva», ese `BLOQUEA` nuevo hace de esto
 una mayor; por la enmienda, es un veredicto que cambia en una aplicación que no
-estaba en verde. Lo decide quien publique.
+estaba en verde.
+
+**Decidido por Luis Monsalve el 2026-10-25: `v2.0.14`, no `v3`.** Es el arreglo de
+un lector que ocultaba un juez (el `adopta:` en bloque se leía vacío), no una regla
+nueva: lo que `j13` exige a ese repositorio es lo que su propio `.semilla` declaró
+adoptar. Ningún `exit` pasa de 0 a 1 en los 88 repositorios medidos. Queda como
+precedente de la enmienda: arreglar una lectura que dejaba sin juzgar a quien sí
+pidió ser juzgado es `vN.x`.
 
 ### Migrar a una mayor nueva
 
