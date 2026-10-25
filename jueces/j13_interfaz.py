@@ -28,7 +28,10 @@ LAS TRES, Y POR QUÉ ESTAS Y NO OTRAS
   juez que las adivinara desde el CSS produciría falsos positivos. El resto del
   estándar se verifica con `verify-banner.mjs` y con revisión humana.
 
-  UI-10  Un `outline:0` sin sustituto deja el teclado sin saber dónde está.
+  UI-9   Un `outline:0` sin sustituto deja el teclado sin saber dónde está.
+         Se llamó UI-10 hasta el 2026-10-25: UI-9 es «un componente sin
+         `:focus-visible` no es navegable con teclado»; UI-10 es «el anillo es
+         un token y cumple 3:1», que no se mide sin pintar. Ver REGLAS.md.
   UI-3   Un token de color que no se redefine en el tema oscuro no desaparece:
          se queda con el valor claro. Medido en `coipo_prensa2`, el peor caso da
          1,38:1 sobre la tarjeta oscura — texto presente e ilegible, que es peor
@@ -173,7 +176,7 @@ def _hojas(repo: Repo) -> list[str]:
 
 
 def comprobar_foco(repo: Repo, r: Resultado, hojas: list[str]) -> None:
-    """UI-10 — un `outline:0` sin sustituto deja el teclado a ciegas.
+    """UI-9 — un `outline:0` sin sustituto deja el teclado a ciegas.
 
     Conservador a propósito: basta con que el MISMO archivo declare algún
     `:focus-visible` para dar el caso por cubierto. Un juez que exigiera
@@ -183,21 +186,26 @@ def comprobar_foco(repo: Repo, r: Resultado, hojas: list[str]) -> None:
     r.comprobo("anillo de foco: `outline:0` con sustituto")
 
     for ruta in hojas:
-        texto = repo.texto(ruta)
-        if texto is None:
+        # Sin comentarios, como UI-3 y UI-15: un `outline: none` dentro de `/* */`
+        # no quita nada, y un `:focus-visible` comentado no sustituye nada. Hasta
+        # el 2026-10-25 ésta era la única de las tres que los leía.
+        texto = _sin_comentarios(repo.texto(ruta) or "")
+        if not texto:
             continue
         if HAY_FOCO_VISIBLE.search(texto):
             continue
 
         lineas = texto.splitlines()
+        # Las supresiones viven en comentarios CSS: se buscan en el ORIGINAL (mismas líneas).
+        originales = (repo.texto(ruta) or "").splitlines()
         for n, linea in enumerate(lineas):
             if not SIN_CONTORNO.search(linea):
                 continue
-            if (motivo := suprimido(lineas, n, "UI-10")):
+            if (motivo := suprimido(originales, n, "UI-9")):
                 r.supresiones.append(f"{ruta}:{n + 1} outline suprimido — {motivo}")
                 continue
             r.bloquea(
-                "UI-10", ruta,
+                "UI-9", ruta,
                 "quita el contorno del foco y este archivo no declara ningún "
                 "`:focus-visible` que lo sustituya",
                 "quien navega con teclado deja de ver dónde está: el foco existe "
@@ -252,9 +260,9 @@ def comprobar_tema_oscuro(repo: Repo, r: Resultado, hojas: list[str]) -> None:
         if not huerfanos:
             continue
 
-        lineas = texto.splitlines()
-        n = next((i for i, l in enumerate(lineas) if huerfanos[0] in l), 0)
-        if (motivo := suprimido(lineas, n, "UI-3")):
+        n = next((i for i, l in enumerate(texto.splitlines()) if huerfanos[0] in l), 0)
+        # Con comentarios: ahí van las supresiones, en las mismas líneas.
+        if (motivo := suprimido((repo.texto(ruta) or "").splitlines(), n, "UI-3")):
             r.supresiones.append(f"{ruta}:{n + 1} tokens sin redefinir — {motivo}")
             continue
 
@@ -384,7 +392,7 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
         if apagados >= propios:
             continue
 
-        lineas = texto.splitlines()
+        lineas = (repo.texto(ruta) or "").splitlines()  # con comentarios: ahí van las supresiones
         n = texto[:m.start()].count("\n")
         if (motivo := suprimido(lineas, n, "UI-15")):
             r.supresiones.append(f"{ruta}:{n + 1} movimiento reducido — {motivo}")
