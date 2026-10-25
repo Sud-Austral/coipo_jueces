@@ -52,7 +52,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, sin_indice, suprimido,
+    Repo, Resultado, YamlNoSoportado, _sin_comentario, carga_yaml, ejecutar, sin_indice,
+    suprimido,
 )
 
 PERFILES = ("aplicacion",)
@@ -109,16 +110,108 @@ def _funcion_de_salud(arbol: ast.Module) -> ast.FunctionDef | ast.AsyncFunctionD
     return None
 
 
+# ── /health en el nginx INTERNO ───────────────────────────────────────────────
+#
+# El smoke test pega al contenedor que publica `APP_PORT`, y en la flota ése es
+# casi siempre `app`: un nginx que sirve el frontend y hace de proxy al backend.
+# `coipo_prevension_ministerial`, `coipo_tv` y `coipo_boton_rojo` responden
+# `/health` ahí mismo, con `location = /health { return 200 '...'; }`, y este juez
+# sólo buscaba en Python: los BLOQUEABA por «no se encontró ningún endpoint»
+# (auditoría del 2026-10-25). Se busca en los `.conf` del nginx interno y NO en el
+# vhost del HOST (`ops/nginx-host/`), que está delante y por el que el smoke test
+# no pasa.
+NGINX_INTERNO = re.compile(
+    r"(^|/)(nginx[^/]*\.conf|default\.conf|[^/]*\.conf\.template)$|(^|/)nginx/[^/]+\.conf$")
+NO_ES_NGINX_INTERNO = re.compile(
+    r"(^|/)(tests?|__tests__|spec|fixtures|nginx-host|node_modules|dist|build)(/|$)")
+LOCATION_SALUD = re.compile(r"\blocation\s+(?:=\s*)?/health/?\s*\{")
+RETORNO = re.compile(r"\breturn\s+(\d{3})\b")
+AUTH_NGINX = re.compile(r"\b(?:auth_request\s|auth_basic\s+(?!off\b))")
+
+
+def _cuerpo_entre_llaves(texto: str, llave: int) -> str:
+    profundidad = 0
+    for i in range(llave, len(texto)):
+        if texto[i] == "{":
+            profundidad += 1
+        elif texto[i] == "}":
+            profundidad -= 1
+            if profundidad == 0:
+                return texto[llave + 1:i]
+    return texto[llave + 1:]
+
+
+def _nginx_con_salud(repo: Repo) -> tuple[str, int, str] | None:
+    """(ruta, línea, cuerpo) del primer `location /health` del nginx interno, o None."""
+    for ruta in repo.versionados():
+        if not NGINX_INTERNO.search(ruta) or NO_ES_NGINX_INTERNO.search(ruta):
+            continue
+        # Sin comentarios, respetando comillas: un `# location = /health {` no sirve nada.
+        limpio = "\n".join(_sin_comentario(l) for l in (repo.texto(ruta) or "").splitlines())
+        m = LOCATION_SALUD.search(limpio)
+        if m:
+            return ruta, limpio.count("\n", 0, m.start()) + 1, _cuerpo_entre_llaves(limpio, m.end() - 1)
+    return None
+
+
+def _comprobar_nginx(ruta: str, linea: int, cuerpo: str, r: Resultado) -> None:
+    """Guía 8, punto 9, en nginx: 2xx, sin autenticación y sin redirección."""
+    r.comprobo(f"endpoint /health servido por el nginx interno ({ruta}:{linea})")
+    codigos = RETORNO.findall(cuerpo)
+    if AUTH_NGINX.search(cuerpo):
+        r.bloquea("G8-9", ruta, "el `location /health` del nginx exige autenticación",
+                  "el smoke test usa `curl -sf`: un 401 hace fallar el despliegue entero "
+                  "aunque la aplicación esté sana", linea=linea,
+                  arreglo="quitar `auth_basic`/`auth_request` de ese `location` (Guía 8, punto 9)")
+    elif any(not c.startswith("2") for c in codigos):
+        r.bloquea("G8-9", ruta, f"el `location /health` del nginx devuelve {', '.join(codigos)}",
+                  "`curl -sf` falla con cualquier código >= 400 y no sigue redirecciones: "
+                  "el smoke test no da por viva a la aplicación", linea=linea,
+                  arreglo="devolver 200 con un JSON simple (Guía 8, punto 9)")
+    elif not codigos:
+        r.no_evaluado.append(
+            f"{ruta}:{linea}: el `location /health` no responde con un `return` propio (¿proxy "
+            "a otro servicio?). Qué contesta no se verificó.")
+
+
+def _suprimido_en_compose(repo: Repo, regla: str) -> str | None:
+    """Un hallazgo DE REPOSITORIO (sin archivo) se suprime en el compose, que es lo
+    que declara el despliegue: `coipo-jueces:ignorar(G8-9) <motivo>` en cualquier línea."""
+    ruta = repo.compose()
+    lineas = repo.lineas(ruta) if ruta else []
+    for i in range(len(lineas)):
+        if (motivo := suprimido(lineas, i, regla)):
+            return f"{ruta}:{i + 1} — {motivo}"
+    return None
+
+
 def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
     hallado = _modulo_con_salud(repo)
     if hallado is None:
+        if (nginx := _nginx_con_salud(repo)) is not None:
+            _comprobar_nginx(*nginx, r)
+            return
+        if repo.compose() is None:
+            # Como j01 y j06: sin compose el pipeline de la flota no despliega este
+            # repositorio y no hay smoke test que pida /health. Se dice, no se
+            # bloquea; en perfil `aplicacion` el gate sale 1 igual por SIN_EVALUAR.
+            r.no_evaluado.append(
+                "sin compose en la raíz y sin ningún `/health` (ni en Python ni en el nginx "
+                "interno): el pipeline no despliega este repositorio, así que no se exige")
+            return
+        if (motivo := _suprimido_en_compose(repo, "G8-9")):
+            r.supresiones.append(f"no se encontró ningún endpoint `/health` — {motivo}")
+            return
         r.bloquea(
             "G8-9", "", "no se encontró ningún endpoint `/health`",
             "el smoke test del despliegue hace `curl -sf http://127.0.0.1:$APP_PORT/health` "
             "y es lo ÚNICO que verifica que la aplicación quedó viva; sin ese endpoint el "
             "despliegue falla siempre, o peor, nadie sabe si funcionó",
             arreglo="exponer GET /health devolviendo 200 con un JSON simple, sin "
-                    "autenticación y sin redirecciones (Guía 8, punto 9)",
+                    "autenticación y sin redirecciones (Guía 8, punto 9), en el backend o en "
+                    "el nginx interno (`location = /health { return 200 ...; }`). Si de "
+                    "verdad no aplica, `coipo-jueces:ignorar(G8-9) <motivo>` en el compose: "
+                    "se cuenta y se publica",
         )
         return
 
@@ -314,10 +407,9 @@ def comprobar_coherencia_healthcheck(repo: Repo, r: Resultado) -> None:
     el curl— pero deja un `unhealthy` permanente que esconderá un problema real
     el día que lo haya.
     """
-    ruta_compose = next((c for c in ("docker-compose.yml", "docker-compose.yaml",
-                                     "compose.yml", "compose.yaml") if repo.existe(c)), None)
+    ruta_compose = repo.compose()
     if ruta_compose is None:
-        r.no_evaluado.append("sin docker-compose.yml: no hay healthcheck que contrastar")
+        r.no_evaluado.append("sin compose en la raíz: no hay healthcheck que contrastar")
         return
 
     texto = repo.texto(ruta_compose) or ""
@@ -362,7 +454,10 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     if sin_indice(repo, r):
         return
 
-    compose = repo.texto("docker-compose.yml") or ""
+    # Cualquiera de los cuatro nombres: hasta el 2026-10-25 se leía sólo
+    # `docker-compose.yml`, y un `compose.yaml` de imágenes ajenas salía rojo.
+    ruta_compose = repo.compose()
+    compose = (repo.texto(ruta_compose) or "") if ruta_compose else ""
     if compose and "build:" not in compose and not _archivos_python(repo):
         # Software de terceros -- coipo_n8n es el caso, y AGENTS.md lo declara
         # excepcion legitima: un compose cuyos servicios son todos imagenes ajenas
