@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import COMPOSE, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -75,7 +75,7 @@ def _archivos_env(repo: Repo) -> list[str]:
             if Path(r).name == ".env" or Path(r).name.startswith(".env.")]
 
 
-COMPOSE = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
+# COMPOSE vive en comun.py: era una de cuatro copias.
 
 
 def es_desplegable(repo: Repo) -> bool:
