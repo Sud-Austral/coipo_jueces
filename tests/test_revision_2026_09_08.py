@@ -35,13 +35,20 @@ class PruebaComun(unittest.TestCase):
         self.assertEqual("--5", carga_yaml("a: --5\n")["a"])
         self.assertEqual(-5, carga_yaml("a: -5\n")["a"])
 
-    def test_8_una_ancla_en_posicion_de_valor_se_rechaza_y_no_se_interpreta_mal(self):
+    def test_8_una_ancla_en_posicion_de_valor_se_interpreta_y_no_se_cuelga_de_la_raiz(self):
         """El docstring prometía `YamlNoSoportado` y el parser sólo lo lanzaba si la
         LÍNEA empezaba por `&`. En YAML real la ancla va en el valor
         (`x-comun: &comun`) y el alias en `<<: *comun`: pasaban como cadenas y
-        los hijos se colgaban de la raíz, en silencio."""
-        for texto in ("x-comun: &comun\n  restart: always\n",
-                      "services:\n  app:\n    <<: *comun\n",
+        los hijos se colgaban de la raíz, en silencio.
+
+        Hasta el 2026-10-25 la corrección fue RECHAZARLAS, y eso dejaba «sin
+        verificar» compose sanos de la flota (`coipo_cron_master`). Desde ese día
+        se interpretan; un alias a un ancla que no existe se sigue rechazando."""
+        y = carga_yaml("x-comun: &comun\n  restart: always\n"
+                       "services:\n  app:\n    <<: *comun\n")
+        self.assertEqual("always", y["services"]["app"]["restart"])
+        self.assertNotIn("restart", y, "los hijos del ancla no se cuelgan de la raíz")
+        for texto in ("services:\n  app:\n    <<: *comun\n",
                       "ports:\n  - *puerto\n"):
             with self.assertRaises(YamlNoSoportado, msg=texto):
                 carga_yaml(texto)
