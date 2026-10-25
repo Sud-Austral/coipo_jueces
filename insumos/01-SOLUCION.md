@@ -19,7 +19,7 @@ hay un modo que interrumpe el proceso y otro que solo deja constancia
 [README.md], y hay un perfil distinto segun si lo revisado es una aplicacion
 o el encuadre operativo [tests/test_tres_estados.py]. Y permite suprimir un
 hallazgo concreto siempre que se escriba un motivo, comportamiento que esta
-fijado por pruebas en al menos cuatro de las nueve revisiones
+fijado por pruebas en al menos cuatro de las once revisiones
 [tests/test_j01_despliegue.py], [tests/test_j05_cors.py],
 [tests/test_j06_config.py], [tests/test_j12_semilla.py].
 
@@ -149,5 +149,5 @@ Leído en `.github/workflows/` y `docs/VERSIONADO.md` [VERIFICADO]:
 - `probar-runner.yml` (manual) corre los jueces en advisory sobre un runner indicado.
 - Se retiró el workflow `readme.yml` («Quitar el README Maintainer automatico», 2026-09-26).
 - Mayor vigente `v2`; el historial de versiones (hasta v2.0.9) está en `docs/VERSIONADO.md`.
-- Hoy hay 15 archivos `tests/test_*.py` (este documento decía once). Suite ejecutada: 181 OK, 1 omitida.
+- El 2026-10-25 hay 21 archivos `tests/test_*.py` (`ls tests/test_*.py`) y la suite no omite ninguna prueba; el número de pruebas lo imprime `python -m unittest discover -s tests` («Ran N tests») y no se teclea aquí. Lo de arriba («15 archivos», «181 OK, 1 omitida») era la medición del 2026-10-24.
 

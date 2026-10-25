@@ -98,6 +98,28 @@ La política:
 Todo lo demás —jueces nuevos en advisory, correcciones de falsos positivos,
 mensajes más claros— es `vN.x` y viaja solo.
 
+> **ENMIENDA del 2026-10-25: un juez que mira hacia adelante puede ir en `vN.x`.**
+>
+> El primer criterio de arriba se escribió cuando un juez bloqueante bloqueaba a
+> todo el que lo corría. Desde `j16` y `j14` existe otra clase: un juez que sólo
+> BLOQUEA lo sembrado **desde su fecha de vigencia** (`fabrica:` de `.semilla`) y
+> AVISA en todo lo anterior. Es lo que pide `FILOSOFIA.md` de la fábrica, §4: «las
+> reglas miran hacia adelante». Ese juez **no cambia el veredicto de ninguna
+> aplicación existente** —ninguna tenía la fecha cuando se escribió la regla—, así
+> que no pone rojo a nadie que hoy esté verde, que es lo que el tercer criterio
+> protege.
+>
+> Por eso: **un juez nuevo que sólo BLOQUEA lo sembrado desde su vigencia puede ir
+> en `vN.x`**, con su radio de explosión MEDIDO antes de publicar (cero `BLOQUEA`
+> nuevos sobre los repositorios del disco). **Si cambia el veredicto de algo que ya
+> existe, es mayor nueva**, como siempre. Y la vigencia no puede ser anterior a la
+> publicación sin decirlo y medirlo (ver `v2.0.13`).
+>
+> Esto se escribe DESPUÉS de los hechos: `v2.0.12` (`j16`) y `v2.0.13` (`j14`)
+> salieron como `v2.x` sin entrada en este archivo y sin el radio escrito, contra
+> la letra del primer criterio. La enmienda pone la regla al día con lo que se hizo
+> y lo deja medido abajo; no lo convierte en correcto a posteriori.
+
 ### `v2`, publicada el 2026-09-08
 
 Cumple **dos** de los tres criterios de arriba, así que no hizo falta ninguna
@@ -394,6 +416,80 @@ cambiaron). Se reprodujo en local paso a paso; no se leyeron los logs de GitHub.
 Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 skip), y la
 calibración de este repositorio contra sí mismo en `--modo bloqueante --perfil
 encuadre_operativo` → 6 jueces, 6 comprobaciones, **0 bloqueantes**, 1 supresión.
+
+### `v2.0.12`, 2026-10-24 — `j16` (código mantenible) y el historial de locks
+
+**`v2.0.12` es `02d9dd18`.** Trae `j16_codigo` (`COD-1` tamaño, `COD-2` TypeScript,
+`COD-3` capas; regla 9 de `AGENTS.md` de la fábrica), `j12` con
+`semilla.lock.historial` (una pieza atrasada AVISA siempre; sólo la editada
+BLOQUEA) y el lock de 42 piezas.
+
+**Por qué `v2.x` y no `v3`**, con lo que se midió (tablas de calibración de
+`jueces/j16_codigo.py` y `jueces/j12_semilla.py`, y la medición del 2026-10-25 de
+abajo):
+
+- `j16` BLOQUEA sólo con `fabrica:` del 2026-10-24 o posterior. Ninguna aplicación
+  del disco lo tenía al publicar (la más reciente, `coipo_firms`, 2026-10-23): CERO
+  `BLOQUEA` nuevos. El resto AVISA o sale `NO_APLICA`.
+- `j12` con historial QUITA bloqueos: de 79 `BLOQUEA` en diez aplicaciones
+  sembradas a 5 en tres, y los 5 son ediciones de verdad.
+- `coipo_atraso_personal`, la única `@v2` en modo bloqueante, ya estaba en rojo
+  antes, por `j12` (`SEM-1` sobre `mapeo_claims.py`, una edición real del
+  2026-09-25); `j16` no le añade ningún `BLOQUEA`.
+
+Fue, en la práctica, la primera publicación bajo la enmienda de arriba, escrita un
+día después.
+
+### `v2.0.13`, 2026-10-25 — `j14` (construir con la fábrica)
+
+**`v2.0.13` es `1a2d589a`, y `v2` apunta ahí.** Trae `j14_construccion` (`FAB-8`:
+`docs/CONSTRUCCION.md` con el rastro de IGNUS), `COD-3` en los servicios hermanos
+(`collector/`) y el lock resellado (`requiere_db` exige base).
+
+**Radio de explosión, medido el 2026-10-25** sobre los 88 repositorios `coipo*` con
+git de `D:\GitHub`, perfil `aplicacion`, modo bloqueante: `j14` y `j16` emiten
+**cero `BLOQUEA`** en los 88. `j14` juzga a los 12 que llevan `.semilla`: once
+AVISAN y `coipo_firms` sale OK; los 76 restantes, `NO_APLICA`.
+
+**La vigencia de `j14` es ANTERIOR a su publicación, y se dice.** `VIGENCIA =
+"2026-10-20"` (la fecha de `AGENTS.md`, §3.8), y el juez se publicó el 2026-10-25.
+Cualquier aplicación sembrada entre esas dos fechas nació ya bajo una regla que
+ningún CI le comprobaba, y BLOQUEA desde el primer push tras mover `v2`. En el
+disco hay UNA: `coipo_firms` (`fabrica: 2026-10-23`), y pasa (`OK`, seis
+`correlation_id`). Fuera del disco: DESCONOCIDO.
+
+Entró por error `HUSKY_AUDIT.md` en la raíz (`3ba3775`), la salida de una
+auditoría ajena; se quitó en la rama `arreglos-auditoria-2026-10-25`.
+
+### Sin publicar: rama `arreglos-auditoria-2026-10-25`
+
+Arreglos de una auditoría del 2026-10-25 (cada uno con su prueba, escrita antes y
+vista fallar, y su mutación). **No se ha publicado**: lo que sigue es el radio
+medido para quien decida su número.
+
+Medido sobre los mismos 88 repositorios, `main` (`1a2d589`) contra la rama,
+perfil `aplicacion`, modo bloqueante:
+
+- **63 `BLOQUEA` desaparecen, todos explicados:** 13 `G8-4` de
+  `# MINIO_ACCESS_KEY=<usuario>` (un identificador, no un secreto: `coipo_n8n` y
+  `coipo_prensa2` quedan en verde); 50 `G8-9` «no se encontró `/health`»: 3 porque
+  el `/health` lo responde el nginx interno con `return 200` (`coipo_tv`,
+  `coipo_boton_rojo`, `coipo_prevension_ministerial`), 2 porque un
+  `location /health` del nginx interno hace de proxy y se anota como no verificado
+  (`coipo_pgbackrest`, `coipo_seguimiento_madera`), y 45 porque el repositorio no
+  tiene compose y pasa a «no evaluado», como en `j01` y `j06` (SIN_EVALUAR, que en
+  perfil `aplicacion` bloqueante sigue saliendo 1).
+- **1 `BLOQUEA` nuevo:** `UI-3` en `coipo_prevension_ministerial`. Su `.semilla`
+  declara `adopta:` como lista YAML en bloque (`- interfaz`), que `main` leía VACÍA
+  y dejaba a `j13` en SIN_EVALUAR; leída bien, `j13` juzga lo que el repositorio
+  declara. Su `exit` no cambia (1 → 1) y su `deploy.yml` corre en `advisory`.
+- `coipo_atraso_personal` no cambia: 1 `BLOQUEA` (`j12`) antes y después.
+- Avisos nuevos (`G8-7`, `OPS-1`) en `coipo_cron_master` y
+  `coipo_seguimiento_madera`, cuyos compose el parser ahora entiende.
+
+Por la letra de «Cuándo toca una mayor nueva», ese `BLOQUEA` nuevo hace de esto
+una mayor; por la enmienda, es un veredicto que cambia en una aplicación que no
+estaba en verde. Lo decide quien publique.
 
 ### Migrar a una mayor nueva
 
