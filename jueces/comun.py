@@ -562,6 +562,25 @@ def leer_adopcion(texto: str | None) -> Adopcion:
     return Adopcion(capas, numero, m.group(0))
 
 
+# ── La fecha de siembra: la clave `fabrica:` de `.semilla` ───────────────────
+#
+# `sembrar.py` (vía `semilla/siembra/aplicacion.py` de la fábrica) la escribe con
+# la fecha REAL del día en que se sembró. La leen los jueces que miran hacia
+# adelante (`FILOSOFIA.md` de la fábrica, §3 y §4): una regla nueva bloquea sólo
+# lo sembrado desde su vigencia y avisa en lo anterior. `j16` la leía con su
+# propia expresión; `j14` es el segundo lector y por eso vive aquí, una sola vez.
+# Como `adopta:`, una línea comentada no declara nada.
+_FABRICA = re.compile(r"^[ \t]*fabrica[ \t]*:[ \t]*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
+
+
+def leer_fabrica(texto: str | None) -> str | None:
+    """`AAAA-MM-DD` de la clave `fabrica:` de un `.semilla`, o None si no la lleva."""
+    if not texto:
+        return None
+    m = _FABRICA.search(texto)
+    return m.group(1) if m else None
+
+
 # no suprime nada: si silenciar cuesta lo mismo que arreglar, se arregla.
 _MARCADOR = re.compile(
     r"coipo-jueces:\s*ignorar\(\s*(?P<regla>[A-Za-z0-9_\-\.]+)\s*\)\s*(?P<motivo>.*)"

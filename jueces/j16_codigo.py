@@ -11,7 +11,9 @@ queremos producir código espagueti en la fábrica».
   COD-2  El frontend es TypeScript estricto: nada de `.js`/`.jsx` en
          `frontend/src/`, y un `tsconfig` con `"strict": true`.
   COD-3  Arquitectura hexagonal: el dominio (`frontend/src/dominio/`,
-         `backend/app/dominio/`) no importa la interfaz, la red ni la base de datos.
+         `backend/app/dominio/` y la carpeta `dominio/` de cualquier servicio
+         hermano, como `collector/`) no importa la interfaz, la red, la base de
+         datos ni el sistema (`os`; en Node, `fs`, `http`, `process.env`...).
 
 MIRA HACIA ADELANTE, NO HACIA ATRÁS (`FILOSOFIA.md` de la fábrica, §3 y §4)
   «Las soluciones que ya generamos no serán retrocompatibles y está bien; lo
@@ -41,6 +43,20 @@ CALIBRACIÓN INVERSA (2026-10-24, sobre los clones de D:\\GitHub)
   Una app sembrada de la semilla del 2026-10-24 -> TIENE QUE salir OK antes de mover
   el tag con este juez (FILOSOFIA.md, §5). Pendiente hasta que la semilla migre.
 
+COD-3 EN LOS SERVICIOS HERMANOS (2026-10-25). Hasta ese día sólo se miraban
+`backend/app/dominio/` y `frontend/src/dominio/`: un `import httpx` y un `import os`
+metidos en `collector/colector/dominio/` de una aplicación de prueba dejaban el gate
+en cero hallazgos. Ahora se descubre toda carpeta `dominio/` versionada (fuera de
+pruebas y de lo generado) y se juzga con las reglas de su lenguaje. Calibración
+sobre los 88 repositorios `coipo*` con git de D:\\GitHub y las tres apps de prueba:
+  CERO hallazgos de diferencia con la versión anterior en los 91.
+  coipo_prensa2 (colector JS hexagonal en producción, 21 archivos en
+  `collector/src/dominio/`)       -> limpio en COD-3: sus imports son relativos y
+                                   dentro del dominio.
+  coipo_prueba_divisas (colector Python, `collector/colector/dominio/`) -> OK; con
+                                   `import httpx` e `import os` añadidos, 2 BLOQUEA y
+                                   exit 1 en modo bloqueante (antes: OK, exit 0).
+
 La medida que la funda:
 45 de los 89 repositorios `coipo*` con git del disco tienen al menos un archivo de
 más de 800 líneas, y `coipo_prensa2`, el repositorio más sano de la flota, uno de
@@ -50,13 +66,14 @@ el primer día; con esta asimetría, prensa2 sólo avisa.
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import Repo, Resultado, ejecutar, leer_fabrica, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion",)
 
@@ -69,7 +86,6 @@ COD_3 = "COD-3"
 VIGENCIA = "2026-10-24"
 
 MARCADOR = ".semilla"
-FABRICA = re.compile(r"^[ \t]*fabrica[ \t]*:[ \t]*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
 
 TECHO = 1000
 AVISO = 800
@@ -84,19 +100,40 @@ GENERADO = re.compile(r"(^|/)(node_modules|dist|build|vendor|\.venv|venv|coverag
 # ── COD-3 ─────────────────────────────────────────────────────────────────────
 IMPORT_JS = re.compile(
     r"""(?:\bimport\b[^'"`;]*?\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"]+)['"]""")
-PROHIBIDO_JS_MODULO = re.compile(r"^(react|react-dom)(/|$)|\.css$")
+# La interfaz (React, hojas de estilo) y, para un dominio que corre en Node —el
+# colector de `coipo_prensa2`—, la red, la base de datos y el sistema: los módulos
+# de Node que hablan con afuera y los clientes de red y de base más comunes.
+PROHIBIDO_JS_MODULO = re.compile(
+    r"^(react|react-dom)(/|$)|\.css$"
+    r"|^(node:)?(fs|fs/promises|http|https|http2|net|tls|dgram|child_process)$"
+    r"|^(pg|mysql2?|mongodb|axios|node-fetch|undici)(/|$)")
 # Las capas de afuera, con los nombres de la semilla (`aplicacion/`, `adaptadores/`,
 # `componentes/`, `vistas/`, `estilos/`) y el genérico `interfaz/`.
 PROHIBIDO_JS_CAPA = re.compile(r"(^|/)(aplicacion|adaptadores|componentes|vistas|estilos|interfaz)(/|$)")
-PROHIBIDO_JS_USO = re.compile(r"\b(fetch\s*\(|window\.|document\.|localStorage\b|sessionStorage\b)")
+# El lookbehind descarta `puerto.fetch(` o `noticia.document.x`: un método de un
+# puerto inyectado no es la red, y una propiedad que se llama `document` no es el DOM.
+PROHIBIDO_JS_USO = re.compile(
+    r"(?<![\w$.])(fetch\s*\(|window\.|document\.|localStorage\b|sessionStorage\b|process\.env\b)")
 IMPORT_PY = re.compile(r"^[ \t]*(?:from[ \t]+([\w.]+)[ \t]+import|import[ \t]+([\w.]+))", re.MULTILINE)
-PROHIBIDO_PY = re.compile(
-    r"^(fastapi|starlette|sqlalchemy|httpx|requests|psycopg2?|asyncpg|app\.adaptadores|app\.composicion)(\.|$)")
+# Python: la lista del dominio de `backend/tests/arquitectura/test_capas.py`, pieza
+# CONGELADA de la semilla, en lo que ya miraba este juez más `os` («en el dominio,
+# `os.environ` sería una regla de negocio que depende del entorno, y una regla que
+# cambia con una variable no se puede probar», dice esa prueba).
+PROHIBIDO_PY = re.compile(r"^(fastapi|starlette|sqlalchemy|httpx|requests|psycopg2?|asyncpg|os)(\.|$)")
+# Y las capas de afuera por NOMBRE DE SEGMENTO, no por paquete: el colector de una
+# aplicación no se llama `app` (`colector.adaptadores`), y un import relativo
+# (`from ..adaptadores import x`) no lleva paquete.
+PROHIBIDO_PY_CAPA = frozenset({"adaptadores", "composicion"})
 
-
-def _fecha_de_siembra(texto: str) -> str | None:
-    m = FABRICA.search(texto)
-    return m.group(1) if m else None
+# Dónde hay un dominio además de `frontend/src/dominio/` y `backend/app/dominio/`:
+# un servicio hermano —`collector/`— con su propia carpeta `dominio/`. Se descubre
+# por la carpeta, no por una lista de servicios: la flota los nombra como quiere.
+EXT_PY = frozenset({".py"})
+EXT_JS = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
+DOMINIOS_PROPIOS = ("frontend/src/dominio", "backend/app/dominio")
+# Una carpeta `dominio/` dentro de pruebas, fixtures o lo generado no es un dominio.
+NO_ES_DOMINIO = frozenset({"tests", "test", "__tests__", "spec", "fixtures", "node_modules",
+                           "dist", "build", "vendor", ".venv", "venv", "coverage"})
 
 
 def _lineas_de(repo: Repo, ruta: str) -> int | None:
@@ -249,16 +286,57 @@ def _capas_frontend(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> Non
         return
 
     for ruta in dominio:
-        texto = _sin_comentarios_js(repo.texto(ruta) or "")
-        motivos: list[tuple[int, str]] = []
-        for m in IMPORT_JS.finditer(texto):
-            destino = m.group(1)
-            if PROHIBIDO_JS_MODULO.search(destino) or PROHIBIDO_JS_CAPA.search(destino):
-                motivos.append((_linea_de(texto, m.start()), f"importa `{destino}`"))
-        for m in PROHIBIDO_JS_USO.finditer(texto):
-            motivos.append((_linea_de(texto, m.start()), f"usa `{m.group(1).strip()}`"))
-        _anotar_capas(repo, r, nuevo, ruta, motivos)
+        _anotar_capas(repo, r, nuevo, ruta, _motivos_js(repo.texto(ruta) or ""))
     r.comprobo(f"COD-3: {len(dominio)} archivo(s) de `frontend/src/dominio/` sin interfaz, red ni navegador")
+
+
+def _motivos_js(crudo: str) -> list[tuple[int, str]]:
+    texto = _sin_comentarios_js(crudo)
+    motivos: list[tuple[int, str]] = []
+    for m in IMPORT_JS.finditer(texto):
+        destino = m.group(1)
+        if PROHIBIDO_JS_MODULO.search(destino) or PROHIBIDO_JS_CAPA.search(destino):
+            motivos.append((_linea_de(texto, m.start()), f"importa `{destino}`"))
+    for m in PROHIBIDO_JS_USO.finditer(texto):
+        motivos.append((_linea_de(texto, m.start()), f"usa `{m.group(1).strip()}`"))
+    return motivos
+
+
+def _importa_py_prohibido(modulo: str, nivel: int) -> bool:
+    """`modulo` sin los puntos del import relativo; `nivel` es cuántos llevaba.
+
+    Un import relativo no nombra un paquete de terceros (`from . import os` es un
+    módulo propio que se llama así): de él sólo cuenta si cruza a una capa de afuera."""
+    if nivel == 0 and PROHIBIDO_PY.search(modulo):
+        return True
+    return any(segmento in PROHIBIDO_PY_CAPA for segmento in modulo.split("."))
+
+
+def _motivos_py(texto: str) -> list[tuple[int, str]]:
+    """Los imports prohibidos de un archivo Python, con su línea.
+
+    Con `ast` y no con una expresión: una expresión no ve `import sys, os` ni
+    `from ..adaptadores import x`, y sí ve un `import httpx` escrito en un docstring.
+    Si el archivo no compila se vuelve a la expresión, que algo mira."""
+    try:
+        arbol = ast.parse(texto)
+    except (SyntaxError, ValueError):
+        return [(_linea_de(texto, m.start()), f"importa `{m.group(1) or m.group(2)}`")
+                for m in IMPORT_PY.finditer(texto)
+                if _importa_py_prohibido(m.group(1) or m.group(2), 0)]
+    motivos: list[tuple[int, str]] = []
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Import):
+            for alias in nodo.names:
+                if _importa_py_prohibido(alias.name, 0):
+                    motivos.append((nodo.lineno, f"importa `{alias.name}`"))
+        elif isinstance(nodo, ast.ImportFrom):
+            base = nodo.module or ""
+            candidatos = [base] + [f"{base}.{a.name}" if base else a.name for a in nodo.names]
+            visto = "." * nodo.level + base
+            if any(c and _importa_py_prohibido(c, nodo.level) for c in candidatos):
+                motivos.append((nodo.lineno, f"importa `{visto or '.'}`"))
+    return sorted(set(motivos))
 
 
 def _capas_backend(repo: Repo, r: Resultado, nuevo: bool) -> None:
@@ -266,12 +344,47 @@ def _capas_backend(repo: Repo, r: Resultado, nuevo: bool) -> None:
     if not dominio:
         return
     for ruta in dominio:
-        texto = repo.texto(ruta) or ""
-        motivos = [(_linea_de(texto, m.start()), f"importa `{m.group(1) or m.group(2)}`")
-                   for m in IMPORT_PY.finditer(texto)
-                   if PROHIBIDO_PY.search(m.group(1) or m.group(2))]
-        _anotar_capas(repo, r, nuevo, ruta, motivos)
+        _anotar_capas(repo, r, nuevo, ruta, _motivos_py(repo.texto(ruta) or ""))
     r.comprobo(f"COD-3: {len(dominio)} archivo(s) de `backend/app/dominio/` sin framework ni base de datos")
+
+
+def _dominios_hermanos(versionados: list[str]) -> dict[str, list[str]]:
+    """raíz del dominio (`collector/colector/dominio`) -> sus archivos de código.
+
+    La raíz es la ruta hasta el PRIMER segmento `dominio`. Las dos que ya tienen su
+    propia comprobación, y lo que vive dentro de pruebas o de lo generado, no cuentan."""
+    hermanos: dict[str, list[str]] = {}
+    for ruta in versionados:
+        if PurePosixPath(ruta).suffix.lower() not in EXT_PY | EXT_JS:
+            continue
+        partes = ruta.split("/")
+        if "dominio" not in partes[:-1]:
+            continue
+        i = partes.index("dominio")
+        raiz = "/".join(partes[:i + 1])
+        if raiz in DOMINIOS_PROPIOS or any(p in NO_ES_DOMINIO for p in partes[:i]):
+            continue
+        hermanos.setdefault(raiz, []).append(ruta)
+    return hermanos
+
+
+def _capas_hermanos(repo: Repo, r: Resultado, nuevo: bool) -> None:
+    """COD-3 en un servicio hermano: el colector, un worker, lo que tenga `dominio/`.
+
+    Hasta el 2026-10-25 este juez sólo miraba `backend/app/dominio/` y
+    `frontend/src/dominio/`: un `import httpx` y un `import os` metidos en
+    `collector/colector/dominio/` de una aplicación de prueba dejaban el gate en
+    cero hallazgos. El dominio de un colector es tan dominio como el del backend."""
+    hermanos = _dominios_hermanos(repo.versionados())
+    if not hermanos:
+        r.comprobo("COD-3: ningún otro `dominio/` versionado fuera de `backend/app/` y `frontend/src/`")
+        return
+    for raiz, rutas in sorted(hermanos.items()):
+        for ruta in rutas:
+            texto = repo.texto(ruta) or ""
+            es_py = PurePosixPath(ruta).suffix.lower() in EXT_PY
+            _anotar_capas(repo, r, nuevo, ruta, _motivos_py(texto) if es_py else _motivos_js(texto))
+        r.comprobo(f"COD-3: {len(rutas)} archivo(s) de `{raiz}/` sin interfaz, red ni base de datos")
 
 
 def _anotar_capas(repo: Repo, r: Resultado, nuevo: bool, ruta: str, motivos: list[tuple[int, str]]) -> None:
@@ -308,7 +421,7 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "nuevas (FILOSOFIA.md, §3).")
         return
 
-    fecha = _fecha_de_siembra(marcador)
+    fecha = leer_fabrica(marcador)
     nuevo = fecha is not None and fecha >= VIGENCIA
     if nuevo:
         contexto = f"sembrado el {fecha}, con la regla ya vigente desde el {VIGENCIA}"
@@ -321,6 +434,7 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     _typescript(repo, r, nuevo, contexto)
     _capas_frontend(repo, r, nuevo, contexto)
     _capas_backend(repo, r, nuevo)
+    _capas_hermanos(repo, r, nuevo)
 
 
 if __name__ == "__main__":
