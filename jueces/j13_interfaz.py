@@ -292,6 +292,31 @@ def _cuerpo_del_media(texto: str, desde: int) -> str:
     return "".join(cuerpo)
 
 
+def _fuera_de_movimiento_reducido(texto: str) -> str:
+    """El texto SIN los bloques `@media (prefers-reduced-motion)`, por conteo de llaves.
+
+    Lo que el archivo mueve se cuenta FUERA de esos bloques. Hasta el 2026-10-25 se
+    contaba en el texto entero, así que las declaraciones que apagan el movimiento
+    se sumaban a las que lo encienden: apagar N de N salía «N de 2N» y bloqueaba."""
+    partes, desde = [], 0
+    for m in MOVIMIENTO_REDUCIDO.finditer(texto):
+        if m.start() < desde:
+            continue
+        partes.append(texto[desde:m.start()])
+        profundidad, i = 0, m.end()
+        while i < len(texto):
+            if texto[i] == "{":
+                profundidad += 1
+            elif texto[i] == "}":
+                profundidad -= 1
+                if profundidad <= 0:
+                    break
+            i += 1
+        desde = i + 1
+    partes.append(texto[desde:])
+    return "".join(partes)
+
+
 def _es_universal(texto: str) -> bool:
     """¿Tiene este archivo un `prefers-reduced-motion` con selector universal?"""
     m = MOVIMIENTO_REDUCIDO.search(texto)
@@ -354,7 +379,7 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
         if not bloque:
             continue
 
-        propios = len(HAY_MOVIMIENTO.findall(texto))
+        propios = len(HAY_MOVIMIENTO.findall(_fuera_de_movimiento_reducido(texto)))
         apagados = len(re.findall(r"[{;]\s*(?:transition|animation)[^;}]*", bloque))
         if apagados >= propios:
             continue

@@ -164,7 +164,24 @@ class PruebaMovimientoReducido(ConSemilla):
                           ".c { transition: opacity .2s; }\n"
                           "@media (prefers-reduced-motion: reduce) {\n"
                           "  .a { transition: none; }\n}\n")
-        self.assertBloquea("es selectivo")
+        # «1 de 3», no «1 de 4»: hasta el 2026-10-25 la cuenta incluía la propia
+        # declaración del bloque, y esta prueba pasaba con el número equivocado.
+        self.assertBloquea("apaga 1 de 3 declaración(es)")
+
+    def test_bloque_enumerado_que_apaga_todo_no_bloquea(self):
+        """Apagar N de N enumerando selectores cumple: no es selectivo.
+
+        Salía «N de 2N» y BLOQUEABA, porque las N declaraciones del bloque se
+        contaban también como movimiento propio del archivo."""
+        self.repo.escribe("src/estilos.css",
+                          ".a { transition: all .2s; }\n"
+                          ".b { animation: giro 1s; }\n"
+                          "@media (prefers-reduced-motion: reduce) {\n"
+                          "  .a { transition: none; }\n"
+                          "  .b { animation: none; }\n}\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
+                         [h.mensaje for h in r.hallazgos])
 
     def test_bloque_universal_no_bloquea(self):
         self.repo.escribe("src/estilos.css", CSS_SANO)
