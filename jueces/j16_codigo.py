@@ -25,6 +25,12 @@ MIRA HACIA ADELANTE, NO HACIA ATRÁS (`FILOSOFIA.md` de la fábrica, §3 y §4)
     fabrica <  VIGENCIA   -> AVISA. La deuda se ve; el despliegue no se detiene.
     sin `fabrica:`        -> AVISA. Adopta un estándar, o se sembró antes de que
                              existiera la clave.
+    sin `semilla` en `adopta:` -> AVISA aunque `fabrica:` sea vigente: «AVISA … en lo
+                             que sólo adopta un estándar» (`docs/ESTANDAR_CODIGO.md`
+                             de la fábrica, línea 13). Si la fecha es vigente se
+                             cuenta como SUPRESIÓN, como en j14. Hasta el
+                             2026-10-25 este juez no leía `adopta:`.
+    `adopta:` vacía       -> SIN_EVALUAR, con la línea (comun_semilla.py).
     sin `.semilla`        -> NO_APLICA. Como `j13`: el alcance se declara.
 
   La franja de 801 a 1000 líneas AVISA siempre: es el margen para partir antes
@@ -73,7 +79,8 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import sin_indice, Repo, Resultado, ejecutar, leer_fabrica, suprimido  # noqa: E402
+from comun import (Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica,  # noqa: E402
+                   sin_indice, suprimido)
 
 PERFILES = ("aplicacion",)
 
@@ -86,6 +93,9 @@ COD_3 = "COD-3"
 VIGENCIA = "2026-10-24"
 
 MARCADOR = ".semilla"
+# Lo que la fábrica exige al código es de la SEMILLA: lo que sólo adopta otro
+# estándar (`adopta: interfaz`, como coipo_prensa2) avisa. Ver comun_semilla.py.
+CAPA = "semilla"
 
 TECHO = 1000
 AVISO = 800
@@ -422,10 +432,23 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "nuevas (FILOSOFIA.md, §3).")
         return
 
+    adopcion = leer_adopcion(marcador)
+    if adopcion.vacia:
+        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
+        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
+        return
+
     fecha = leer_fabrica(marcador)
-    nuevo = fecha is not None and fecha >= VIGENCIA
+    vigente = fecha is not None and fecha >= VIGENCIA
+    nuevo = vigente and adopcion.adopta(CAPA)
     if nuevo:
         contexto = f"sembrado el {fecha}, con la regla ya vigente desde el {VIGENCIA}"
+    elif vigente:
+        contexto = f"sembrado el {fecha}, pero declara no adoptar `{CAPA}`: sólo aviso"
+        r.supresiones.append(
+            f"{MARCADOR} declara no adoptar `{CAPA}` — {adopcion.cita(MARCADOR)}: COD-1..3 "
+            f"bajan de BLOQUEA a AVISA en un repositorio sembrado el {fecha}. Es legítimo "
+            "sólo si el repositorio NO se sembró con la semilla.")
     elif fecha:
         contexto = f"sembrado el {fecha}, antes de la regla del {VIGENCIA}: sólo aviso"
     else:

@@ -435,10 +435,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # El marcador existe, pero puede declarar que adopta otras capas y no ésta.
     adopcion = leer_adopcion(repo.texto(MARCADOR))
     if adopcion.vacia:
-        r.no_evaluado.append(
-            f"{adopcion.cita(MARCADOR)}: la clave `adopta:` esta VACIA. No declara "
-            "nada, y leerla como N/A apagaria este juez en silencio. O se quita la "
-            "clave (= adopta todo) o se listan las capas.")
+        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
+        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
         return
     if not adopcion.adopta(CAPA):
         razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que este "

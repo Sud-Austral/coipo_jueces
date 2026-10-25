@@ -173,10 +173,18 @@ class PruebaFechas(Base):
         self.assertAvisa("declara no adoptar `semilla`", r)
         self.assertEqual(1, len(r.supresiones))
 
-    def test_vigente_con_adopta_vacia_bloquea_y_lo_anota(self):
-        """Una clave mal escrita —o la lista YAML en varias líneas— no relaja la regla."""
+    def test_vigente_con_lista_en_bloque_se_lee_como_lista(self):
+        """`adopta:` + `  - interfaz` es la lista `[interfaz]`, no una clave vacía.
+        Hasta el 2026-10-25 se leía vacía y se juzgaba como «todo» (BLOQUEA)."""
         r = self.sembrado("fabrica: 2026-10-25\nadopta:\n  - interfaz\n", construccion=None)
-        self.assertBloquea("no existe `docs/CONSTRUCCION.md`", r)
+        self.assertSinBloqueos(r)
+        self.assertAvisa("declara no adoptar `semilla`", r)
+        self.assertEqual(1, len(r.supresiones))
+
+    def test_vigente_con_adopta_vacia_no_dictamina_y_lo_dice(self):
+        """La semántica única: una `adopta:` vacía es SIN_EVALUAR en los cuatro jueces."""
+        r = self.sembrado("fabrica: 2026-10-25\nadopta:\n", construccion=None)
+        self.assertEqual("SIN_EVALUAR", r.veredicto)
         self.assertTrue(any("VACÍA" in n for n in r.no_evaluado), r.no_evaluado)
 
 

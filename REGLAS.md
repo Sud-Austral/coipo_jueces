@@ -47,7 +47,7 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
 | `UI-9` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya (sin leer comentarios CSS), **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave). **Se llamó `UI-10` hasta el 2026-10-25** (ver la nota de abajo) | `identidad/ESTANDAR_UI.md`, UI-9: «un componente sin `:focus-visible` no es navegable con teclado». **CONTRADICHO en la severidad**: la tabla §6 del estándar da a UI-9 `AVISA`; el juez BLOQUEA porque un contorno quitado sin sustituto deja el anillo de foco en 0:1, por debajo del 3:1 que exige UI-10 (`BLOQUEA`), y así lo leyó la firma del 2026-09-07. Lo decide Luis | BLOQUEA |
 | `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
-| `COD-1` | `j16` | ningún archivo de código versionado pasa de 1000 líneas (sobre 800, aviso). Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-24 o posterior, AVISA si es anterior o falta; sin `.semilla`, NO_APLICA | `docs/ESTANDAR_CODIGO.md`, COD-1 | BLOQUEA / AVISA |
+| `COD-1` | `j16` | ningún archivo de código versionado pasa de 1000 líneas (sobre 800, aviso). Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-24 o posterior **y adopta `semilla`**, AVISA si es anterior, si falta o si sólo adopta otro estándar; sin `.semilla`, NO_APLICA | `docs/ESTANDAR_CODIGO.md`, COD-1 | BLOQUEA / AVISA |
 | `COD-2` | `j16` | el frontend es TypeScript estricto: nada de `.js`/`.jsx` en `frontend/src/` y un `frontend/tsconfig*.json` con `"strict": true`. Misma severidad por fecha | `docs/ESTANDAR_CODIGO.md`, COD-2 | BLOQUEA / AVISA |
 | `COD-3` | `j16` | el dominio (`frontend/src/dominio/`, `backend/app/dominio/` y, desde el 2026-10-25, la carpeta `dominio/` de cualquier servicio hermano, como `collector/`) no importa interfaz, adaptadores, red, base de datos ni el sistema (`os` en Python; `fs`, `http`, `pg`, `process.env`... en Node), y en lo nuevo `frontend/src/dominio/` existe. Misma severidad por fecha | `docs/ESTANDAR_CODIGO.md`, COD-3; `os` y los imports relativos, de la lista del dominio de `backend/tests/arquitectura/test_capas.py`, pieza CONGELADA de la semilla | BLOQUEA / AVISA |
 | `FAB-8` | `j14` | `docs/CONSTRUCCION.md` existe (versionado, si hay git), sin ningún `[PENDIENTE]`/`[VERIFICAR]`, con `metodologia:`, `instancia:`, `objetivos:` y `consultas:`, una metodología de IGNUS (`smb-metodologia-…`) y al menos un `correlation_id` con forma válida; sin `registrado:`, aviso. **Sólo la forma**: el juez no llama a IGNUS (sin red ni clave en el CI); que existan de verdad lo comprueba `flota/herramientas_de_fabrica.py --construccion` en la fábrica. Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-20 o posterior y adopta `semilla`, AVISA si no; sin `.semilla`, NO_APLICA | `AGENTS.md`, sección 3, regla 8 («bloquea en lo sembrado desde el 2026-10-20 [...] y avisa en lo anterior»), y `prompts/05-consultar-la-fabrica.md` | BLOQUEA / AVISA |
@@ -116,6 +116,25 @@ bloqueantes sobre archivos legítimamente suyos**: exactamente el desastre que
 La clave `adopta:` separa las dos declaraciones. `j12` exige que incluya
 `semilla`; `j13`, que incluya `interfaz`. **La clave ausente adopta todo**, así
 que ningún `.semilla` escrito antes de esto cambia de veredicto.
+
+**Una sola semántica en `j12`, `j13`, `j14` y `j16`** (desde el 2026-10-25; la
+lee `leer_adopcion` de `jueces/comun_semilla.py`, y su comentario es la versión
+larga). Hasta ese día cada juez la interpretaba distinto —`j16` no la leía, `j14`
+trataba la vacía como «todo», `j12`/`j13` como SIN_EVALUAR— y la lista YAML en
+bloque se leía vacía (el caso real de `coipo_prevension_ministerial`):
+
+| `.semilla` dice | Resultado |
+|---|---|
+| no existe | `NO_APLICA` en los cuatro |
+| sin clave `adopta:` | adopta todo: `semilla` e `interfaz` |
+| `adopta: semilla, interfaz`, `adopta: [semilla, interfaz]`, `adopta: "semilla, interfaz"` o la lista en bloque (`adopta:` y debajo `- semilla`, `- interfaz`) | exactamente esas capas, las tres formas iguales |
+| una lista sin `semilla` | `j12` `NO_APLICA`; `j14` y `j16` **AVISAN** aunque `fabrica:` sea vigente («AVISA … en lo que sólo adopta un estándar», `docs/ESTANDAR_CODIGO.md` de la fábrica) |
+| una lista sin `interfaz` | `j13` `NO_APLICA` |
+| `adopta:`, `adopta: []`, `adopta: ""` o `adopta: ,` (vacía) | error de declaración: los cuatro lo anotan en «no evaluado» con la línea y **no dictaminan** (`SIN_EVALUAR`). No es una supresión |
+
+Cuando una lista apaga algo que regiría —`j12`/`j13` a `NO_APLICA`, o `j14`/`j16`
+de BLOQUEA a AVISA con `fabrica:` vigente— se cuenta como **supresión**. Una capa
+que no existe (`adopta: semila`) cuenta como escrita, y la cita la nombra.
 
 **Roza la puerta que `comun.py` cierra a propósito** —un repositorio no puede
 declararse `no_aplica` a sí mismo— y por eso se paga: el `no_aplica` **cita la

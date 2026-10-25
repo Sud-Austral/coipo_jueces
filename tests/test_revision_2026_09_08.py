@@ -150,7 +150,7 @@ class PruebaAdoptaVacio(CasoConRepo):
         self.repo.escribe("frontend/nginx.conf", "server {}\n")
         r = self.repo.juzga()
         self.assertEqual("SIN_EVALUAR", r.veredicto)
-        self.assertTrue(any("VACIA" in n for n in r.no_evaluado), r.no_evaluado)
+        self.assertTrue(any("VACÍA" in n for n in r.no_evaluado), r.no_evaluado)
         self.assertFalse(r.supresiones, "vacío no es una supresión: no declara nada")
 
 
