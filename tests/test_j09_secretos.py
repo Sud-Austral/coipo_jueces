@@ -325,6 +325,65 @@ class PruebaDelPropioJuez(unittest.TestCase):
             repo.cierra()
 
 
+class PruebaAccessKey(unittest.TestCase):
+    """`*_ACCESS_KEY` es un IDENTIFICADOR, no un secreto (auditoría del 2026-10-25).
+
+    En MinIO y en S3 el par es «access key» (el nombre de usuario, que viaja en
+    cada petición firmada y sale en los logs del servidor) y «secret key» (la
+    contraseña). La primera versión de este juez ponía `ACCESS_KEY` en la lista de
+    claves secretas, y en un `.env.example` eso bastaba para BLOQUEAR cualquier
+    valor de 8+ caracteres: salía en `coipo_n8n` y `coipo_prensa2` —los dos
+    repositorios de calibración— por un `# MINIO_ACCESS_KEY=<nombre-de-usuario>`
+    comentado, y en otros once de la flota. `coipo_api/DEUDA.md` registra que
+    Luis Monsalve dijo el 2026-09-25 que no es una credencial, «un caso para
+    corregir el juez, no para suprimirlo».
+
+    Valores inventados aquí: ninguno sale de un repositorio de CONAF.
+    """
+
+    def setUp(self):
+        self.repo = RepoSintetico()
+        self.addCleanup(self.repo.cierra)
+        self.repo.escribe(".gitignore", "/.env\n")
+
+    def _bloqueos(self) -> list[str]:
+        return [f"{h.linea}: {h.mensaje}" for h in self.repo.juzga().bloqueantes]
+
+    def test_access_key_comentada_con_nombre_de_usuario_no_bloquea(self):
+        """El caso exacto de n8n y prensa2: una línea comentada del ejemplo."""
+        self.repo.escribe(".env.example",
+                          "# MINIO_ENDPOINT=http://minio.ejemplo.invalid:9000\n"
+                          "# MINIO_ACCESS_KEY=app-prueba-2026\n")
+        self.assertEqual([], self._bloqueos())
+
+    def test_access_key_sin_comentar_con_nombre_de_usuario_no_bloquea(self):
+        self.repo.escribe(".env.example", "MINIO_ACCESS_KEY=app-prueba-2026\n"
+                                          "AWS_ACCESS_KEY_ID=AKIAPRUEBAINVENTADA1\n")
+        self.assertEqual([], self._bloqueos())
+
+    def test_access_key_con_pinta_de_generada_si_bloquea(self):
+        """Identificador no es carta blanca: 64 hex no son un nombre de usuario."""
+        self.repo.escribe(".env.example", f"MINIO_ACCESS_KEY={HEX_FALSO}\n")
+        self.assertEqual(1, len(self._bloqueos()), self._bloqueos())
+
+    def test_la_secret_key_sigue_siendo_secreto(self):
+        """La otra mitad del par sí es la contraseña, y en un `.env` basta un valor
+        no-placeholder para bloquear, aunque esté escrito a mano."""
+        self.repo.escribe(".env.example", "MINIO_SECRET_KEY=Kp7rTq2wLm9x\n"
+                                          "AWS_SECRET_ACCESS_KEY=Zt4nWq8rYv2s\n")
+        self.assertEqual(2, len(self._bloqueos()), self._bloqueos())
+
+    def test_un_secreto_comentado_sigue_bloqueando(self):
+        """LA DECISIÓN SOBRE LOS COMENTARIOS: se escanean igual que el resto.
+
+        Un valor real en una línea comentada está tan publicado como uno activo:
+        está en git y en todo el historial. Lo que cerró el falso positivo fue
+        reconocer que `ACCESS_KEY` es un identificador, no dejar de leer
+        comentarios."""
+        self.repo.escribe(".env.example", f"# JWT_SECRET={HEX_FALSO}\n")
+        self.assertEqual(1, len(self._bloqueos()), self._bloqueos())
+
+
 if __name__ == "__main__":
     if shutil.which("git") is None:
         # Falla con instrucciones; nunca hace skip. Un test saltado es un test
