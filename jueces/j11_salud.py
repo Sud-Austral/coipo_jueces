@@ -52,7 +52,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, suprimido,
+    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, sin_indice, suprimido,
 )
 
 PERFILES = ("aplicacion",)
@@ -359,8 +359,7 @@ def comprobar_coherencia_healthcheck(repo: Repo, r: Resultado) -> None:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.tiene_git():
-        r.no_evaluado.append(f"{repo.raiz} no es un repositorio git")
+    if sin_indice(repo, r):
         return
 
     compose = repo.texto("docker-compose.yml") or ""

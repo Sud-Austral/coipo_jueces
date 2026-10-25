@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import COMPOSE, Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import sin_indice, COMPOSE, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -264,8 +264,7 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.tiene_git():
-        r.no_evaluado.append(f"{repo.raiz} no es un repositorio git")
+    if sin_indice(repo, r):
         return
     comprobar_ejemplo(repo, r)
     comprobar_grafia_de_sesion(repo, r)

@@ -73,7 +73,7 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, leer_fabrica, suprimido  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, leer_fabrica, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion",)
 
@@ -410,8 +410,9 @@ def _anotar_capas(repo: Repo, r: Resultado, nuevo: bool, ruta: str, motivos: lis
 # ── Entrada ───────────────────────────────────────────────────────────────────
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.tiene_git():
-        r.no_evaluado.append("no es un repositorio git: este juez mide lo VERSIONADO.")
+    # Este juez mide lo VERSIONADO. Con el índice ilegible mediría cero archivos y
+    # saldría OK: cero de cero (auditoría del 2026-10-25).
+    if sin_indice(repo, r):
         return
     marcador = repo.texto(MARCADOR)
     if marcador is None:

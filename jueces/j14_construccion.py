@@ -79,7 +79,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica  # noqa: E402
 
 PERFILES = ("aplicacion",)
 
@@ -147,6 +147,11 @@ def _severidad(marcador: str, r: Resultado) -> tuple[bool, str]:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
+    # Sin `.git` se lee el disco (la prueba de paridad de la fábrica crea la
+    # aplicación así). Con un `.git` que git no puede leer, no se sabe si
+    # `CONSTRUCCION.md` está versionado: no se dictamina (auditoría del 2026-10-25).
+    if repo.tiene_git() and sin_indice(repo, r):
+        return
     marcador = repo.texto(MARCADOR)
     if marcador is None:
         r.no_corresponde(

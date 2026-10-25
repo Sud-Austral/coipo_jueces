@@ -44,7 +44,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion",)
 
@@ -102,6 +102,10 @@ def _declara_cors_origins(repo: Repo) -> bool:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
+    # Sin índice no hay archivos que leer, y «no encontré CORSMiddleware» saldría
+    # NO_APLICA: cero de cero (auditoría del 2026-10-25).
+    if sin_indice(repo, r):
+        return
     encontrado = False
 
     for ruta in _archivos_python(repo):

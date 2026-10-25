@@ -66,7 +66,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, ejecutar, leer_adopcion,  # noqa: E402
+from comun import (sin_indice, Repo, Resultado, ejecutar, leer_adopcion,  # noqa: E402
                    suprimido)
 
 PERFILES = ("aplicacion",)
@@ -382,10 +382,10 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.tiene_git():
-        r.no_evaluado.append(
-            "no es un repositorio git: este juez lee `git ls-files` para saber "
-            "qué hojas de estilo llegan al servidor, y sin índice no puede")
+    # Este juez lee `git ls-files` para saber qué hojas de estilo llegan al
+    # servidor. Sin índice (no hay `.git`, o git falla) no puede: SIN_EVALUAR, y
+    # nunca el NO_APLICA de «no hay hojas» (auditoría del 2026-10-25).
+    if sin_indice(repo, r):
         return
 
     # El estándar de interfaz es para PROYECTOS NUEVOS. Una aplicación anterior

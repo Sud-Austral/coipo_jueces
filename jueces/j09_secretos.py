@@ -40,7 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 REGLA = "G8-4"
 
@@ -431,14 +431,13 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.tiene_git():
-        r.no_evaluado.append(
-            f"{repo.raiz} no es un repositorio git: no se puede afirmar qué está "
-            "versionado, y mirar el disco daría el veredicto contrario al correcto"
-        )
+    # Sin `.git`, o con git roto: no se puede afirmar qué está versionado, y mirar
+    # el disco daría el veredicto contrario al correcto.
+    if sin_indice(repo, r):
         return
     if not repo.versionados():
-        r.no_evaluado.append("`git ls-files` no devolvió nada (¿repo vacío, o git ausente?)")
+        r.no_evaluado.append("`git ls-files` funcionó y no devolvió nada: el "
+                             "repositorio no tiene archivos versionados")
         return
     comprobar_env_versionados(repo, r)
     r.comprobo("archivos .env en el arbol versionado")

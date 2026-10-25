@@ -204,6 +204,7 @@ class Repo:
         if not self.raiz.is_dir():
             raise SystemExit(f"[jueces] no existe el directorio: {self.raiz}")
         self._versionados: list[str] | None = None
+        self._fallo_git: str | None = None
 
     @property
     def nombre(self) -> str:
@@ -225,13 +226,34 @@ class Repo:
                     encoding="utf-8", errors="replace",
                 )
                 self._versionados = [r for r in (salida.stdout or "").split("\0") if r]
-            except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            except subprocess.CalledProcessError as e:
                 # Sin git no se puede afirmar nada sobre lo versionado. Se
-                # devuelve vacío y el juez lo declara como no evaluado; NUNCA
-                # se cae al recorrido del disco, que daría el veredicto
-                # contrario al correcto sobre un `.env` local legítimo.
+                # devuelve vacío y se GUARDA EL PORQUÉ: `indice_roto()` lo da, y
+                # el juez lo declara no evaluado (`sin_indice`). NUNCA se cae al
+                # recorrido del disco, que daría el veredicto contrario al
+                # correcto sobre un `.env` local legítimo.
+                #
+                # Hasta el 2026-10-25 este comentario prometía lo mismo y nadie
+                # lo cumplía: vacío y fallido eran indistinguibles, y j13 salía
+                # NO_APLICA y j16 OK sobre un `.git` roto. Cero de cero.
+                error = (e.stderr or "").strip().splitlines()
+                self._fallo_git = (f"`git ls-files` salió {e.returncode}"
+                                   + (f": {error[0][:160]}" if error else ""))
+                self._versionados = []
+            except (FileNotFoundError, OSError) as e:
+                self._fallo_git = f"`git ls-files` no se pudo ejecutar ({type(e).__name__}: {e})"
                 self._versionados = []
         return self._versionados
+
+    def indice_roto(self) -> str | None:
+        """Por qué no se puede leer lo versionado, o None si se puede.
+
+        Distingue «falló» de «vacío»: un repositorio git sano sin un solo archivo
+        devuelve `[]` y None; uno con el `.git` roto devuelve `[]` y el motivo."""
+        if not self.tiene_git():
+            return f"`git ls-files` no aplica: {self.raiz.name} no tiene `.git`"
+        self.versionados()
+        return self._fallo_git
 
     def tiene_git(self) -> bool:
         return (self.raiz / ".git").exists()
@@ -273,6 +295,20 @@ class Repo:
         for r in self.versionados():
             if any(fnmatch(r, p) for p in patrones):
                 yield r
+
+
+def sin_indice(repo: Repo, r: Resultado) -> bool:
+    """True, y lo anota en `no_evaluado`, si no se puede leer lo versionado.
+
+    Todo juez que decide sobre `git ls-files` lo llama ANTES de dictaminar nada:
+    con el índice ilegible no sale OK ni NO_APLICA, sale SIN_EVALUAR."""
+    motivo = repo.indice_roto()
+    if motivo is None:
+        return False
+    r.no_evaluado.append(
+        f"{motivo}. Sin la lista de archivos versionados este juez no puede afirmar "
+        "nada: cero archivos leídos no es «nada que juzgar»")
+    return True
 
 
 # --------------------------------------------------------------------------
