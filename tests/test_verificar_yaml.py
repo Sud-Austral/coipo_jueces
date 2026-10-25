@@ -85,12 +85,26 @@ class PruebaRefPorDefecto(unittest.TestCase):
         Esta prueba convierte esa condición en un fallo ruidoso cuando corre en
         GitHub Actions. Si vuelve a rojo, el arreglo es `fetch-depth: 0` en el
         checkout, no relajar esto.
+
+        FUERA DE CI YA NO SE SALTA (2026-10-25). Era el único `skip` de la suite y
+        el README dice que un skip es un fallo: «1 omitida» salía en cada corrida
+        sin que nadie supiera cuál. Fuera de CI se comprueba contra la otra fuente
+        que sí está en cualquier clon, la mayor que `docs/VERSIONADO.md` declara
+        vigente, y la prueba de abajo usa esa misma fuente si no hay tags.
         """
-        if not os.environ.get("GITHUB_ACTIONS"):
-            self.skipTest("fuera de CI: un clon local puede no tener tags")
-        self.assertTrue(self._mayores_publicadas(),
-                        "el checkout de CI no trae tags, así que la comprobación "
-                        "del default se salta. Añade `fetch-depth: 0`.")
+        if os.environ.get("GITHUB_ACTIONS"):
+            self.assertTrue(self._mayores_publicadas(),
+                            "el checkout de CI no trae tags, así que la comprobación "
+                            "del default se queda sin tags. Añade `fetch-depth: 0`.")
+        self.assertIsNotNone(self._mayor_declarada(),
+                             "docs/VERSIONADO.md no dice «Hoy la mayor vigente es `vN`»: "
+                             "sin tags ni esa línea, nada comprueba el default")
+
+    def _mayor_declarada(self) -> int | None:
+        """La mayor que `docs/VERSIONADO.md` declara vigente, o None."""
+        texto = (RAIZ / "docs" / "VERSIONADO.md").read_text(encoding="utf-8")
+        m = re.search(r"Hoy la mayor vigente es `v(\d+)`", texto)
+        return int(m.group(1)) if m else None
 
     def test_el_default_no_se_queda_en_una_mayor_anterior(self):
         """La comprobación que importa.
@@ -108,9 +122,10 @@ class PruebaRefPorDefecto(unittest.TestCase):
 
         Adelantarse es legítimo. Quedarse atrás es el defecto.
         """
-        mayores = self._mayores_publicadas()
-        if not mayores:
-            self.skipTest("este clon no tiene tags `vN`: nada que comprobar")
+        # Sin tags (un clon superficial, fuera de CI) se compara con la mayor que
+        # declara docs/VERSIONADO.md: nunca se salta. En CI, sin tags, falla la
+        # prueba de arriba.
+        mayores = self._mayores_publicadas() or [self._mayor_declarada() or 0]
 
         declarada = int(self._defecto()[1:])
         self.assertGreaterEqual(
