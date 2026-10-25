@@ -355,13 +355,15 @@ _ROJO, _AMARILLO, _VERDE, _GRIS, _FIN = (
 )
 
 
-def _anotacion_github(h: Hallazgo, juez: str) -> str:
+def _anotacion_github(h: Hallazgo, juez: str, modo: str) -> str:
     """Anotación de GitHub Actions, para que salga en el diff del PR.
 
     `::error::` incluso cuando el modo es advisory sería mentir sobre el
-    estado del build; en advisory todo baja a `::warning::`.
+    estado del build; en advisory todo baja a `::warning::`. Hasta el 2026-10-25
+    esto lo decía sólo este docstring: el código no recibía el modo y emitía
+    `::error::` para todo BLOQUEA (lo fija `tests/test_anotaciones.py`).
     """
-    nivel = "error" if h.severidad is Severidad.BLOQUEA else "warning"
+    nivel = "error" if (modo == "bloqueante" and h.severidad is Severidad.BLOQUEA) else "warning"
     partes = [f"file={h.archivo}"] if h.archivo else []
     if h.linea:
         partes.append(f"line={h.linea}")
@@ -416,7 +418,7 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
         if h.arreglo:
             print(f"           {_GRIS}arreglo: {h.arreglo}{_FIN}")
         if en_github:
-            print(_anotacion_github(h, resultado.juez))
+            print(_anotacion_github(h, resultado.juez, modo))
 
     b = len(resultado.bloqueantes)
     print(f"\n  {len(resultado.hallazgos)} hallazgo(s), {b} de severidad BLOQUEA")
