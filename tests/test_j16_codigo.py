@@ -216,6 +216,107 @@ class PruebaCapas(Base):
             "backend/app/dominio/politicas/p.py", "from app.dominio.errores import DatoInvalido\nimport calendar\n")
         self.assertEqual([], self.repo.juzga().hallazgos)
 
+    def test_dominio_del_backend_que_lee_el_entorno_bloquea(self):
+        """`os` está en la lista del dominio de `test_capas.py`, pieza congelada de la semilla."""
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "backend/app/dominio/reglas.py", "import sys, os\nLIMITE = int(os.environ['LIMITE'])\n")
+        self.assertBloquea("importa `os`")
+
+
+COLECTOR_PURO = (
+    '"""Indicadores. No importa httpx ni os: lo vigila tests/test_capas.py."""\n'
+    "from __future__ import annotations\n"
+    "from dataclasses import dataclass\n"
+    "from decimal import Decimal\n"
+    "from colector.dominio.errores import DatoInvalido\n"
+    "@dataclass(frozen=True)\n"
+    "class Valor:\n"
+    "    monto: Decimal\n")
+
+COLECTOR_JS_PURO = (
+    "import { tokenizar } from './analisis-texto.js'\n"
+    "// el dominio no hace fetch(): lo hace un adaptador\n"
+    "export const contar = (noticia, puerto) => {\n"
+    "  const t = noticia.document.titulo\n"
+    "  return puerto.fetch(tokenizar(t))\n"
+    "}\n")
+
+
+class PruebaCapasHermanos(Base):
+    """COD-3 en un servicio hermano. Hasta el 2026-10-25 `import httpx` e `import os`
+    metidos en `collector/colector/dominio/` dejaban el gate en cero hallazgos."""
+
+    def test_colector_python_que_importa_httpx_bloquea(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import httpx\n")
+        r = self.repo.juzga()
+        self.assertBloquea("importa `httpx`", r)
+        self.assertEqual("collector/colector/dominio/indicadores.py", r.bloqueantes[0].archivo)
+        self.assertEqual(9, r.bloqueantes[0].linea)
+
+    def test_colector_python_que_importa_os_bloquea(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import os\n")
+        self.assertBloquea("importa `os`")
+
+    def test_colector_python_que_importa_su_adaptador_bloquea(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/colector/dominio/indicadores.py",
+            COLECTOR_PURO + "from colector.adaptadores.postgres import guardar\n")
+        self.assertBloquea("importa `colector.adaptadores.postgres`")
+
+    def test_colector_python_con_import_relativo_a_un_adaptador_bloquea(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "from .. import adaptadores\n")
+        self.assertBloquea("importa `..`")
+
+    def test_un_modulo_propio_que_se_llama_como_uno_prohibido_no_es_hallazgo(self):
+        """`from . import os` trae `dominio/os.py`, no la biblioteca del sistema."""
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "from . import os\n")
+        self.assertEqual([], self.repo.juzga().hallazgos)
+
+    def test_colector_python_puro_sale_limpio_y_se_registra(self):
+        self.repo.escribe(".semilla", NUEVA).escribe("collector/colector/dominio/indicadores.py", COLECTOR_PURO)
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos)
+        self.assertTrue(any("`collector/colector/dominio/`" in c for c in r.comprobado), r.comprobado)
+
+    def test_colector_viejo_solo_avisa(self):
+        self.repo.escribe(".semilla", VIEJA).escribe(
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import httpx\n")
+        self.assertSinBloqueos()
+        self.assertAvisa("importa `httpx`")
+
+    def test_colector_js_puro_sale_limpio(self):
+        """La forma del colector de coipo_prensa2: imports relativos dentro del dominio,
+        y un método `fetch` de un puerto inyectado, que no es la red."""
+        self.repo.escribe(".semilla", NUEVA).escribe("collector/src/dominio/conteo.js", COLECTOR_JS_PURO)
+        self.assertEqual([], self.repo.juzga().hallazgos)
+
+    def test_colector_js_que_habla_con_afuera_bloquea(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/src/dominio/archivo.js",
+            "import pg from 'pg'\nconst fs = require('node:fs')\nexport const url = process.env.DB_URL\n"
+            "export const traer = () => fetch('https://ejemplo.invalid')\n")
+        r = self.repo.juzga()
+        self.assertBloquea("importa `pg`", r)
+        self.assertBloquea("importa `node:fs`", r)
+        self.assertBloquea("usa `process.env`", r)
+        self.assertBloquea("usa `fetch", r)
+
+    def test_el_adaptador_del_colector_si_puede_hablar_con_afuera(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/src/adaptadores/archivador.js", "import pg from 'pg'\nexport const p = pg\n")
+        self.assertEqual([], self.repo.juzga().hallazgos)
+
+    def test_un_dominio_dentro_de_pruebas_no_es_un_dominio(self):
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/tests/dominio/test_x.py", "import os\nimport httpx\n")
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos)
+        self.assertTrue(any("ningún otro `dominio/`" in c for c in r.comprobado), r.comprobado)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
