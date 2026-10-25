@@ -31,6 +31,17 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
 
+# Los módulos hermanos (`comun_yaml`, `comun_semilla`) se importan por nombre: este
+# directorio tiene que estar en la ruta aunque quien importe `comun` no lo haya
+# puesto (la prueba de paridad de la fábrica carga `j14` por ruta).
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from comun_yaml import (  # noqa: E402,F401  (reexportados: los jueces los importan de aquí)
+    YamlNoSoportado, _sin_comentario, carga_yaml, numero_de_linea,
+)
+from comun_semilla import Adopcion, leer_adopcion, leer_fabrica  # noqa: E402,F401
+
 # --------------------------------------------------------------------------
 # Hallazgos
 # --------------------------------------------------------------------------
@@ -173,6 +184,12 @@ class Resultado:
 # --------------------------------------------------------------------------
 
 
+# Los nombres con que Docker Compose busca el archivo, en su orden. Estaba copiada
+# en j01, j02 y j06, y j11 leía sólo el primero: su excepción de software de
+# terceros no veía un `compose.yaml` (auditoría del 2026-10-25).
+COMPOSE = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
+
+
 class Repo:
     """Acceso de solo lectura al repositorio que se está juzgando.
 
@@ -187,6 +204,7 @@ class Repo:
         if not self.raiz.is_dir():
             raise SystemExit(f"[jueces] no existe el directorio: {self.raiz}")
         self._versionados: list[str] | None = None
+        self._fallo_git: str | None = None
 
     @property
     def nombre(self) -> str:
@@ -208,13 +226,34 @@ class Repo:
                     encoding="utf-8", errors="replace",
                 )
                 self._versionados = [r for r in (salida.stdout or "").split("\0") if r]
-            except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            except subprocess.CalledProcessError as e:
                 # Sin git no se puede afirmar nada sobre lo versionado. Se
-                # devuelve vacío y el juez lo declara como no evaluado; NUNCA
-                # se cae al recorrido del disco, que daría el veredicto
-                # contrario al correcto sobre un `.env` local legítimo.
+                # devuelve vacío y se GUARDA EL PORQUÉ: `indice_roto()` lo da, y
+                # el juez lo declara no evaluado (`sin_indice`). NUNCA se cae al
+                # recorrido del disco, que daría el veredicto contrario al
+                # correcto sobre un `.env` local legítimo.
+                #
+                # Hasta el 2026-10-25 este comentario prometía lo mismo y nadie
+                # lo cumplía: vacío y fallido eran indistinguibles, y j13 salía
+                # NO_APLICA y j16 OK sobre un `.git` roto. Cero de cero.
+                error = (e.stderr or "").strip().splitlines()
+                self._fallo_git = (f"`git ls-files` salió {e.returncode}"
+                                   + (f": {error[0][:160]}" if error else ""))
+                self._versionados = []
+            except (FileNotFoundError, OSError) as e:
+                self._fallo_git = f"`git ls-files` no se pudo ejecutar ({type(e).__name__}: {e})"
                 self._versionados = []
         return self._versionados
+
+    def indice_roto(self) -> str | None:
+        """Por qué no se puede leer lo versionado, o None si se puede.
+
+        Distingue «falló» de «vacío»: un repositorio git sano sin un solo archivo
+        devuelve `[]` y None; uno con el `.git` roto devuelve `[]` y el motivo."""
+        if not self.tiene_git():
+            return f"`git ls-files` no aplica: {self.raiz.name} no tiene `.git`"
+        self.versionados()
+        return self._fallo_git
 
     def tiene_git(self) -> bool:
         return (self.raiz / ".git").exists()
@@ -245,6 +284,10 @@ class Repo:
         t = self.texto(relativa)
         return t.splitlines() if t is not None else []
 
+    def compose(self) -> str | None:
+        """El compose de la raíz, con cualquiera de los cuatro nombres que acepta Docker."""
+        return next((c for c in COMPOSE if self.existe(c)), None)
+
     def buscar(self, *patrones: str) -> Iterator[str]:
         """Rutas versionadas cuyo nombre casa con alguno de los patrones glob."""
         from fnmatch import fnmatch
@@ -254,204 +297,18 @@ class Repo:
                 yield r
 
 
-# --------------------------------------------------------------------------
-# YAML: el subconjunto que usa esta flota, y NADA MÁS
-# --------------------------------------------------------------------------
+def sin_indice(repo: Repo, r: Resultado) -> bool:
+    """True, y lo anota en `no_evaluado`, si no se puede leer lo versionado.
 
-
-class YamlNoSoportado(Exception):
-    """El archivo usa una construcción que este parser no entiende.
-
-    Se lanza en vez de adivinar. Un parser que interpreta mal en silencio es
-    exactamente el modo de fallo que estos jueces existen para prevenir: daría
-    un verde por el motivo equivocado, que es peor que un rojo ruidoso.
-    """
-
-
-def _desescalar(texto: str) -> Any:
-    """Escalar YAML -> valor Python. Sin sorpresas de tipado."""
-    t = texto.strip()
-    if not t:
-        return ""
-    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
-        return t[1:-1]
-    if t in ("true", "True", "yes", "on"):
-        return True
-    if t in ("false", "False", "no", "off"):
+    Todo juez que decide sobre `git ls-files` lo llama ANTES de dictaminar nada:
+    con el índice ilegible no sale OK ni NO_APLICA, sale SIN_EVALUAR."""
+    motivo = repo.indice_roto()
+    if motivo is None:
         return False
-    if t in ("null", "~"):
-        return None
-    # `re.fullmatch` y no `lstrip("-").isdigit()`: "--5" pasaba el segundo y
-    # reventaba en int(), tumbando al juez entero con un ValueError por un
-    # `command: --5` en el compose. Medido el 2026-09-08.
-    if re.fullmatch(r"-?\d+", t):
-        return int(t)
-    return t
-
-
-def _flow(texto: str) -> list[Any]:
-    """Secuencia en línea: `["CMD", "python", "-c", "..."]`.
-
-    Se parte respetando comillas, porque los healthcheck de esta flota llevan
-    comas DENTRO del comando de python.
-    """
-    t = texto.strip()
-    if not (t.startswith("[") and t.endswith("]")):
-        raise YamlNoSoportado(f"secuencia en línea mal formada: {texto[:60]}")
-    cuerpo, piezas, actual, comilla, prof = t[1:-1], [], [], None, 0
-    for ch in cuerpo:
-        if comilla:
-            if ch == comilla:
-                comilla = None
-            actual.append(ch)
-        elif ch in "\"'":
-            comilla = ch
-            actual.append(ch)
-        elif ch in "[{":
-            prof += 1
-            actual.append(ch)
-        elif ch in "]}":
-            prof -= 1
-            actual.append(ch)
-        elif ch == "," and prof == 0:
-            piezas.append("".join(actual))
-            actual = []
-        else:
-            actual.append(ch)
-    piezas.append("".join(actual))
-    return [_desescalar(p) for p in piezas if p.strip()]
-
-
-def _sin_comentario(linea: str) -> str:
-    """Quita el comentario final respetando comillas.
-
-    `# ` dentro de un valor entrecomillado es contenido, no comentario: el
-    healthcheck de esta flota lleva un `python -c` con almohadillas dentro.
-    """
-    comilla = None
-    for i, ch in enumerate(linea):
-        if comilla:
-            if ch == comilla:
-                comilla = None
-        elif ch in "\"'":
-            comilla = ch
-        elif ch == "#" and (i == 0 or linea[i - 1] in " \t"):
-            return linea[:i]
-    return linea
-
-
-def carga_yaml(texto: str) -> dict[str, Any]:
-    """Parser del subconjunto YAML que usan los docker-compose de la flota.
-
-    Soporta: mapas anidados por indentación, secuencias de bloque (`- x` y
-    `- k: v`), secuencias en línea (`[a, b]`), escalares entrecomillados y
-    comentarios.
-
-    NO soporta —y lo dice lanzando `YamlNoSoportado`—: anclas y alias
-    (`&x` / `*x`), escalares de bloque (`|`, `>`), mapas en línea (`{...}`) y
-    documentos múltiples. Ninguno aparece en los nueve compose de la flota; si
-    algún día aparecen, es mejor un juez que se queja que un juez que miente.
-    """
-    raiz: dict[str, Any] = {}
-    # pila de (indentacion, contenedor). El contenedor es dict o list.
-    pila: list[tuple[int, Any]] = [(-1, raiz)]
-
-    lineas = texto.splitlines()
-    for n, cruda in enumerate(lineas, start=1):
-        linea = _sin_comentario(cruda).rstrip()
-        if not linea.strip():
-            continue
-
-        sangria = len(linea) - len(linea.lstrip(" "))
-        if "\t" in cruda[:sangria]:
-            raise YamlNoSoportado(f"línea {n}: tabulación en la indentación")
-        cuerpo = linea.strip()
-
-        # En YAML real la ancla va en posicion de VALOR (`x-comun: &comun`), el
-        # alias en `<<: *comun` o en `- *puerto`. Solo mirar el inicio de linea
-        # los dejaba pasar y los colgaba de la raiz como cadenas. Medido el
-        # 2026-09-08 con un compose de anclas: el parser lo interpretaba mal EN
-        # SILENCIO, que es lo contrario de lo que promete el docstring.
-        if (cuerpo.startswith(("&", "*", "<<"))
-                or re.search(r"(?::\s*|^-\s+)[&*][A-Za-z0-9_.-]+\s*$", cuerpo)):
-            raise YamlNoSoportado(f"línea {n}: anclas/alias no soportados")
-        if cuerpo == "---":
-            raise YamlNoSoportado(f"línea {n}: documentos múltiples no soportados")
-
-        while pila and sangria <= pila[-1][0]:
-            pila.pop()
-        if not pila:
-            raise YamlNoSoportado(f"línea {n}: indentación inconsistente")
-        _, contenedor = pila[-1]
-
-        # ---- elemento de secuencia ----
-        if cuerpo.startswith("- "):
-            item = cuerpo[2:].strip()
-            if not isinstance(contenedor, list):
-                raise YamlNoSoportado(f"línea {n}: '-' fuera de una secuencia")
-            if ":" in item and not item.startswith(("[", "\"", "'")):
-                clave, _, resto = item.partition(":")
-                mapa: dict[str, Any] = {}
-                contenedor.append(mapa)
-                resto = resto.strip()
-                if resto:
-                    mapa[clave.strip()] = _flow(resto) if resto.startswith("[") else _desescalar(resto)
-                else:
-                    pila.append((sangria + 2, mapa))
-            else:
-                contenedor.append(_desescalar(item))
-            continue
-
-        # ---- clave: valor ----
-        if ":" not in cuerpo:
-            raise YamlNoSoportado(f"línea {n}: no es 'clave: valor' ni '- item': {cuerpo[:60]}")
-        clave, _, valor = cuerpo.partition(":")
-        clave, valor = clave.strip().strip("\"'"), valor.strip()
-        if not isinstance(contenedor, dict):
-            raise YamlNoSoportado(f"línea {n}: clave dentro de una secuencia sin '-'")
-
-        if valor in ("|", ">", "|-", ">-", "|+", ">+"):
-            raise YamlNoSoportado(f"línea {n}: escalar de bloque no soportado")
-        if valor.startswith("{"):
-            raise YamlNoSoportado(f"línea {n}: mapa en línea no soportado")
-
-        if not valor:
-            # Puede abrir un mapa o una secuencia: se decide mirando la
-            # siguiente línea con contenido.
-            siguiente = _proxima_significativa(lineas, n)
-            if siguiente is not None and siguiente[1].startswith("- ") and siguiente[0] > sangria:
-                hijo: Any = []
-            else:
-                hijo = {}
-            contenedor[clave] = hijo
-            pila.append((sangria, hijo))
-        elif valor.startswith("["):
-            contenedor[clave] = _flow(valor)
-        else:
-            contenedor[clave] = _desescalar(valor)
-
-    return raiz
-
-
-def _proxima_significativa(lineas: list[str], desde: int) -> tuple[int, str] | None:
-    for cruda in lineas[desde:]:
-        linea = _sin_comentario(cruda).rstrip()
-        if linea.strip():
-            return len(linea) - len(linea.lstrip(" ")), linea.strip()
-    return None
-
-
-def numero_de_linea(texto: str, aguja: str) -> int | None:
-    """Primera línea que contiene `aguja`. Para anclar hallazgos.
-
-    El parser pierde los números de línea a propósito (mantenerlos duplicaría
-    su complejidad), así que se recuperan por búsqueda de texto. Es aproximado
-    y basta: el hallazgo ya nombra el archivo y la regla.
-    """
-    for i, linea in enumerate(texto.splitlines(), start=1):
-        if aguja in linea:
-            return i
-    return None
+    r.no_evaluado.append(
+        f"{motivo}. Sin la lista de archivos versionados este juez no puede afirmar "
+        "nada: cero archivos leídos no es «nada que juzgar»")
+    return True
 
 
 # --------------------------------------------------------------------------
@@ -464,123 +321,6 @@ def numero_de_linea(texto: str, aguja: str) -> int | None:
 #     coipo-jueces:ignorar(G8-4) fixture sintético del test de secretos
 #
 # El motivo es obligatorio y de al menos 12 caracteres. Un marcador sin motivo
-# ── El alcance declarado: la clave `adopta:` de `.semilla` ───────────────────
-#
-# `.semilla` empezó siendo un interruptor: existe o no existe. Encendía `j12`
-# (las piezas congeladas vienen de la semilla) y `j13` (esta interfaz sigue el
-# estándar) a la vez, porque `j13` reutilizó el marcador de `j12`.
-#
-# Eso se rompió al intentar declararlo en un repositorio REAL. `coipo_prensa2`
-# puede y debe cumplir el estándar de interfaz, pero NUNCA se sembró: ocho de sus
-# archivos coinciden en ruta con `semilla.lock` sin venir de ahí —su propio
-# `backend/Dockerfile`, su propio `frontend/nginx.conf`, su `requirements.txt`—.
-# Poner el marcador para adoptar la interfaz le habría encendido OCHO `SEM-1`
-# bloqueantes sobre archivos legítimamente suyos: exactamente el desastre que
-# `j12` documenta en su cabecera haber causado ya una vez.
-#
-# `adopta:` separa las dos declaraciones. La clave lista qué estándares reclama
-# el repositorio; cada juez exige el suyo:
-#
-#     version: 2026-09-07
-#     gerencia: 1_banner_SECOM
-#     adopta: interfaz          -> j13 juzga; j12 NO_APLICA
-#
-# LA CLAVE AUSENTE ADOPTA TODO, y esa dirección es deliberada. Es lo que hace que
-# nada de lo que hoy funciona cambie —los `.semilla` que `sembrar.py` escribió
-# antes de esto no la llevan— y es también el valor SEGURO: olvidarla no relaja
-# ninguna regla, la olvida hacia la exigencia.
-#
-# LO QUE ESTA CLAVE ROZA, Y POR QUÉ SE PAGA. `comun.py` cierra a propósito la
-# puerta de que un repositorio se declare `no_aplica` a sí mismo: «si pudiera,
-# ésta sería la puerta por la que todo se pone verde». `adopta:` la entreabre —
-# antes, escapar de `j12` costaba borrar un archivo que grita `# NO LO BORRES` y
-# que además apagaba `j13`; ahora cuesta una palabra, y el repositorio sigue
-# pareciendo declarado. Tres cosas lo compensan, y ninguna es opcional:
-#
-#   1. El `no_aplica` CITA la línea literal y su número, así que en el resumen se
-#      lee quién se apagó y con qué texto. Un N/A autodeclarado que no se puede
-#      leer es indistinguible de uno honesto.
-#   2. Se cuenta como SUPRESIÓN: `::warning::` y fila en `DEUDA.md`, no en la
-#      sección informativa que no cuesta nada.
-#   3. `sembrar.py` escribe `adopta: semilla, interfaz` EXPLÍCITO, de modo que
-#      quitarle `semilla` a un repositorio sembrado es un diff visible en una
-#      línea que dice lo que hace, no una ausencia.
-#
-# Una línea comentada NO declara nada: `^\s*adopta` no casa con `# adopta: x`,
-# porque `#` no es espacio en blanco. Hay una prueba que lo fija.
-_ADOPTA = re.compile(r"^[ \t]*adopta[ \t]*:[ \t]*(?P<lista>[^\r\n]*)", re.MULTILINE)
-
-
-@dataclass(frozen=True)
-class Adopcion:
-    """Lo que un `.semilla` declara adoptar, con la línea que lo dice.
-
-    `declarado is None` significa que la clave NO está, y entonces se adopta
-    todo. No es lo mismo que `adopta:` vacío, que es una declaración de que no se
-    adopta nada y por tanto un error del que hay que avisar.
-    """
-
-    declarado: frozenset[str] | None
-    numero: int | None = None
-    linea: str | None = None
-
-    @property
-    def vacia(self) -> bool:
-        """`adopta:` presente y sin ninguna capa: `adopta:` o `adopta: ,`.
-
-        No es «adopta todo» ni «no adopta nada»: es un error de escritura, y un
-        juez que lo leyera como N/A se apagaria en silencio con exit 0. Medido el
-        2026-09-08. Se reporta como NO EVALUADO, con la linea, y no cuenta como
-        supresion porque no declara nada que suprimir.
-        """
-        return self.declarado is not None and not self.declarado
-
-    def adopta(self, capa: str) -> bool:
-        return self.declarado is None or capa in self.declarado
-
-    def cita(self, marcador: str = ".semilla") -> str:
-        """`.semilla:7 declara «adopta: interfaz»` — para la razón del N/A."""
-        if self.declarado is None:
-            return f"`{marcador}` sin clave `adopta:`"
-        return f"`{marcador}:{self.numero}` declara «{(self.linea or '').strip()}»"
-
-
-def leer_adopcion(texto: str | None) -> Adopcion:
-    """Lee la clave `adopta:` de un `.semilla`. Ausente = adopta todo."""
-    if not texto:
-        return Adopcion(None)
-    m = _ADOPTA.search(texto)
-    if not m:
-        return Adopcion(None)
-    crudo = _sin_comentario(m.group("lista"))
-    capas = frozenset(
-        parte.strip().lower()
-        for parte in crudo.replace(",", " ").split()
-        if parte.strip()
-    )
-    numero = texto[: m.start()].count("\n") + 1
-    return Adopcion(capas, numero, m.group(0))
-
-
-# ── La fecha de siembra: la clave `fabrica:` de `.semilla` ───────────────────
-#
-# `sembrar.py` (vía `semilla/siembra/aplicacion.py` de la fábrica) la escribe con
-# la fecha REAL del día en que se sembró. La leen los jueces que miran hacia
-# adelante (`FILOSOFIA.md` de la fábrica, §3 y §4): una regla nueva bloquea sólo
-# lo sembrado desde su vigencia y avisa en lo anterior. `j16` la leía con su
-# propia expresión; `j14` es el segundo lector y por eso vive aquí, una sola vez.
-# Como `adopta:`, una línea comentada no declara nada.
-_FABRICA = re.compile(r"^[ \t]*fabrica[ \t]*:[ \t]*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
-
-
-def leer_fabrica(texto: str | None) -> str | None:
-    """`AAAA-MM-DD` de la clave `fabrica:` de un `.semilla`, o None si no la lleva."""
-    if not texto:
-        return None
-    m = _FABRICA.search(texto)
-    return m.group(1) if m else None
-
-
 # no suprime nada: si silenciar cuesta lo mismo que arreglar, se arregla.
 _MARCADOR = re.compile(
     r"coipo-jueces:\s*ignorar\(\s*(?P<regla>[A-Za-z0-9_\-\.]+)\s*\)\s*(?P<motivo>.*)"
@@ -615,13 +355,15 @@ _ROJO, _AMARILLO, _VERDE, _GRIS, _FIN = (
 )
 
 
-def _anotacion_github(h: Hallazgo, juez: str) -> str:
+def _anotacion_github(h: Hallazgo, juez: str, modo: str) -> str:
     """Anotación de GitHub Actions, para que salga en el diff del PR.
 
     `::error::` incluso cuando el modo es advisory sería mentir sobre el
-    estado del build; en advisory todo baja a `::warning::`.
+    estado del build; en advisory todo baja a `::warning::`. Hasta el 2026-10-25
+    esto lo decía sólo este docstring: el código no recibía el modo y emitía
+    `::error::` para todo BLOQUEA (lo fija `tests/test_anotaciones.py`).
     """
-    nivel = "error" if h.severidad is Severidad.BLOQUEA else "warning"
+    nivel = "error" if (modo == "bloqueante" and h.severidad is Severidad.BLOQUEA) else "warning"
     partes = [f"file={h.archivo}"] if h.archivo else []
     if h.linea:
         partes.append(f"line={h.linea}")
@@ -676,7 +418,7 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
         if h.arreglo:
             print(f"           {_GRIS}arreglo: {h.arreglo}{_FIN}")
         if en_github:
-            print(_anotacion_github(h, resultado.juez))
+            print(_anotacion_github(h, resultado.juez, modo))
 
     b = len(resultado.bloqueantes)
     print(f"\n  {len(resultado.hallazgos)} hallazgo(s), {b} de severidad BLOQUEA")

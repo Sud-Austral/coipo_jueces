@@ -5,16 +5,19 @@ area usuaria en la fuente, asi que cada afirmacion lleva su cita o su marca.
 
 ## La cadena de inferencia, dicha en voz alta
 
-El repositorio contiene nueve programas que revisan repositorios ajenos y
+El repositorio contiene once programas que revisan repositorios ajenos y
 emiten hallazgos: despliegue [jueces/j01_despliegue.py], identidad
 [jueces/j02_identidad.py], origenes cruzados [jueces/j05_cors.py],
 configuracion [jueces/j06_config.py], lo que se sincroniza al servidor
 [jueces/j08_rsync.py], secretos [jueces/j09_secretos.py], salud del servicio
-[jueces/j11_salud.py], integridad de la semilla [jueces/j12_semilla.py] e
-interfaz [jueces/j13_interfaz.py].
+[jueces/j11_salud.py], integridad de la semilla [jueces/j12_semilla.py],
+interfaz [jueces/j13_interfaz.py], rastro de construccion con la fabrica
+[jueces/j14_construccion.py] y codigo mantenible [jueces/j16_codigo.py].
+(Decia «nueve» hasta el 2026-10-25: j14 y j16 se publicaron en v2.0.13 y
+v2.0.12 y este texto no se regenero. Se cuentan con `ls jueces/j*.py`.)
 
 De ahi la inferencia: si se construyeron verificaciones automaticas
-especificas para cada una de esas nueve cosas, es probable que en cada una de
+especificas para cada una de esas once cosas, es probable que en cada una de
 ellas hubiera errores que se repetian de un repositorio a otro y que nadie
 detectaba a tiempo. [INFERIDO]
 
@@ -77,10 +80,11 @@ sistema exista.
 ## Volumen
 
 No hay base de datos: la extraccion de tablas devolvio una lista vacia. El
-unico orden de magnitud disponible es el del propio repositorio: nueve
-verificadores y once pruebas, una por verificador mas dos transversales
-[tests/test_reglas_citadas.py] y [tests/test_tres_estados.py]. Eso mide el
-tamano de la herramienta, no el del problema.
+unico orden de magnitud disponible es el del propio repositorio: once
+verificadores y veintiun archivos de prueba, uno por verificador mas los
+transversales [tests/test_reglas_citadas.py], [tests/test_tres_estados.py] y
+otros (se cuentan con `ls tests/test_*.py`; la cifra es del 2026-10-25). Eso
+mide el tamano de la herramienta, no el del problema.
 
 Cuantos repositorios se verifican hoy y cuantos hallazgos se emiten por
 corrida: [PENDIENTE]

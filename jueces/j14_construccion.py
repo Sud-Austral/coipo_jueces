@@ -40,8 +40,10 @@ MIRA HACIA ADELANTE (`FILOSOFIA.md` de la fábrica, §3 y §4), como `j16`:
     fabrica >= VIGENCIA, sin `semilla` en `adopta:` -> AVISA, y se CUENTA COMO
                                     SUPRESIÓN: es reclamar menos de lo que
                                     corresponde (ver `adopta:` en comun.py).
-    `adopta:` vacía                 -> se juzga como si adoptara todo y se anota:
-                                    nunca un resultado más indulgente.
+    `adopta:` vacía                 -> SIN_EVALUAR, con la línea: una declaración
+                                    rota no se juzga (la semántica única de
+                                    `adopta:`, en comun_semilla.py, desde el
+                                    2026-10-25; antes se juzgaba como «todo»).
     fabrica <  VIGENCIA, o sin ella -> AVISA. La deuda se ve; nada se detiene.
     sin `.semilla`                  -> NO_APLICA: el alcance se declara.
     perfil `encuadre_operativo`     -> no corre (`PERFILES`): software de terceros.
@@ -79,7 +81,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica  # noqa: E402
 
 PERFILES = ("aplicacion",)
 
@@ -131,12 +133,6 @@ def _severidad(marcador: str, r: Resultado) -> tuple[bool, str]:
 
     adopcion = leer_adopcion(marcador)
     contexto = f"sembrado el {fecha}, con la regla ya vigente desde el {VIGENCIA}"
-    if adopcion.vacia:
-        r.no_evaluado.append(
-            f"{adopcion.cita(MARCADOR)}: la clave `adopta:` está VACÍA (o es una lista "
-            "YAML en varias líneas, que no se lee). Se juzga como si adoptara todo: "
-            "una clave mal escrita no puede relajar la regla.")
-        return True, contexto
     if not adopcion.adopta(CAPA):
         razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`: FAB-8 baja de BLOQUEA "
                  f"a AVISA en un repositorio sembrado el {fecha}. Es legítimo sólo si el "
@@ -147,12 +143,23 @@ def _severidad(marcador: str, r: Resultado) -> tuple[bool, str]:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
+    # Sin `.git` se lee el disco (la prueba de paridad de la fábrica crea la
+    # aplicación así). Con un `.git` que git no puede leer, no se sabe si
+    # `CONSTRUCCION.md` está versionado: no se dictamina (auditoría del 2026-10-25).
+    if repo.tiene_git() and sin_indice(repo, r):
+        return
     marcador = repo.texto(MARCADOR)
     if marcador is None:
         r.no_corresponde(
             f"no hay `{MARCADOR}`: el repositorio no declara haberse construido con la "
             "fábrica. Lo que existía antes de ella no se juzga con sus reglas nuevas "
             "(FILOSOFIA.md, §3).")
+        return
+
+    adopcion = leer_adopcion(marcador)
+    if adopcion.vacia:
+        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
+        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
         return
 
     nuevo, contexto = _severidad(marcador, r)

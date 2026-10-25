@@ -96,18 +96,19 @@ class PruebaSalud(CasoConRepo):
 
 
 class PruebaRepositorioVacio(CasoConRepo):
-    """El caso `coipo_cabania`, y es un hallazgo verdadero.
+    """El caso `coipo_cabania`: sin compose y sin `/health`. Nunca OK.
 
     Su repositorio no tiene backend ni compose —sólo un workflow de Pages— y aun
-    así hay algo sirviendo en vm2:8114 bajo `reserva-bienestar.conaf.cl`, marcado
-    `unhealthy` desde hace días. Lo que corre en producción no tiene código
-    correspondiente en el repositorio, y el informe tiene que decir las dos
-    cosas: falta `/health`, Y no se pudo evaluar el healthcheck.
+    así hay algo sirviendo en vm2:8114 bajo `reserva-bienestar.conaf.cl`. Lo que
+    corre en producción no tiene código correspondiente en el repositorio.
 
-    Hasta el 2026-09-08 esta prueba exigía la ETIQUETA `SIN_EVALUAR` con
-    bloqueantes dentro: «dos estados a la vez», justo lo que `veredicto`
-    promete no dar. Ahora los hallazgos mandan en la etiqueta y lo no evaluado
-    sigue en su lista, en el mismo informe. Lo que no cambia: nunca es OK.
+    HASTA EL 2026-10-25 esta prueba exigía un BLOQUEA «no se encontró /health».
+    La auditoría de ese día lo cambió a `no_evaluado`, como ya hacían `j01` y
+    `j06`: sin compose el pipeline de la flota no despliega este repositorio, así
+    que no hay smoke test que vaya a pedir `/health`, y exigirlo es juzgar una
+    aplicación que el repositorio no declara ser. El rojo no se pierde donde
+    importa: con el perfil `aplicacion` en modo bloqueante, un juez SIN_EVALUAR
+    hace salir 1 al gate («el repositorio no es lo que declara»).
     """
 
     MODULO = j11
@@ -115,11 +116,91 @@ class PruebaRepositorioVacio(CasoConRepo):
     def test_sin_compose_ni_endpoint(self):
         self.repo.escribe("README.md", "# nada que desplegar\n")
         r = self.repo.juzga()
-        self.assertEqual("HALLAZGOS", r.veredicto,
-                         "falta /health: la etiqueta lo dice, no lo esconde tras SIN_EVALUAR")
-        self.assertFalse(r.comprobado, "y sigue sin haber comprobado nada")
-        self.assertTrue(r.bloqueantes, "falta /health y eso sí es un hallazgo")
-        self.assertTrue(r.no_evaluado, r.no_evaluado)
+        self.assertEqual("SIN_EVALUAR", r.veredicto, [h.mensaje for h in r.hallazgos])
+        self.assertTrue(any("compose" in n for n in r.no_evaluado), r.no_evaluado)
+
+
+NGINX_SALUD = """\
+server {
+    listen 8080;
+    # el smoke test pide /health al contenedor `app`
+    location = /health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok","app":"prueba"}';
+    }
+    location / {
+        try_files $uri /index.html;
+    }
+}
+"""
+
+COMPOSE_SOLO_APP = """\
+services:
+  app:
+    build:
+      context: .
+    ports:
+      - "${APP_PORT:-8080}:8080"
+"""
+
+
+class PruebaSaludEnNginx(CasoConRepo):
+    """`/health` servido por el nginx INTERNO (auditoría del 2026-10-25).
+
+    `coipo_prevension_ministerial`, `coipo_tv` y `coipo_boton_rojo` responden
+    `/health` con un `location = /health { return 200 ...; }` en su
+    `frontend/nginx.conf`: el contenedor `app` es el que publica `APP_PORT` y es
+    al que llega el `curl -sf` del smoke test. El juez sólo buscaba en Python y
+    los BLOQUEABA por «no se encontró ningún endpoint `/health`».
+    """
+
+    MODULO = j11
+
+    def setUp(self):
+        super().setUp()
+        self.repo.escribe("docker-compose.yml", COMPOSE_SOLO_APP)
+
+    def test_location_en_el_nginx_interno_cuenta(self):
+        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD)
+        r = self.repo.juzga()
+        self.assertSinBloqueos(r)
+        self.assertTrue(any("nginx" in c for c in r.comprobado), r.comprobado)
+
+    def test_location_comentada_no_cuenta(self):
+        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
+            "    location = /health {", "    # location = /health {"))
+        self.assertBloquea("no se encontró ningún endpoint `/health`")
+
+    def test_el_vhost_del_host_no_cuenta(self):
+        """El nginx del HOST está delante; el smoke test va directo al contenedor."""
+        self.repo.escribe("ops/nginx-host/prueba.conaf.cl.conf", NGINX_SALUD)
+        self.assertBloquea("no se encontró ningún endpoint `/health`")
+
+    def test_location_con_autenticacion_bloquea(self):
+        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
+            "        access_log off;\n", "        auth_basic \"restringido\";\n"))
+        self.assertBloquea("autenticación")
+
+    def test_el_hallazgo_de_repositorio_se_puede_suprimir_en_el_compose(self):
+        self.repo.escribe("docker-compose.yml",
+                          "# coipo-jueces:ignorar(G8-9) colector sin http: lo vigila /health/detalle\n"
+                          + COMPOSE_SOLO_APP)
+        r = self.repo.juzga()
+        self.assertSinBloqueos(r)
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+
+
+class PruebaTercerosConComposeYaml(CasoConRepo):
+    """La excepción de software de terceros leía sólo `docker-compose.yml`."""
+
+    MODULO = j11
+
+    def test_compose_yaml_de_imagenes_ajenas_es_no_aplica(self):
+        self.repo.escribe("compose.yaml",
+                          "services:\n  n8n:\n    image: n8nio/n8n\n")
+        r = self.repo.juzga()
+        self.assertEqual("NO_APLICA", r.veredicto, [h.mensaje for h in r.hallazgos])
 
 
 class PruebaFalloDeDatos(CasoConRepo):

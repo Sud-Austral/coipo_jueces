@@ -73,6 +73,40 @@ class PruebaFoco(ConSemilla):
                           ".campo:focus { outline: 0; }\n"
                           ".campo { transition: border .2s; }\n")
         self.assertBloquea("quita el contorno del foco")
+        # El código es UI-9 desde el 2026-10-25: «un componente sin `:focus-visible`
+        # no es navegable con teclado» es el texto de UI-9 en ESTANDAR_UI.md. UI-10
+        # es «el anillo de foco es un token y cumple 3:1», que este juez no mide.
+        reglas = {h.regla for h in self.repo.juzga().bloqueantes}
+        self.assertIn("UI-9", reglas)
+        self.assertNotIn("UI-10", reglas)
+
+    def test_outline_cero_comentado_no_bloquea(self):
+        """Un `outline: none` dentro de `/* */` no quita nada (auditoría del
+        2026-10-25): `comprobar_foco` era la única de las tres reglas que leía los
+        comentarios."""
+        self.repo.escribe("src/estilos.css",
+                          "/* antes: .campo:focus { outline: none; } */\n"
+                          ".campo { transition: border .2s; }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"],
+                         [h.mensaje for h in r.hallazgos])
+
+    def test_la_supresion_en_un_comentario_css_sigue_valiendo(self):
+        """Quitar los comentarios para juzgar no puede borrar el marcador, que en
+        CSS sólo cabe dentro de `/* */`."""
+        self.repo.escribe("src/estilos.css",
+                          "/* coipo-jueces:ignorar(UI-9) widget de terceros con foco propio */\n"
+                          ".campo:focus { outline: 0; }\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"])
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+
+    def test_focus_visible_comentado_no_es_sustituto(self):
+        """La otra dirección: un `:focus-visible` comentado no reemplaza nada."""
+        self.repo.escribe("src/estilos.css",
+                          "/* .campo:focus-visible { outline: 2px solid; } */\n"
+                          ".campo:focus { outline: 0; }\n")
+        self.assertBloquea("quita el contorno del foco")
 
     def test_outline_cero_con_focus_visible_en_el_mismo_archivo_no_bloquea(self):
         """Conservador a propósito: un `outline:0` acompañado de un
@@ -81,7 +115,7 @@ class PruebaFoco(ConSemilla):
         suprimir al juez."""
         self.repo.escribe("src/estilos.css", CSS_SANO + ".x:focus { outline: 0; }\n")
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-10"],
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"],
                          f"no debía avisar de foco: {[h.mensaje for h in r.hallazgos]}")
 
     def test_outline_offset_no_se_confunde_con_outline_cero(self):
@@ -90,7 +124,7 @@ class PruebaFoco(ConSemilla):
         self.repo.escribe("src/estilos.css",
                           ".x { outline-offset: 0; }\n.x { transition: all .2s; }\n")
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-10"])
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"])
 
 
 class PruebaTemaOscuro(ConSemilla):
@@ -164,7 +198,24 @@ class PruebaMovimientoReducido(ConSemilla):
                           ".c { transition: opacity .2s; }\n"
                           "@media (prefers-reduced-motion: reduce) {\n"
                           "  .a { transition: none; }\n}\n")
-        self.assertBloquea("es selectivo")
+        # «1 de 3», no «1 de 4»: hasta el 2026-10-25 la cuenta incluía la propia
+        # declaración del bloque, y esta prueba pasaba con el número equivocado.
+        self.assertBloquea("apaga 1 de 3 declaración(es)")
+
+    def test_bloque_enumerado_que_apaga_todo_no_bloquea(self):
+        """Apagar N de N enumerando selectores cumple: no es selectivo.
+
+        Salía «N de 2N» y BLOQUEABA, porque las N declaraciones del bloque se
+        contaban también como movimiento propio del archivo."""
+        self.repo.escribe("src/estilos.css",
+                          ".a { transition: all .2s; }\n"
+                          ".b { animation: giro 1s; }\n"
+                          "@media (prefers-reduced-motion: reduce) {\n"
+                          "  .a { transition: none; }\n"
+                          "  .b { animation: none; }\n}\n")
+        r = self.repo.juzga()
+        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
+                         [h.mensaje for h in r.hallazgos])
 
     def test_bloque_universal_no_bloquea(self):
         self.repo.escribe("src/estilos.css", CSS_SANO)

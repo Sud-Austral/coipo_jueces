@@ -35,19 +35,19 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `G8-1` | `j02` | el nombre del repositorio está en minúsculas y dentro de `[a-z0-9_-]` | Guía 8, punto 1 | BLOQUEA |
 | `G8-2` | `j02` | el compose publica por `${APP_PORT}` y no cablea un número. **La unicidad en la VM no se puede comprobar desde un repositorio: se reporta como no evaluada** | Guía 8, punto 2 | BLOQUEA |
 | `G8-3` | `j06` | `.env.example` existe y declara las seis variables base; `APP_PORT` sin comillas; `DATABASE_URL` única prohibida | Guía 8, punto 3 | BLOQUEA |
-| `G8-4` | `j09` | secretos reales en el árbol versionado: `.env` commiteado, claves privadas, credenciales en un DSN, valores con pinta de generados | Guía 8, punto 4 | BLOQUEA |
+| `G8-4` | `j09` | secretos reales en el árbol versionado: `.env` commiteado, claves privadas, credenciales en un DSN, valores con pinta de generados. `*_ACCESS_KEY` es un **identificador** (el usuario de S3/MinIO; la contraseña es `*_SECRET_KEY`): sólo bloquea si su valor parece generado (2026-10-25). Las líneas comentadas se escanean igual: un secreto comentado está igual de publicado | Guía 8, punto 4 | BLOQUEA |
 | `G8-5` | `j05` | CORS por dominio: ni `*` ni una IP; y `CORS_ORIGINS` no puede ser una variable inerte que el middleware ignora | Guía 8, punto 5 | BLOQUEA |
 | `G8-6` | `j06` | `SESSION_` y `SESION_` conviviendo: con una sola S la cookie viaja sin `Secure` y la app arranca igual | **Derivada** de la Guía 8, punto 6. El punto 6 habla de `APP_ENV` y de no poner `SESSION_HTTPS_ONLY=true` sobre HTTP plano; **no menciona la grafía**. Lo que se extrapola es su mecanismo: una bandera de seguridad que se descarta en silencio | BLOQUEA |
 | `G8-7` | `j01` | estructura del compose: sin `version:`, al menos un servicio, **un solo** `ports:`, healthcheck y `restart:` | Guía 8, punto 7 | BLOQUEA / AVISA |
 | `G8-8` | `j08` | `.gitignore` existe, ignora `.env`, y sus rutas van **ancladas**: `data/` sin barra inicial ignora cualquier `data` a cualquier profundidad. Además, un `.env` ya versionado no lo salva el `.gitignore` | Guía 8, punto 8 | BLOQUEA |
-| `G8-9` | `j11` | `GET /health` existe, sin autenticación, sin redirección, y con `text()` si usa SQLAlchemy 2.x | Guía 8, punto 9 | BLOQUEA |
+| `G8-9` | `j11` | `GET /health` existe —en el backend Python o, desde el 2026-10-25, en un `location /health` del nginx **interno** (no el vhost del host)—, sin autenticación, sin redirección, y con `text()` si usa SQLAlchemy 2.x. Sin compose en la raíz no se exige: se anota no evaluado, como en `j01` y `j06`. El «no se encontró» es del repositorio y se suprime con el marcador en el compose | Guía 8, punto 9 | BLOQUEA |
 | `G8-11` | `j11` | un fallo de datos no se disfraza de aplicación sana | Guía 8, punto 11 | AVISA (ver nota) |
 | `G8-10` | `j08` | qué llega al servidor con el `rsync` anclado: un `.env` en un subdirectorio **sí** viaja; lo versionado bajo el `data/` de la raíz **nunca** llega | Guía 8, punto 10 | BLOQUEA / AVISA |
 | `SEM-1` | `j12` | un archivo declarado congelado por `semilla.lock` está editado en una aplicación que **declara** haberse sembrado (`.semilla` en la raíz, con `adopta:` incluyendo `semilla` o sin esa clave). **Atrasada no es editada:** si el archivo coincide con una huella de `semilla.lock.historial` (cualquier lock publicado antes del vigente), está *atrasado*: AVISA siempre, sin plazo, con `sembrar.py --actualizar` de arreglo | `semilla/README.md`: `CONGELADO/` es lo que la aplicación **no** edita. Lo atrasado: `FILOSOFIA.md`, §3, de `coipo_master_produccion` («una pieza congelada de una versión anterior no es una pieza editada») y la decisión de Luis Monsalve del 2026-10-24, que reemplaza la ventana de D2 | BLOQUEA / AVISA (ver nota) |
 | `UI-3` | `j13` | un token de color que se usa como texto, borde o anillo de foco está redefinido en el tema oscuro, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-3 | BLOQUEA |
-| `UI-10` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-10 | BLOQUEA |
+| `UI-9` | `j13` | un `outline:0` va acompañado de un `:focus-visible` que lo sustituya (sin leer comentarios CSS), **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave). **Se llamó `UI-10` hasta el 2026-10-25** (ver la nota de abajo) | `identidad/ESTANDAR_UI.md`, UI-9: «un componente sin `:focus-visible` no es navegable con teclado». **CONTRADICHO en la severidad**: la tabla §6 del estándar da a UI-9 `AVISA`; el juez BLOQUEA porque un contorno quitado sin sustituto deja el anillo de foco en 0:1, por debajo del 3:1 que exige UI-10 (`BLOQUEA`), y así lo leyó la firma del 2026-09-07. **Decidido por Luis Monsalve el 2026-10-25: BLOQUEA**; queda pendiente corregir la tabla §6 de `ESTANDAR_UI.md` en la fábrica | BLOQUEA |
 | `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
-| `COD-1` | `j16` | ningún archivo de código versionado pasa de 1000 líneas (sobre 800, aviso). Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-24 o posterior, AVISA si es anterior o falta; sin `.semilla`, NO_APLICA | `docs/ESTANDAR_CODIGO.md`, COD-1 | BLOQUEA / AVISA |
+| `COD-1` | `j16` | ningún archivo de código versionado pasa de 1000 líneas (sobre 800, aviso). Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-24 o posterior **y adopta `semilla`**, AVISA si es anterior, si falta o si sólo adopta otro estándar; sin `.semilla`, NO_APLICA | `docs/ESTANDAR_CODIGO.md`, COD-1 | BLOQUEA / AVISA |
 | `COD-2` | `j16` | el frontend es TypeScript estricto: nada de `.js`/`.jsx` en `frontend/src/` y un `frontend/tsconfig*.json` con `"strict": true`. Misma severidad por fecha | `docs/ESTANDAR_CODIGO.md`, COD-2 | BLOQUEA / AVISA |
 | `COD-3` | `j16` | el dominio (`frontend/src/dominio/`, `backend/app/dominio/` y, desde el 2026-10-25, la carpeta `dominio/` de cualquier servicio hermano, como `collector/`) no importa interfaz, adaptadores, red, base de datos ni el sistema (`os` en Python; `fs`, `http`, `pg`, `process.env`... en Node), y en lo nuevo `frontend/src/dominio/` existe. Misma severidad por fecha | `docs/ESTANDAR_CODIGO.md`, COD-3; `os` y los imports relativos, de la lista del dominio de `backend/tests/arquitectura/test_capas.py`, pieza CONGELADA de la semilla | BLOQUEA / AVISA |
 | `FAB-8` | `j14` | `docs/CONSTRUCCION.md` existe (versionado, si hay git), sin ningún `[PENDIENTE]`/`[VERIFICAR]`, con `metodologia:`, `instancia:`, `objetivos:` y `consultas:`, una metodología de IGNUS (`smb-metodologia-…`) y al menos un `correlation_id` con forma válida; sin `registrado:`, aviso. **Sólo la forma**: el juez no llama a IGNUS (sin red ni clave en el CI); que existan de verdad lo comprueba `flota/herramientas_de_fabrica.py --construccion` en la fábrica. Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` de `.semilla` es del 2026-10-20 o posterior y adopta `semilla`, AVISA si no; sin `.semilla`, NO_APLICA | `AGENTS.md`, sección 3, regla 8 («bloquea en lo sembrado desde el 2026-10-20 [...] y avisa en lo anterior»), y `prompts/05-consultar-la-fabrica.md` | BLOQUEA / AVISA |
@@ -73,9 +73,21 @@ y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
 > `PruebaSeveridad` impedía que bloquearan. **La prueba es lo que hizo cumplir la
 > firma.** El documento se firmó el **2026-09-07** (Luis Monsalve, Profesional
 > UIA; §1-7) y el **2026-09-08** (§8 móvil, por delegación) y las tres filas
-> `UI-3`, `UI-10` y `UI-15` subieron a «Reglas vigentes» junto con `UI-16` a
-> `UI-20` del §8. Para revocar, se devuelven aquí y se cambian las llamadas a
-> `r.avisa(`: `PruebaSeveridad` vuelve a impedirlo sola.
+> `UI-3`, `UI-10` (hoy `UI-9`) y `UI-15` subieron a «Reglas vigentes». Para
+> revocar, se devuelven aquí y se cambian las llamadas a `r.avisa(`:
+> `PruebaSeveridad` vuelve a impedirlo sola.
+>
+> **Corregido el 2026-10-25.** Esta nota decía que `UI-16` a `UI-20` del §8
+> «subieron a Reglas vigentes» con las otras tres. No están en esa tabla y ningún
+> juez las emite: el propio estándar lo dice (§7, hueco 9: «`UI-16` a `UI-20` no
+> tienen juez»). Lo que se firmó el 2026-09-08 fue el §8; lo que este catálogo
+> comprueba sigue siendo `UI-3`, `UI-9` y `UI-15`.
+>
+> **Y `UI-10` pasó a llamarse `UI-9` el mismo día.** Lo que `j13` comprueba —un
+> `outline:0` sin `:focus-visible` que lo sustituya— es el texto de UI-9 («un
+> componente sin `:focus-visible` no es navegable con teclado»). UI-10 es «el
+> anillo de foco es un token y cumple 3:1 en los dos temas», y eso no se mide
+> leyendo el CSS sin pintarlo. El código cambia; la comprobación, no.
 >
 > Este párrafo describía hasta el 2026-09-07 una tabla que ya no las contenía, y
 > ninguna prueba lo detectó: `PruebaSeveridad` lee **filas de tabla**, no
@@ -104,6 +116,25 @@ bloqueantes sobre archivos legítimamente suyos**: exactamente el desastre que
 La clave `adopta:` separa las dos declaraciones. `j12` exige que incluya
 `semilla`; `j13`, que incluya `interfaz`. **La clave ausente adopta todo**, así
 que ningún `.semilla` escrito antes de esto cambia de veredicto.
+
+**Una sola semántica en `j12`, `j13`, `j14` y `j16`** (desde el 2026-10-25; la
+lee `leer_adopcion` de `jueces/comun_semilla.py`, y su comentario es la versión
+larga). Hasta ese día cada juez la interpretaba distinto —`j16` no la leía, `j14`
+trataba la vacía como «todo», `j12`/`j13` como SIN_EVALUAR— y la lista YAML en
+bloque se leía vacía (el caso real de `coipo_prevension_ministerial`):
+
+| `.semilla` dice | Resultado |
+|---|---|
+| no existe | `NO_APLICA` en los cuatro |
+| sin clave `adopta:` | adopta todo: `semilla` e `interfaz` |
+| `adopta: semilla, interfaz`, `adopta: [semilla, interfaz]`, `adopta: "semilla, interfaz"` o la lista en bloque (`adopta:` y debajo `- semilla`, `- interfaz`) | exactamente esas capas, las tres formas iguales |
+| una lista sin `semilla` | `j12` `NO_APLICA`; `j14` y `j16` **AVISAN** aunque `fabrica:` sea vigente («AVISA … en lo que sólo adopta un estándar», `docs/ESTANDAR_CODIGO.md` de la fábrica) |
+| una lista sin `interfaz` | `j13` `NO_APLICA` |
+| `adopta:`, `adopta: []`, `adopta: ""` o `adopta: ,` (vacía) | error de declaración: los cuatro lo anotan en «no evaluado» con la línea y **no dictaminan** (`SIN_EVALUAR`). No es una supresión |
+
+Cuando una lista apaga algo que regiría —`j12`/`j13` a `NO_APLICA`, o `j14`/`j16`
+de BLOQUEA a AVISA con `fabrica:` vigente— se cuenta como **supresión**. Una capa
+que no existe (`adopta: semila`) cuenta como escrita, y la cita la nombra.
 
 **Roza la puerta que `comun.py` cierra a propósito** —un repositorio no puede
 declararse `no_aplica` a sí mismo— y por eso se paga: el `no_aplica` **cita la
