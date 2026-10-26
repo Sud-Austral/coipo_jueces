@@ -21,6 +21,7 @@ una regla que alguien se inventó, y este archivo es lo que lo hace visible.
 | `H-N` | Hallazgo N del estado real del servidor | `referencia/00-HALLAZGOS-Y-ESTADO-REAL.md` |
 | `SEM-N` | La semilla: qué es común a toda la flota y no se edita por aplicación | `semilla/README.md` y `semilla.lock` |
 | `UI-N` | El estándar de interfaz: color derivado de los banners medidos, escalas, estados y accesibilidad | `identidad/ESTANDAR_UI.md` |
+| `FAB-N` | `AGENTS.md` de la fábrica, sección 3 («Reglas que no puedes romper»), punto N | `coipo_master_produccion/AGENTS.md` (privado; se cita, no se copia) |
 | otros | **sin fuente escrita todavía** | ver la columna «fuente» |
 
 Los dos primeros documentos son privados (viven en `coipo_master_produccion`).
@@ -47,6 +48,7 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `UI-15` | `j13` | el bloque `prefers-reduced-motion` apaga todo el movimiento, no una parte, **en los repositorios que declaran seguir el estándar** (`.semilla` en la raíz, con `adopta:` incluyendo `interfaz` o sin esa clave) | `identidad/ESTANDAR_UI.md`, UI-15 | BLOQUEA |
 | `DK-3` | `j01` | ningún servicio del compose levanta un motor de base de datos | `DOCKER.md`, «La base de datos no está en el `docker-compose.yml`» | BLOQUEA |
 | `DK-4` | `j01` | hay `.dockerignore` en la raíz cuando se construye con `context: .`, y excluye `.env` | `DOCKER.md`, «conviene un `.dockerignore` en la raíz» | BLOQUEA / AVISA |
+| `FAB-8` | `j14` | la aplicación se construyó con la fábrica y lo demuestra en `docs/CONSTRUCCION.md`: metodología de IGNUS seguida (`smb-metodologia-…`), objetivos aplicados, rastro de llamadas (`correlation_id`) y lo registrado al cerrar. Sin el archivo: BLOQUEA cuando `.semilla` declara `fabrica:` del 2026-10-20 en adelante, AVISA en los repositorios anteriores; a medias (marcadores, sin metodología o sin `correlation_id`): BLOQUEA siempre | AGENTS.md de la fábrica, sección 3, punto 8 | BLOQUEA / AVISA |
 
 ## Reglas sin fuente escrita
 
