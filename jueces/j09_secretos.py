@@ -40,7 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 REGLA = "G8-4"
 
@@ -87,10 +87,24 @@ TOPE_BYTES = 512 * 1024
 # --------------------------------------------------------------------------
 
 CLAVES_SECRETAS = re.compile(
-    r"SECRET|TOKEN|PASSWORD|PASSWD|_PWD|APIKEY|API_KEY|ACCESS_KEY|PRIVATE_KEY"
+    r"SECRET|TOKEN|PASSWORD|PASSWD|_PWD|APIKEY|API_KEY|PRIVATE_KEY"
     r"|CREDENTIAL|SALT|HMAC|ENCRYPTION_KEY|SIGNING_KEY",
     re.IGNORECASE,
 )
+
+# `*_ACCESS_KEY` es la mitad PÚBLICA de un par de S3 o de MinIO: el nombre de
+# usuario, que viaja en cada petición firmada y queda en los logs del servidor. La
+# contraseña es la otra mitad, `*_SECRET_KEY` (y `AWS_SECRET_ACCESS_KEY`, que
+# contiene las dos palabras: manda `SECRET`, que la deja en la lista de arriba).
+#
+# Estaba en `CLAVES_SECRETAS` hasta el 2026-10-25, y en un `.env.example` eso
+# bastaba para BLOQUEAR cualquier valor de 8+ caracteres: salía en `coipo_n8n` y
+# `coipo_prensa2` —los dos repositorios de calibración— y en otros once de la
+# flota, siempre por la misma línea comentada `# MINIO_ACCESS_KEY=<usuario>`.
+# `coipo_api/DEUDA.md` registra que Luis Monsalve dijo el 2026-09-25 que no es una
+# credencial y que el arreglo es del juez. Ahora se trata como identificador: sólo
+# bloquea si el valor tiene pinta de GENERADO (`generado()`), en cualquier archivo.
+CLAVES_IDENTIFICADOR = re.compile(r"ACCESS_KEY", re.IGNORECASE)
 
 # Sufijos que convierten una clave "secreta" en metadatos inofensivos:
 # JWT_ALGORITHM, RUT_KEY_VERSION, SESSION_MAX_AGE_SECONDS, SMTP_PASSWORD_FILE.
@@ -205,7 +219,7 @@ def parece_secreto(clave: str, valor: str, *, en_env: bool) -> bool:
     verificador: la gente aprende a suprimir y en tres meses esta apagado.
 
     Ahora se exige SIEMPRE que la clave sea de las que guardan secretos, y el
-    listen se ajusta al archivo:
+    listón se ajusta al archivo:
 
       en un .env      -> basta un valor no-placeholder de 8+ caracteres. Es
                          donde viven los secretos de verdad, asi que ahi se
@@ -216,15 +230,28 @@ def parece_secreto(clave: str, valor: str, *, en_env: bool) -> bool:
                          contrasena corta escrita a mano en un modulo puede ser
                          un ejemplo de la documentacion; una cadena de 64 hex
                          no lo es nunca.
+
+    Una clave IDENTIFICADOR (`*_ACCESS_KEY`) exige el valor generado en cualquier
+    archivo. Y LAS LÍNEAS COMENTADAS SE ESCANEAN IGUAL (decisión del 2026-10-25):
+    un valor real en un `# JWT_SECRET=...` está tan publicado como uno activo, en
+    git y en todo el historial. El falso positivo de `# MINIO_ACCESS_KEY=` no era
+    por leer el comentario: era por tomar un nombre de usuario por una contraseña.
     """
     v = valor.strip().strip("\"'")
     if not v or REFERENCIA.match(v) or PLACEHOLDER.search(v):
         return False
     if not LITERAL_CREDENCIAL.match(v):
         return False
-    if not CLAVES_SECRETAS.search(clave) or SUFIJOS_INOCENTES.search(clave):
+    if SUFIJOS_INOCENTES.search(clave):
         return False
-    return True if en_env else generado(v)
+    if CLAVES_SECRETAS.search(clave):
+        return True if en_env else generado(v)
+    # Un identificador (`MINIO_ACCESS_KEY`) sólo es incidente si el valor parece
+    # salido de un generador de claves, también en un `.env`: un nombre de usuario
+    # escrito a mano no abre nada sin su secret key.
+    if CLAVES_IDENTIFICADOR.search(clave):
+        return generado(v)
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -404,14 +431,13 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.tiene_git():
-        r.no_evaluado.append(
-            f"{repo.raiz} no es un repositorio git: no se puede afirmar qué está "
-            "versionado, y mirar el disco daría el veredicto contrario al correcto"
-        )
+    # Sin `.git`, o con git roto: no se puede afirmar qué está versionado, y mirar
+    # el disco daría el veredicto contrario al correcto.
+    if sin_indice(repo, r):
         return
     if not repo.versionados():
-        r.no_evaluado.append("`git ls-files` no devolvió nada (¿repo vacío, o git ausente?)")
+        r.no_evaluado.append("`git ls-files` funcionó y no devolvió nada: el "
+                             "repositorio no tiene archivos versionados")
         return
     comprobar_env_versionados(repo, r)
     r.comprobo("archivos .env en el arbol versionado")

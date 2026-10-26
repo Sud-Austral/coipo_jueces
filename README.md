@@ -13,12 +13,27 @@ jobs:
       perfil: aplicacion    # aplicacion | encuadre_operativo
 ```
 
+Entradas opcionales del workflow (VERIFICADO en `.github/workflows/verificar.yml`):
+
+| Entrada | Valor por defecto | Para qué |
+|---|---|---|
+| `jueces` | vacío (todos los del perfil) | lista separada por espacios, p. ej. `j01 j09` |
+| `ref_jueces` | `v2` | tag o SHA de `coipo_jueces` con el que se verifica; pasarlo explícito junto al SHA del `uses:` congela de verdad YAML y motor |
+| `runner` | `ubuntu-latest` | etiqueta del runner; uno self-hosted no consume cuota de Actions (necesita `git` y `python3`) |
+
+Salidas: `bloqueantes` (número de hallazgos `BLOQUEA`) y `supresiones`. Versionado y
+publicación de tags: [`docs/VERSIONADO.md`](docs/VERSIONADO.md).
+
 A mano, sobre cualquier repositorio y sin instalar nada:
 
 ```bash
 python3 jueces/correr.py --repo /ruta/al/repo --modo advisory --resumen RESUMEN.md
 python3 jueces/j09_secretos.py --repo /ruta/al/repo --modo bloqueante
 ```
+
+## Los jueces miran hacia adelante
+
+La fábrica (`coipo_master_produccion`) tiene escrita su filosofía en `FILOSOFIA.md`: mejora siempre, y lo que ya sembró **no es retrocompatible, y está bien**. Para estos jueces eso significa una sola cosa: una regla nueva lleva fecha de vigencia y **bloquea sólo lo sembrado desde esa fecha** (`fabrica:` en `.semilla`); lo anterior recibe el aviso, ve su deuda, y despliega igual. Un juez que tumba a una aplicación por haber nacido antes de que la fábrica aprendiera algo no la mejora: enseña a suprimirlo. `j16_codigo` es el primero escrito así desde el principio.
 
 ## Por qué existe esto
 
@@ -58,8 +73,13 @@ Los hallazgos, el registro de puertos y los decretos siguen **privados** en
 | `advisory` | informa todo, sale **0** | medir la distancia sin dejar a la flota sin poder desplegar sus arreglos urgentes |
 | `bloqueante` | un hallazgo `BLOQUEA` hace salir **1** | la compuerta de verdad |
 
-El paso de uno a otro es **por regla y con fecha escrita en `DECRETOS.md`**, no
-por criterio de quien corre el comando. Encender todas las reglas de golpe deja
+El paso de uno a otro es **por regla y con fecha escrita**, no por criterio de
+quien corre el comando: la severidad de cada código y su fuente están en
+[`REGLAS.md`](REGLAS.md), y los jueces que miran hacia adelante llevan su fecha de
+vigencia en el propio juez (`VIGENCIA`) frente a `fabrica:` de `.semilla`. Cada
+aplicación elige su `modo:` en su workflow. (Hasta el 2026-10-25 esta línea decía
+«con fecha escrita en `DECRETOS.md`»: ese archivo vive en `borradores/` de la
+fábrica y **no manda**; ver el inicio de `REGLAS.md`.) Encender todas las reglas de golpe deja
 a la flota sin desplegar, y el desenlace previsible es que alguien apague el
 verificador entero.
 
@@ -68,6 +88,18 @@ verificador entero.
 Un juez nuevo se valida contra el código que **ya se sabe bueno**. Si sale rojo
 sobre un repo cuyo comportamiento es correcto, el verificador está mal — no el
 código. Cada juez lleva su tabla de calibración en el docstring.
+
+**Medición nueva, 2026-10-25**, con los once jueces de la rama
+`arreglos-auditoria-2026-10-25`, perfil `aplicacion` y modo bloqueante, sobre los
+**88** repositorios `coipo*`/`COIPO*` con git de `D:\GitHub` (no son 88
+aplicaciones: entran la fábrica, este repositorio y copias de prueba): **40** sin
+ningún `BLOQUEA` y **14** que salen 0; `coipo_n8n` y `coipo_prensa2`, los dos de
+calibración, en verde; 131 `BLOQUEA` en total. El detalle por repositorio y juez, y
+lo que cambió respecto de `main`, está en `docs/VERSIONADO.md` («Sin publicar»).
+
+> **La tabla de abajo es del 2026-09-08 y queda como registro fechado**: se midió
+> con nueve jueces sobre los 24 repositorios de entonces, y no se ha vuelto a
+> medir en esa forma. No describe la flota de hoy.
 
 Estado de la flota con los **nueve** jueces, medido el **2026-09-08** en modo
 advisory sobre los **24** repositorios `coipo_*`/`COIPO_*` del disco. `j13_interfaz`
@@ -142,9 +174,10 @@ el `DEUDA.md` de la app.
 | `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | ✅ |
 | `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
 | `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
-| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`) | ✅ |
-| `j13_interfaz` | `UI-3` · `UI-10` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto, y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
-| `j14_construccion` | `FAB-8` | que la aplicación se construyó con la fábrica y lo demuestra en `docs/CONSTRUCCION.md`: metodología de IGNUS, objetivos, rastro de llamadas (`correlation_id`) y lo registrado; bloquea en lo sembrado desde el 2026-10-20, avisa en lo anterior |
+| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`). Una pieza que sólo está atrasada —coincide con una huella de `semilla.lock.historial`, cualquier lock publicado antes— AVISA siempre, sin plazo; sólo la editada BLOQUEA. Ver la nota en [`REGLAS.md`](REGLAS.md) | ✅ |
+| `j13_interfaz` | `UI-3` · `UI-9` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto (`UI-9`; se llamó `UI-10` hasta el 2026-10-25, ver `REGLAS.md`), y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
+| `j14_construccion` | `FAB-8` | que `docs/CONSTRUCCION.md` exista, esté versionado, no le quede ningún `[PENDIENTE]`, cite la metodología de IGNUS y lleve al menos un `correlation_id` con forma válida: el rastro de haber consultado la fábrica antes de escribir código (`AGENTS.md` de la fábrica, §3.8). **Sólo la forma**: no llama a IGNUS. **Mira hacia adelante**: BLOQUEA en lo sembrado desde el 2026-10-20 que adopta `semilla`, AVISA en lo anterior | ✅ publicado en `v2.0.13` (2026-10-25) |
+| `j16_codigo` | `COD-1` · `COD-2` · `COD-3` | código mantenible: ningún archivo de código de más de 1000 líneas (aviso sobre 800), el frontend en TypeScript estricto, y el dominio —del backend, del frontend y de cualquier servicio hermano con `dominio/`, como `collector/`— sin interfaz, red, base de datos ni sistema (hexagonal). **Mira hacia adelante**: BLOQUEA en lo sembrado desde el 2026-10-24 (`fabrica:` de `.semilla`) que adopta `semilla`, AVISA en lo anterior y en lo que sólo adopta otro estándar | ✅ publicado en `v2.0.12` (2026-10-24) |
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo
@@ -169,6 +202,19 @@ que se ignora en silencio.
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+El número lo imprime la propia suite («Ran N tests») y no se teclea aquí como dato
+vigente. Medido el 2026-10-25 en la rama `arreglos-auditoria-2026-10-25`: 301
+pruebas, OK, **0 omitidas**. La única que se omitía (la de los tags de
+`test_verificar_yaml.py`, fuera de CI) ahora comprueba contra la mayor vigente que
+declara `docs/VERSIONADO.md`; en CI sigue exigiendo los tags. Corre en CI con
+`.github/workflows/autotest.yml`; `.github/workflows/probar-runner.yml` (manual) comprueba que un
+runner self-hosted sirve para los jueces.
+
+## Más documentación
+
+[`CLAUDE.md`](CLAUDE.md) (guía para agentes) · [`REGLAS.md`](REGLAS.md) · [`DEUDA.md`](DEUDA.md) ·
+[`insumos/00-PROBLEMA.md`](insumos/00-PROBLEMA.md) · [`insumos/01-SOLUCION.md`](insumos/01-SOLUCION.md)
 
 Un `skip` es un fallo: una dependencia ausente falla con instrucciones, nunca se
 salta. Un test permanentemente saltado tiene el mismo color que uno que pasa.

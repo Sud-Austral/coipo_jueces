@@ -33,50 +33,61 @@ alguien se queda atrás.
 
 ## Publicar
 
-```bash
-# 0. la suite y la calibración, antes de nada
-python3 -m unittest discover -s tests
-# perfil encuadre_operativo: este repo no despliega, y con 'aplicacion'
-# j01 y j06 salen SIN_EVALUAR, que en modo bloqueante es exit 1
-python3 jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo
+**Los comandos no viven aquí.** El procedimiento —fusionar a `main`, crear el
+tag anotado, reapuntar el móvil, qué comprobar después— está escrito **una sola
+vez**, en `docs/publicar-los-jueces.md` de `coipo_master_produccion` (privado: es
+la fábrica, no este repositorio). Este archivo conserva la **política**, que es
+lo que no cambia aunque cambien los pasos.
 
-# 1. la rama entra en main
-git checkout main
-git merge --ff-only jueces-fase-1
-git push origin main
+> Hasta el 2026-10-12 había aquí una copia del procedimiento, y no coincidía con
+> la de la fábrica: sus ejemplos eran de `v1` cuando la mayor vigente es `v2`,
+> cableaba una rama de trabajo concreta (`jueces-fase-1`) y presentaba el
+> `push -f` como un paso de rutina, mientras la fábrica lo trata como operación
+> irreversible. Dos copias del mismo procedimiento es la enfermedad que este
+> repositorio existe para curar, así que se quitó la de aquí en vez de
+> «sincronizarla»: una copia sincronizada hoy vuelve a separarse mañana.
 
-# 2. el tag inmutable. `-a` = anotado: lleva autor, fecha y mensaje propios.
-#    Un tag ligero (`git tag v1.0.0` a secas) es solo un puntero sin autoría,
-#    y para una interfaz pública eso es perder la única traza de quién publicó
-#    qué y cuándo — que es exactamente lo que Contraloría pregunta.
-git tag -a v1.0.0 -m "j09 (secretos versionados) + infraestructura de jueces"
-git push origin v1.0.0
+La política:
 
-# 3. el tag móvil de la serie. `-f` porque ya existe y hay que reapuntarlo.
-git tag -f v1 v1.0.0^{commit}
-git push -f origin v1
-```
-
-`v1.0.0^{commit}` no es adorno: sin eso, `v1` apuntaría al **objeto tag**
-`v1.0.0` en vez de al commit, y quedaría un tag que apunta a otro tag. GitHub
-Actions lo resuelve igual, pero `git describe` y media herramienta se
-confunden.
-
-## Publicaciones siguientes
-
-Repetir solo los pasos 2 y 3 con el número nuevo:
-
-```bash
-git tag -a v1.0.1 -m "j01: falso positivo con context: ./backend"
-git push origin v1.0.1
-git tag -f v1 v1.0.1^{commit}
-git push -f origin v1
-```
-
-**El `push -f` sobre `v1` es el único force-push legítimo de este repositorio.**
-Es seguro porque `v1` es un puntero, no historia: no se reescribe ningún commit
-y nadie pierde trabajo. Un `push -f` sobre `main` o sobre un `vN.N.N` es otra
-cosa y no se hace nunca.
+1. **Hay dos clases de tag, y ya están en la tabla de arriba.** `vN.N.N` es
+   anotado e **inmutable**: no se mueve, no se borra y no se rehace —`v2.0.0` y
+   `v2.0.3` salieron rotos y la única salida fue avisar y publicar el siguiente—.
+   `vN` es el **móvil** y es el único que se reapunta, siempre al *commit* de un
+   `vN.N.N` y nunca al objeto tag, para que `git describe` y las herramientas que
+   resuelven tags no se confundan.
+2. **Qué número toca** lo decide «Cuándo toca una mayor nueva», más abajo, y se
+   **mide antes de publicar**, no se supone. Es `vN.x` sólo si nadie que hoy está
+   verde se pone rojo; en cualquier otro caso es la mayor siguiente.
+3. **El `push -f` del tag móvil es el único force-push legítimo de este
+   repositorio.** Es seguro porque el móvil es un puntero, no historia: no se
+   reescribe ningún commit y nadie pierde trabajo. Un `push -f` sobre `main` o
+   sobre un `vN.N.N` es otra cosa y no se hace nunca. Y aun siendo legítimo, cambia
+   lo que corre en el CI de toda la flota sin que nadie toque una aplicación:
+   exige la autorización explícita de una persona, no se hace por inercia. Una
+   mayor congelada (`v1`) no se reapunta nunca.
+4. **Antes de mover el móvil, tres comprobaciones**, y ninguna se salta:
+   - la suite entera en verde, `python -m unittest discover -s tests`: el tag
+     publica también los comentarios y los docstrings;
+   - la calibración inversa de este repositorio contra sí mismo,
+     `python jueces/correr.py --repo . --modo bloqueante --perfil encuadre_operativo`.
+     El perfil es `encuadre_operativo` porque este repositorio no despliega: con
+     `aplicacion`, `j01` y `j06` salen `SIN_EVALUAR`, que en modo bloqueante es
+     exit 1;
+   - el run de `Autotest` del commit, con el job `el-reusable-lo-valida-github` en
+     verde. **La suite verde no es la validación del YAML de los workflows**: sólo
+     GitHub la hace, y sólo al invocar el archivo (ver `v2.0.3` más abajo).
+5. **El lock viaja con el tag.** Si `semilla/CONGELADO/` cambió en la fábrica,
+   `semilla.lock` se resella **en el mismo tag**; sin eso, `j12` acusa de «editada»
+   a toda aplicación sembrada por un archivo que no tocó. Con el lock viaja el
+   `semilla.lock.historial` que mantiene `sellar.py`: las huellas de cada lock
+   publicado antes, que es lo que le permite a `j12` decir «atrasada» (AVISA,
+   siempre) en vez de «editada» (BLOQUEA) (ver la nota sobre `SEM-1` en
+   [`REGLAS.md`](../REGLAS.md)). Se publica en el mismo commit que el lock, y no se
+   edita a mano: sólo crece. Hasta el 2026-10-24 viajaba en su lugar un
+   `semilla.lock.anterior` con una ventana de 30 días (D2); el plazo no tenía
+   fuente —lo eligió una IA como valor por omisión— y esa decisión lo eliminó.
+   Resellar el lock es una publicación como cualquier otra: tiene su propio `vN.x`
+   y su propia medición del radio de explosión, como las de `v2.0.10` y `v2.0.11`.
 
 ## Cuándo toca una mayor nueva
 
@@ -86,6 +97,28 @@ cosa y no se hace nunca.
 
 Todo lo demás —jueces nuevos en advisory, correcciones de falsos positivos,
 mensajes más claros— es `vN.x` y viaja solo.
+
+> **ENMIENDA del 2026-10-25: un juez que mira hacia adelante puede ir en `vN.x`.**
+>
+> El primer criterio de arriba se escribió cuando un juez bloqueante bloqueaba a
+> todo el que lo corría. Desde `j16` y `j14` existe otra clase: un juez que sólo
+> BLOQUEA lo sembrado **desde su fecha de vigencia** (`fabrica:` de `.semilla`) y
+> AVISA en todo lo anterior. Es lo que pide `FILOSOFIA.md` de la fábrica, §4: «las
+> reglas miran hacia adelante». Ese juez **no cambia el veredicto de ninguna
+> aplicación existente** —ninguna tenía la fecha cuando se escribió la regla—, así
+> que no pone rojo a nadie que hoy esté verde, que es lo que el tercer criterio
+> protege.
+>
+> Por eso: **un juez nuevo que sólo BLOQUEA lo sembrado desde su vigencia puede ir
+> en `vN.x`**, con su radio de explosión MEDIDO antes de publicar (cero `BLOQUEA`
+> nuevos sobre los repositorios del disco). **Si cambia el veredicto de algo que ya
+> existe, es mayor nueva**, como siempre. Y la vigencia no puede ser anterior a la
+> publicación sin decirlo y medirlo (ver `v2.0.13`).
+>
+> Esto se escribe DESPUÉS de los hechos: `v2.0.12` (`j16`) y `v2.0.13` (`j14`)
+> salieron como `v2.x` sin entrada en este archivo y sin el radio escrito, contra
+> la letra del primer criterio. La enmienda pone la regla al día con lo que se hizo
+> y lo deja medido abajo; no lo convierte en correcto a posteriori.
 
 ### `v2`, publicada el 2026-09-08
 
@@ -383,6 +416,87 @@ cambiaron). Se reprodujo en local paso a paso; no se leyeron los logs de GitHub.
 Antes de mover el tag: `python -m unittest discover -s tests` → **181 OK** (1 skip), y la
 calibración de este repositorio contra sí mismo en `--modo bloqueante --perfil
 encuadre_operativo` → 6 jueces, 6 comprobaciones, **0 bloqueantes**, 1 supresión.
+
+### `v2.0.12`, 2026-10-24 — `j16` (código mantenible) y el historial de locks
+
+**`v2.0.12` es `02d9dd18`.** Trae `j16_codigo` (`COD-1` tamaño, `COD-2` TypeScript,
+`COD-3` capas; regla 9 de `AGENTS.md` de la fábrica), `j12` con
+`semilla.lock.historial` (una pieza atrasada AVISA siempre; sólo la editada
+BLOQUEA) y el lock de 42 piezas.
+
+**Por qué `v2.x` y no `v3`**, con lo que se midió (tablas de calibración de
+`jueces/j16_codigo.py` y `jueces/j12_semilla.py`, y la medición del 2026-10-25 de
+abajo):
+
+- `j16` BLOQUEA sólo con `fabrica:` del 2026-10-24 o posterior. Ninguna aplicación
+  del disco lo tenía al publicar (la más reciente, `coipo_firms`, 2026-10-23): CERO
+  `BLOQUEA` nuevos. El resto AVISA o sale `NO_APLICA`.
+- `j12` con historial QUITA bloqueos: de 79 `BLOQUEA` en diez aplicaciones
+  sembradas a 5 en tres, y los 5 son ediciones de verdad.
+- `coipo_atraso_personal`, la única `@v2` en modo bloqueante, ya estaba en rojo
+  antes, por `j12` (`SEM-1` sobre `mapeo_claims.py`, una edición real del
+  2026-09-25); `j16` no le añade ningún `BLOQUEA`.
+
+Fue, en la práctica, la primera publicación bajo la enmienda de arriba, escrita un
+día después.
+
+### `v2.0.13`, 2026-10-25 — `j14` (construir con la fábrica)
+
+**`v2.0.13` es `1a2d589a`, y `v2` apunta ahí.** Trae `j14_construccion` (`FAB-8`:
+`docs/CONSTRUCCION.md` con el rastro de IGNUS), `COD-3` en los servicios hermanos
+(`collector/`) y el lock resellado (`requiere_db` exige base).
+
+**Radio de explosión, medido el 2026-10-25** sobre los 88 repositorios `coipo*` con
+git de `D:\GitHub`, perfil `aplicacion`, modo bloqueante: `j14` y `j16` emiten
+**cero `BLOQUEA`** en los 88. `j14` juzga a los 12 que llevan `.semilla`: once
+AVISAN y `coipo_firms` sale OK; los 76 restantes, `NO_APLICA`.
+
+**La vigencia de `j14` es ANTERIOR a su publicación, y se dice.** `VIGENCIA =
+"2026-10-20"` (la fecha de `AGENTS.md`, §3.8), y el juez se publicó el 2026-10-25.
+Cualquier aplicación sembrada entre esas dos fechas nació ya bajo una regla que
+ningún CI le comprobaba, y BLOQUEA desde el primer push tras mover `v2`. En el
+disco hay UNA: `coipo_firms` (`fabrica: 2026-10-23`), y pasa (`OK`, seis
+`correlation_id`). Fuera del disco: DESCONOCIDO.
+
+Entró por error `HUSKY_AUDIT.md` en la raíz (`3ba3775`), la salida de una
+auditoría ajena; se quitó en la rama `arreglos-auditoria-2026-10-25`.
+
+### `v2.0.14`, 2026-10-25 — los arreglos de la auditoría
+
+Arreglos de una auditoría del 2026-10-25 (cada uno con su prueba, escrita antes y
+vista fallar, y su mutación), rama `arreglos-auditoria-2026-10-25`, PR #10. Lo que
+sigue es el radio medido antes de decidir su número.
+
+Medido sobre los mismos 88 repositorios, `main` (`1a2d589`) contra la rama,
+perfil `aplicacion`, modo bloqueante:
+
+- **63 `BLOQUEA` desaparecen, todos explicados:** 13 `G8-4` de
+  `# MINIO_ACCESS_KEY=<usuario>` (un identificador, no un secreto: `coipo_n8n` y
+  `coipo_prensa2` quedan en verde); 50 `G8-9` «no se encontró `/health`»: 3 porque
+  el `/health` lo responde el nginx interno con `return 200` (`coipo_tv`,
+  `coipo_boton_rojo`, `coipo_prevension_ministerial`), 2 porque un
+  `location /health` del nginx interno hace de proxy y se anota como no verificado
+  (`coipo_pgbackrest`, `coipo_seguimiento_madera`), y 45 porque el repositorio no
+  tiene compose y pasa a «no evaluado», como en `j01` y `j06` (SIN_EVALUAR, que en
+  perfil `aplicacion` bloqueante sigue saliendo 1).
+- **1 `BLOQUEA` nuevo:** `UI-3` en `coipo_prevension_ministerial`. Su `.semilla`
+  declara `adopta:` como lista YAML en bloque (`- interfaz`), que `main` leía VACÍA
+  y dejaba a `j13` en SIN_EVALUAR; leída bien, `j13` juzga lo que el repositorio
+  declara. Su `exit` no cambia (1 → 1) y su `deploy.yml` corre en `advisory`.
+- `coipo_atraso_personal` no cambia: 1 `BLOQUEA` (`j12`) antes y después.
+- Avisos nuevos (`G8-7`, `OPS-1`) en `coipo_cron_master` y
+  `coipo_seguimiento_madera`, cuyos compose el parser ahora entiende.
+
+Por la letra de «Cuándo toca una mayor nueva», ese `BLOQUEA` nuevo hace de esto
+una mayor; por la enmienda, es un veredicto que cambia en una aplicación que no
+estaba en verde.
+
+**Decidido por Luis Monsalve el 2026-10-25: `v2.0.14`, no `v3`.** Es el arreglo de
+un lector que ocultaba un juez (el `adopta:` en bloque se leía vacío), no una regla
+nueva: lo que `j13` exige a ese repositorio es lo que su propio `.semilla` declaró
+adoptar. Ningún `exit` pasa de 0 a 1 en los 88 repositorios medidos. Queda como
+precedente de la enmienda: arreglar una lectura que dejaba sin juzgar a quien sí
+pidió ser juzgado es `vN.x`.
 
 ### Migrar a una mayor nueva
 

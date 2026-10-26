@@ -19,7 +19,7 @@ hay un modo que interrumpe el proceso y otro que solo deja constancia
 [README.md], y hay un perfil distinto segun si lo revisado es una aplicacion
 o el encuadre operativo [tests/test_tres_estados.py]. Y permite suprimir un
 hallazgo concreto siempre que se escriba un motivo, comportamiento que esta
-fijado por pruebas en al menos cuatro de las nueve revisiones
+fijado por pruebas en al menos cuatro de las once revisiones
 [tests/test_j01_despliegue.py], [tests/test_j05_cors.py],
 [tests/test_j06_config.py], [tests/test_j12_semilla.py].
 
@@ -137,3 +137,17 @@ consume, y afirma que los verificadores no llevan secretos [README.md]. La
 segunda parte es coherente con la evidencia —no hay manifiestos ni variables
 de configuracion de servicio— pero que hoy no haya ningun secreto en el
 historial completo del repositorio es [VERIFICAR].
+
+## Actualización 2026-10-24 (cambios posteriores a este documento)
+
+Leído en `.github/workflows/` y `docs/VERSIONADO.md` [VERIFICADO]:
+
+- `verificar.yml` ya no tiene solo `modo` y `perfil`: suma las entradas `jueces`, `ref_jueces`
+  (por defecto `v2`) y `runner` (por defecto `ubuntu-latest`), y las salidas `bloqueantes` y
+  `supresiones`. El motivo de `runner`, según el comentario de `probar-runner.yml`: la cuota de
+  Actions del plan Free se agota y la compuerta deja de arrancar.
+- `probar-runner.yml` (manual) corre los jueces en advisory sobre un runner indicado.
+- Se retiró el workflow `readme.yml` («Quitar el README Maintainer automatico», 2026-09-26).
+- Mayor vigente `v2`; el historial de versiones (hasta v2.0.9) está en `docs/VERSIONADO.md`.
+- El 2026-10-25 hay 21 archivos `tests/test_*.py` (`ls tests/test_*.py`) y la suite no omite ninguna prueba; el número de pruebas lo imprime `python -m unittest discover -s tests` («Ran N tests») y no se teclea aquí. Lo de arriba («15 archivos», «181 OK, 1 omitida») era la medición del 2026-10-24.
+

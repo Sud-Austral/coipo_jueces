@@ -119,8 +119,10 @@ class PruebaCompose(CasoConRepo):
         Es la razón de que carga_yaml lance en vez de adivinar: un compose mal
         leído produciría un veredicto por el motivo equivocado.
         """
+        # Hasta el 2026-10-25 el ejemplo era un escalar en bloque (`command: |`),
+        # que desde ese día se entiende; una etiqueta (`!reset`) sigue sin entenderse.
         self.repo.escribe("docker-compose.yml",
-                          "services:\n  backend:\n    command: |\n      algo\n")
+                          "services:\n  backend:\n    ports: !reset []\n")
         r = self.repo.juzga()
         self.assertEqual([], r.bloqueantes)
         self.assertTrue(any("no se pudo verificar" in n for n in r.no_evaluado))

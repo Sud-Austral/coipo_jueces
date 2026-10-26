@@ -47,7 +47,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -199,6 +199,8 @@ def comprobar_lo_que_viaja(repo: Repo, r: Resultado) -> None:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
+    if sin_indice(repo, r):
+        return
     comprobar_gitignore(repo, r)
     comprobar_lo_que_viaja(repo, r)
 
