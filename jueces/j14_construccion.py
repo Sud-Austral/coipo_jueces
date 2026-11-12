@@ -249,7 +249,11 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 # `mirado:` en CONSTRUCCION.md, con qué se miró (`npm run capturas`, `npm run
 # comparar:maqueta`) y qué se vio. Sólo la forma: las capturas no se versionan.
 FAB_9 = "FAB-9"
-VIGENCIA_MIRADO = "2026-11-12"
+# Desde el día SIGUIENTE a su publicación: con el 2026-11-12, coipo_catastro_equipo y
+# coipo_catastro_equipos (sembradas ese día, antes de que la regla existiera) pasaban de
+# 0 a 1 bloqueante, y una regla que cambia el veredicto de lo que ya existe es mayor
+# nueva (docs/VERSIONADO.md, enmienda del 2026-10-25). Medido sobre 84 repositorios.
+VIGENCIA_MIRADO = "2026-11-13"
 MIRADO = re.compile(r"^[ \t]*(?:-[ \t]*)?mirado[ \t]*:[ \t]*(?P<valor>[^\r\n]*)", re.MULTILINE | re.IGNORECASE)
 
 

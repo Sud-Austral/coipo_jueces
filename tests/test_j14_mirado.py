@@ -15,8 +15,10 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "jueces"))
 import j14_construccion as j14  # noqa: E402
 
-HOY = "version: 2026-11-12\nfabrica: 2026-11-12\nadopta: semilla\n"
-AYER = "version: 2026-11-11\nfabrica: 2026-11-11\nadopta: semilla, interfaz\n"
+# La vigencia es el 2026-11-13; el 12 —el día de la publicación, cuando se sembraron dos
+# aplicaciones antes de que la regla existiera— sólo avisa.
+HOY = "version: 2026-11-13\nfabrica: 2026-11-13\nadopta: semilla\n"
+AYER = "version: 2026-11-12\nfabrica: 2026-11-12\nadopta: semilla, interfaz\n"
 
 BASE = """# Construcción
 metodologia: smb-metodologia-construir-una-aplicacion-coipo-de-prueba
