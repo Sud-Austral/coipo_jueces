@@ -228,6 +228,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
                 arreglo="`registrado:` con el `objetivo_id` creado en IGNUS y su "
                         "`correlation_id`, o «no aplica: <motivo>»")
 
+    _mirado(repo, r, marcador, texto)
+
     r.comprobo(f"FAB-8: `{CONSTRUCCION}` leído — {len(ids)} metodología(s) citada(s), "
                f"{len(correlaciones)} `correlation_id` con forma válida")
     if ids or correlaciones:
@@ -236,6 +238,50 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "DE VERDAD en IGNUS: este juez no tiene red ni `MCP_API_KEY` en el CI y sólo "
             "mira la forma. Lo comprueba `python flota/herramientas_de_fabrica.py "
             "--construccion <repo>` en la fábrica, con la clave en el entorno.")
+
+
+# ── FAB-9: alguien MIRÓ la interfaz antes de desplegar ───────────────────────
+#
+# coipo_catastro_equipo llegó al CI con un frontend que nadie construyó ni miró en la
+# máquina que lo escribió (su CONSTRUCCION.md lo dice), y salió sin parecerse a la
+# maqueta que el cliente había validado. Una verificación que lee el código no ve eso
+# (2026-11-12, decisión de Luis Monsalve). FAB-9 pide el registro de lo que se miró:
+# `mirado:` en CONSTRUCCION.md, con qué se miró (`npm run capturas`, `npm run
+# comparar:maqueta`) y qué se vio. Sólo la forma: las capturas no se versionan.
+FAB_9 = "FAB-9"
+VIGENCIA_MIRADO = "2026-11-12"
+MIRADO = re.compile(r"^[ \t]*(?:-[ \t]*)?mirado[ \t]*:[ \t]*(?P<valor>[^\r\n]*)", re.MULTILINE | re.IGNORECASE)
+
+
+def _mirado(repo: Repo, r: Resultado, marcador: str, texto: str) -> None:
+    if not repo.existe("frontend/package.json"):
+        r.comprobo("FAB-9: no hay `frontend/package.json`; no hay interfaz que mirar")
+        return
+    fecha = leer_fabrica(marcador)
+    nuevo = (fecha is not None and fecha >= VIGENCIA_MIRADO
+             and leer_adopcion(marcador).adopta(CAPA))
+    contexto = (f"sembrado el {fecha}, con la regla vigente desde el {VIGENCIA_MIRADO}"
+                if nuevo else f"regla del {VIGENCIA_MIRADO}, anterior a esta aplicación o "
+                              "sin `semilla` adoptada: sólo aviso")
+    m = MIRADO.search(texto)
+    r.comprobo(f"FAB-9: buscado `mirado:` en `{CONSTRUCCION}` ({contexto})")
+    valor = (m.group("valor").strip() if m else "")
+    if m and len(valor) >= 12 and not PENDIENTE.search(valor):
+        return
+    datos = dict(
+        archivo=CONSTRUCCION,
+        linea=texto.count("\n", 0, m.start()) + 1 if m else None,
+        mensaje=(f"no dice qué se MIRÓ de la interfaz antes de desplegar (`mirado:` "
+                 f"{'vacío o pendiente' if m else 'ausente'}) ({contexto})"),
+        manifestacion=("la interfaz llega a producción sin que nadie la haya visto: así salió "
+                       "coipo_catastro_equipo, sin parecerse a la maqueta que validó el cliente"),
+        arreglo=("`npm run build` y `npm run capturas` (o `npm run comparar:maqueta` si hay "
+                 "maqueta), mirar los PNG y escribir `mirado: <fecha>, <comando>, <qué se vio>`"),
+    )
+    if nuevo:
+        r.bloquea(FAB_9, **datos)  # type: ignore[arg-type]
+    else:
+        r.avisa(FAB_9, **datos)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

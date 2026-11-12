@@ -40,7 +40,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 from comun_yaml import (  # noqa: E402,F401  (reexportados: los jueces los importan de aquí)
     YamlNoSoportado, _sin_comentario, carga_yaml, numero_de_linea,
 )
-from comun_semilla import Adopcion, leer_adopcion, leer_fabrica  # noqa: E402,F401
+from comun_semilla import Adopcion, leer_adopcion, leer_ajeno, leer_fabrica, leer_maqueta  # noqa: E402,F401
 
 # --------------------------------------------------------------------------
 # Hallazgos

@@ -216,3 +216,41 @@ def leer_fabrica(texto: str | None) -> str | None:
     return m.group(1) if m else None
 
 
+# ── La maqueta validada: la clave `maqueta:` de `.semilla` ────────────────────
+#
+# Una aplicación sembrada con `sembrar.py --maqueta` (coipo_master_produccion, desde el
+# 2026-11-12) lleva `maqueta: <origen>@<commit>` y `adopta: semilla` SIN `interfaz`: su
+# cara es la de una maqueta que validó el cliente, no la de la flota
+# (identidad/ESTANDAR_UI.md §1-bis, enmienda del 2026-11-12, decisión de Luis Monsalve).
+# No adoptar `interfaz` ahí NO es una supresión: el aspecto tiene otra fuente, con
+# nombre y commit. j13 lo lee para no contarla; j16 para no medir la referencia; j12
+# para comprobar que la cara copiada no se editó (MAQ-1).
+_MAQUETA = re.compile(r"^maqueta[ \t]*:[ \t]*(?P<valor>\S+)", re.MULTILINE)
+
+
+# ── Código ajeno: la clave `ajeno:` de `.semilla` ──────────────────────────────
+#
+# Carpetas versionadas que NO son código de la aplicación y que nadie va a partir ni a
+# pasar a TypeScript: una librería copiada, un visor de terceros, datos congelados con
+# forma de código. `ajeno: vendor/visor/, frontend/public/libs/`. j16 no las mide, y
+# CADA una se cuenta como supresión y sale publicada (AGENTS.md §5): declarar ajeno
+# apaga una medición, y esa puerta se paga. La maqueta validada NO va por aquí: tiene
+# su propia clave y no es supresión (2026-11-12).
+_AJENO = re.compile(r"^ajeno[ \t]*:[ \t]*(?P<lista>[^\r\n]*)", re.MULTILINE)
+
+
+def leer_ajeno(texto: str | None) -> list[str]:
+    """Prefijos de ruta declarados ajenos, con barra final. Vacío si no hay clave."""
+    if not texto or not (m := _AJENO.search(texto)):
+        return []
+    rutas = (p.strip().strip("\"'[]").strip() for p in re.split(r"[,\s]+", m.group("lista")))
+    return [r if r.endswith("/") else r + "/" for r in rutas if r and r not in {"/", "./"}]
+
+
+def leer_maqueta(texto: str | None) -> tuple[int, str] | None:
+    """(línea, `origen@commit`) de la clave `maqueta:`, o None si no la lleva."""
+    if not texto or not (m := _MAQUETA.search(texto)):
+        return None
+    return texto.count("\n", 0, m.start()) + 1, m.group("valor")
+
+

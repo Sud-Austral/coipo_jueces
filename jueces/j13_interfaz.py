@@ -69,7 +69,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (sin_indice, Repo, Resultado, ejecutar, leer_adopcion,  # noqa: E402
+from comun import (sin_indice, Repo, Resultado, ejecutar, leer_adopcion, leer_maqueta,  # noqa: E402
                    suprimido)
 
 PERFILES = ("aplicacion",)
@@ -437,6 +437,16 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     if adopcion.vacia:
         # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
         r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
+        return
+    maqueta = leer_maqueta(repo.texto(MARCADOR))
+    if maqueta and not adopcion.adopta(CAPA):
+        # Sin supresión: la cara viene de una maqueta validada por el cliente, con nombre
+        # y commit. Ver `leer_maqueta` en comun_semilla.py.
+        r.no_corresponde(
+            f"`{MARCADOR}:{maqueta[0]}` declara una maqueta validada por el cliente "
+            f"({maqueta[1]}): la cara de esta aplicación es la de la maqueta, no la de la "
+            "flota (identidad/ESTANDAR_UI.md §1-bis de coipo_master_produccion, enmienda "
+            "del 2026-11-12). No es una supresión: el aspecto tiene otra fuente.")
         return
     if not adopcion.adopta(CAPA):
         razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que este "

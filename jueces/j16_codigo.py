@@ -79,7 +79,7 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica,  # noqa: E402
+from comun import (Repo, Resultado, ejecutar, leer_adopcion, leer_ajeno, leer_fabrica, leer_maqueta,  # noqa: E402
                    sin_indice, suprimido)
 
 PERFILES = ("aplicacion",)
@@ -178,10 +178,20 @@ def _linea_de(texto: str, posicion: int) -> int:
 
 # ── COD-1 ─────────────────────────────────────────────────────────────────────
 
-def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> None:
+# Con `maqueta:` en `.semilla`, la referencia (`maqueta/`) y su cara copiada sin tocar
+# (`frontend/src/maqueta/`) son del colega que la hizo y del cliente que la validó: no se
+# parten ni se reescriben. Medirlas fue lo que bloqueó coipo_catastro_equipo por un
+# `app.js` de 1957 líneas que no era código de la aplicación (2026-11-12).
+DE_LA_MAQUETA = ("maqueta/", "frontend/src/maqueta/")
+
+
+def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
+            excluidos: tuple[str, ...] = ()) -> None:
     medidos = 0
     for ruta in repo.versionados():
         if PurePosixPath(ruta).suffix.lower() not in EXTENSIONES_DE_CODIGO or GENERADO.search(ruta):
+            continue
+        if excluidos and ruta.startswith(excluidos):
             continue
         n = _lineas_de(repo, ruta)
         if n is None:
@@ -219,11 +229,13 @@ def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> None:
 
 # ── COD-2 ─────────────────────────────────────────────────────────────────────
 
-def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> None:
+def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
+                excluidos: tuple[str, ...] = ()) -> None:
     if not repo.existe("frontend/package.json"):
         r.comprobo("COD-2: no hay `frontend/package.json`; no hay frontend que juzgar")
         return
     versionados = repo.versionados()
+    versionados = [p for p in versionados if not (excluidos and p.startswith(excluidos))]
     js = [p for p in versionados
           if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".js", ".jsx")]
     ts = [p for p in versionados
@@ -454,8 +466,14 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     else:
         contexto = f"`{MARCADOR}` sin `fabrica:`: sólo aviso"
 
-    _tamano(repo, r, nuevo, contexto)
-    _typescript(repo, r, nuevo, contexto)
+    # Lo que no es código de la aplicación: la maqueta validada (sin supresión) y lo que
+    # `.semilla` declara `ajeno:` (cada carpeta, una supresión publicada). Ver comun_semilla.
+    ajenos = leer_ajeno(marcador)
+    for ruta in ajenos:
+        r.supresiones.append(f"{MARCADOR} declara `ajeno: {ruta}` — COD-1 y COD-2 no la miden")
+    excluidos = tuple(ajenos) + (DE_LA_MAQUETA if leer_maqueta(marcador) else ())
+    _tamano(repo, r, nuevo, contexto, excluidos)
+    _typescript(repo, r, nuevo, contexto, excluidos)
     _capas_frontend(repo, r, nuevo, contexto)
     _capas_backend(repo, r, nuevo)
     _capas_hermanos(repo, r, nuevo)

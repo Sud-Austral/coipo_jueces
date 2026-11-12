@@ -189,7 +189,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, ejecutar, leer_adopcion,  # noqa: E402
+from comun import (Repo, Resultado, ejecutar, leer_adopcion, leer_maqueta,  # noqa: E402
                    suprimido)
 
 PERFILES = ("aplicacion", "encuadre_operativo")
@@ -480,6 +480,54 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             r.supresiones.append(f"{ruta} pieza retirada de la semilla — {motivo}")
             continue
         _retirada(r, ruta, hasta)
+
+    _maqueta(repo, r)
+
+
+PROCEDENCIA = "maqueta/PROCEDENCIA.md"
+CARA = "frontend/src/maqueta/"
+_FILA_HASH = re.compile(r"^\|\s*`(?P<ruta>[^`]+)`\s*\|\s*`(?P<sha>[0-9a-f]{64})`\s*\|", re.MULTILINE)
+_MANIFESTACION_MAQ = (
+    "la aplicación deja de verse como la maqueta que validó el cliente, y nadie lo nota "
+    "hasta que el cliente la abre: es lo que pasó con coipo_catastro_equipo")
+
+
+def _maqueta(repo: Repo, r: Resultado) -> None:
+    """MAQ-1: la cara copiada de la maqueta validada no se edita.
+
+    `sembrar.py --maqueta` copia su CSS, fuentes e imágenes a `frontend/src/maqueta/` y
+    deja el sha256 de cada uno en `maqueta/PROCEDENCIA.md`. AVISA, no bloquea (AGENTS.md
+    §5): la regla es del 2026-11-12 y todavía no se calibró sobre ninguna aplicación real.
+    """
+    maqueta = leer_maqueta(repo.texto(MARCADOR))
+    if maqueta is None:
+        return
+    procedencia = repo.texto(PROCEDENCIA)
+    arreglo = ("deshacer la edición y poner lo propio en una hoja aparte, importada "
+               "después (prompts/06-portar-una-maqueta.md); si el cliente validó otra "
+               "versión, `sembrar.py --maqueta <origen> --commit <sha> --solo-maqueta`")
+    if procedencia is None:
+        r.avisa("MAQ-1", PROCEDENCIA,
+                f"`{MARCADOR}` declara la maqueta {maqueta[1]} y falta su procedencia",
+                _MANIFESTACION_MAQ, arreglo=arreglo)
+        return
+    filas = list(_FILA_HASH.finditer(procedencia))
+    r.comprobo(f"MAQ-1: {len(filas)} archivo(s) de la cara de la maqueta contra su sha256")
+    if not filas:
+        r.no_evaluado.append(f"{PROCEDENCIA} no lista ningún sha256: no hay contra qué comparar.")
+    for f in filas:
+        ruta = CARA + f.group("ruta")
+        if not repo.existe(ruta):
+            r.avisa("MAQ-1", ruta, "falta un archivo de la cara validada de la maqueta",
+                    _MANIFESTACION_MAQ, arreglo=arreglo)
+            continue
+        # Con `\r\n` pasado a `\n`, como SEM-1 y como `siembra/maqueta.py`: git cambia los
+        # finales de línea al hacer checkout, y eso no es editar la cara.
+        actual = hashlib.sha256(repo.ruta(ruta).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+        if actual != f.group("sha"):
+            r.avisa("MAQ-1", ruta, "el archivo de la maqueta validada no coincide con su "
+                    f"sha256 de {PROCEDENCIA}: alguien editó la cara que aprobó el cliente",
+                    _MANIFESTACION_MAQ, arreglo=arreglo)
 
 
 if __name__ == "__main__":
