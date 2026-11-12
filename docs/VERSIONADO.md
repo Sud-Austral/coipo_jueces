@@ -498,6 +498,34 @@ adoptar. Ningún `exit` pasa de 0 a 1 en los 88 repositorios medidos. Queda como
 precedente de la enmienda: arreglar una lectura que dejaba sin juzgar a quien sí
 pidió ser juzgado es `vN.x`.
 
+### `v2.0.15`, 2026-11-12 — la maqueta validada, `FAB-9` y `ajeno:`
+
+Decidido por Luis Monsalve el 2026-11-12, tras ver que la fábrica destruía las maquetas
+que el cliente ya había validado (`coipo_catastro_equipo`, `coipo_gobernanza_curso`):
+
+- **`maqueta:` en `.semilla`** (la escribe `sembrar.py --maqueta` de la fábrica): `j13`
+  sale `NO_APLICA` **sin** contar supresión, `j16` no mide `maqueta/` ni
+  `frontend/src/maqueta/`, y `j12` avisa con **`MAQ-1`** si la cara copiada no coincide
+  con su sha256 de `maqueta/PROCEDENCIA.md` (con `\r\n` normalizado).
+- **`ajeno:` en `.semilla`**: carpetas que `j16` no mide; cada una, una supresión publicada.
+- **`FAB-9`** (`j14`): `mirado:` en `CONSTRUCCION.md`. BLOQUEA lo sembrado desde el
+  **2026-11-13** —el día siguiente a la publicación— y AVISA en lo anterior.
+
+Radio medido sobre los 84 repositorios `coipo*` del disco, `v2` (`a814f5c`) contra la
+rama, perfil `aplicacion`, con `j12`, `j13`, `j14` y `j16`, sin ninguno sin medir:
+
+- **Primera medición, con vigencia del 2026-11-12: 2 `BLOQUEA` nuevos**, en
+  `coipo_catastro_equipo` y `coipo_catastro_equipos`, sembradas ese mismo día antes de
+  que la regla existiera. Eso es mayor nueva; se corrigió la vigencia, no el número.
+- **Segunda medición, con vigencia del 2026-11-13: 0 `BLOQUEA` nuevos.** Cambian 8
+  veredictos de `j14` de `OK` a `HALLAZGOS`, todos por avisos de `FAB-9`
+  (`coipo_catastro_equipo`, `coipo_catastro_equipos`, `coipo_catastro_incendio`,
+  `coipo_firms`, `coipo_gobernanza_curso2`, `coipo_pee_visor`, `coipo_presupuesto_erp`,
+  `coipo_silvicultura`); la cuenta de bloqueantes de cada uno es la misma antes y después.
+
+Por la enmienda del 2026-10-25, un juez que sólo bloquea lo sembrado desde su vigencia y
+no cambia el veredicto bloqueante de nada que exista va en `vN.x`. Suite: 322 pruebas.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
