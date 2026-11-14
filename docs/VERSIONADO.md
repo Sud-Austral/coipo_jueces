@@ -547,6 +547,19 @@ despliegue, los mismos de hoy (`coipo_api`, `coipo_atraso_personal`, `coipo_avis
 `COD-4` se calibró sobre los 91 repositorios `coipo*` del disco y dio 2 avisos, los dos
 reales (`coipo_atraso_personal`, `coipo_avisete`). Suite: 327 pruebas.
 
+### `v2.0.17`, 2026-11-14 — `test_guards.py` en el lock
+
+Luis Monsalve autorizó esta publicación el mismo día. Lo único que cambia es `semilla.lock`,
+que pasa de 43 a 44 piezas: entra `backend/tests/contrato/test_guards.py`, la prueba de
+contrato de `exigir_rol`, el ámbito y el 404 sin oráculo. El docstring de `guards.py` ya la
+citaba, pero la semilla no la traía. `j12` sólo juzga las piezas presentes, así que una
+aplicación sembrada antes no recibe ningún hallazgo nuevo.
+
+El radio, medido con `consumidores.py --lock-candidato`, da lo mismo con el lock de `v2`
+(`v2.0.16`) que con el candidato. Siguen los 4 rojos de antes (`coipo_api`,
+`coipo_atraso_personal`, `coipo_avisete`, `coipo_visor_saff`), con PR abierto o con una
+decisión pendiente. **0 `BLOQUEA` nuevos.**
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
