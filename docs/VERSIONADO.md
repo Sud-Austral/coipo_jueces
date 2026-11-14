@@ -526,6 +526,27 @@ rama, perfil `aplicacion`, con `j12`, `j13`, `j14` y `j16`, sin ninguno sin medi
 Por la enmienda del 2026-10-25, un juez que sólo bloquea lo sembrado desde su vigencia y
 no cambia el veredicto bloqueante de nada que exista va en `vN.x`. Suite: 322 pruebas.
 
+### `v2.0.16`, 2026-11-14 — `COD-4` y el log inmutable probado en Postgres
+
+Entra a partir de la pregunta de Luis Monsalve del 2026-11-14, «¿son suficientes los
+tests que se siembran?». Él autorizó la publicación ese mismo día.
+
+- **`COD-4`** (`j16`, **sólo AVISA**): cada caso de uso tiene una prueba versionada que
+  lo nombra, buscada con límites de palabra. Los auxiliares que empiezan con `_` no
+  cuentan. Fuente: `docs/ESTANDAR_CODIGO.md` de la fábrica, COD-4.
+- **`semilla.lock`**: pasa de 42 a 43 piezas. Entra
+  `backend/tests/contrato/test_log_inmutable.py`, que se marca `requiere_db`. `j12` sólo
+  juzga las piezas presentes, así que una aplicación sembrada antes sin ella no recibe
+  ningún hallazgo.
+
+Radio medido con `flota/consumidores.py --lock-candidato`, comparando el lock de `v2`
+(`47677eb`) con el candidato. El resultado es idéntico: 4 en rojo y 1 que frenaría el
+despliegue, los mismos de hoy (`coipo_api`, `coipo_atraso_personal`, `coipo_avisete`,
+`coipo_visor_saff`, por piezas editadas). Hay **0 `BLOQUEA` nuevos**.
+
+`COD-4` se calibró sobre los 91 repositorios `coipo*` del disco y dio 2 avisos, los dos
+reales (`coipo_atraso_personal`, `coipo_avisete`). Suite: 327 pruebas.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
