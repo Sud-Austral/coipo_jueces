@@ -11,7 +11,7 @@
 # fallaría en cada checkout de Windows por un motivo que no es el contenido, y
 # un juez que falla por algo que no importa se suprime en una semana.
 #
-# 43 archivos.
+# 44 archivos.
 
 d9573931f2b44f20deba53988044f4be9941d4ed40d910d85f8af7a8ef1ce572  backend/Dockerfile
 1f3aefd7b9591c92e31f1f9fc585996439b5ffb944412bf4729aa6fcf4410005  backend/app/adaptadores/entrada/http/guards.py
@@ -39,6 +39,7 @@ d8bbeb2338b5d20deb1aa1adec91edd3820d765c00f3647c361016f1eff3e199  backend/tests/
 4cca649624ce53ce6b6d4dd1f7927e5fe1d1255add3c3c089d862783e798e238  backend/tests/arnes/utilidades.py
 fbaebb24640ef14e1b9da3e4e2ac51d0ae119ee48d8522637e66fde7e21ae655  backend/tests/arquitectura/test_capas.py
 f5960daea4c693d364506afee86caff992e985bcf244f65e9cb099cbed7a9e84  backend/tests/conftest.py
+246a1393faf40720c696de50eca07aa20f916fe55e375e57a25dd6ce2ee43539  backend/tests/contrato/test_guards.py
 42b6a607d383f416ca050d7a79920d45f6f112cfa49c30d087457e4bf3ad7f27  backend/tests/contrato/test_health.py
 a4e5c19c8483039b4d0e5effeb9ae269d614984378152650f691a90fce66645c  backend/tests/contrato/test_la_semilla_importa.py
 b814371dbfe386a06735e789d0435d73df275fbc81415b57ad3ff14f3748b218  backend/tests/contrato/test_log_inmutable.py
