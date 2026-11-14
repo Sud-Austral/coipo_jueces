@@ -1,0 +1,53 @@
+# Abre (o comenta) un issue cuando `coherencia` falla en main, y lo cierra cuando vuelve a verde.
+#
+# POR QUÉ EXISTE (copiado de coipo_master_produccion). El CI de la fábrica estuvo ROJO del 2026-11-12 al 2026-11-14 —una cuenta
+# fija de 8 gerencias cuando ya había 9, y `FAB-9` sin su línea `mirado:` en el CONSTRUCCION
+# de prueba— y nadie se enteró: un run rojo en main no avisa a nadie. Un issue sí, por correo,
+# a quien mira el repositorio. Sin secretos nuevos: `GITHUB_TOKEN` con `issues: write`.
+#
+# En coipo_jueces vigila `Autotest`: si los jueces se rompen en main, la flota entera los usa
+# al mover `v2`. Corre en `ubuntu-latest`: este repositorio es público y no gasta cuota.
+name: alerta-main
+
+on:
+  workflow_run:
+    workflows: [Autotest]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  issues: write
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'push'
+    steps:
+      - name: Abrir, comentar o cerrar el issue «main en rojo»
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          titulo="[CI] main en rojo: Autotest"
+          # Sin `--search`: el índice de búsqueda de GitHub va con retraso y la prueba del
+          # 2026-11-14 abrió un segundo issue en vez de comentar el primero. Título exacto.
+          abierto=$(gh issue list --state open --limit 200 --json number,title             --jq "map(select(.title == \"$titulo\")) | .[0].number // empty")
+          case "$CONCLUSION" in
+            failure|timed_out)
+              cuerpo="Autotest falló en main (${SHA:0:7}): $RUN_URL"
+              if [ -n "$abierto" ]; then
+                gh issue comment "$abierto" --body "$cuerpo"
+              else
+                gh issue create --title "$titulo" --body "$cuerpo
+
+          Lo abrió .github/workflows/alerta-main.yml; se cierra solo cuando main vuelve a verde."
+              fi ;;
+            success)
+              if [ -n "$abierto" ]; then
+                gh issue close "$abierto" --comment "main volvió a verde (${SHA:0:7}): $RUN_URL"
+              fi ;;
+            *) echo "conclusión $CONCLUSION: no se hace nada" ;;
+          esac
