@@ -579,6 +579,22 @@ editados. Una aplicación desplegada deja de poder purgar sólo cuando corre
 `sembrar.py --actualizar` y su arranque aplica la `0000_10`. La base legal sigue marcada
 [VERIFICAR con Fiscalía].
 
+### `v2.0.19`, 2026-11-14 — `test_log_inmutable.py` con cualquier runner de migraciones
+
+Autorizada por Luis Monsalve el mismo día. El lock sigue con 45 piezas, pero cambia la huella
+de `backend/tests/contrato/test_log_inmutable.py`.
+
+Esa prueba sellada llamaba a `migraciones.aplicar(..., esquema=)`, y el parámetro `esquema`
+sólo existe en el ESQUELETO desde el 2026-10-29. En `coipo_visor_saff`, sembrada antes, el CI
+reventaba con `TypeError`.
+
+La versión nueva:
+- crea el esquema y lo fija en el `search_path` de la URL (`postgresql+psycopg://`);
+- pasa `esquema=` sólo si el runner de la app lo acepta.
+
+Se probó con los dos runners. **0 `BLOQUEA` nuevos:** la pieza anterior queda en el historial,
+así que una app que la tenga sólo recibe un aviso de atrasada.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
