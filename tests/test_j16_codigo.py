@@ -318,5 +318,55 @@ class PruebaCapasHermanos(Base):
         self.assertTrue(any("ningún otro `dominio/`" in c for c in r.comprobado), r.comprobado)
 
 
+CASO = "class RechazarTramite:\n    pass\n"
+
+
+class PruebaCasosProbados(Base):
+    """COD-4: un caso de uso tiene al menos una prueba versionada que lo nombra. Sólo avisa."""
+
+    def test_caso_con_prueba_sale_limpio(self):
+        (self.repo.escribe(".semilla", NUEVA)
+         .escribe("backend/app/aplicacion/casos/__init__.py", "")
+         .escribe("backend/app/aplicacion/casos/rechazar_tramite.py", CASO)
+         .escribe("backend/tests/aplicacion/test_rechazar_tramite.py",
+                  "from app.aplicacion.casos.rechazar_tramite import RechazarTramite\n"))
+        r = self.repo.juzga()
+        self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
+        self.assertTrue(any("COD-4: 1 caso(s) de uso, 1 nombrado" in c for c in r.comprobado), r.comprobado)
+
+    def test_caso_sin_prueba_avisa_y_no_bloquea(self):
+        (self.repo.escribe(".semilla", NUEVA)
+         .escribe("backend/app/aplicacion/casos/rechazar_tramite.py", CASO))
+        r = self.repo.juzga()
+        cod4 = [h for h in r.hallazgos if h.regla == "COD-4"]
+        self.assertEqual(1, len(cod4), r.hallazgos)
+        self.assertEqual([], [h for h in r.bloqueantes if h.regla == "COD-4"])
+
+    def test_un_nombre_que_solo_contiene_al_caso_no_cuenta(self):
+        """Falso negativo encontrado calibrando: `enviar` no queda probado porque una
+        prueba hable de `reenviar_aviso`. Por eso la búsqueda va con límites de palabra."""
+        (self.repo.escribe(".semilla", NUEVA)
+         .escribe("frontend/src/aplicacion/enviar.ts", "export const enviar = () => 1\n")
+         .escribe("frontend/src/aplicacion/reenviar_aviso.test.ts", "// reenviar_aviso\n"))
+        r = self.repo.juzga()
+        self.assertEqual(["frontend/src/aplicacion/enviar.ts"],
+                         [h.archivo for h in r.hallazgos if h.regla == "COD-4"])
+
+    def test_un_auxiliar_privado_no_es_un_caso_de_uso(self):
+        """Falso positivo de la calibración: `casos/_operacion.py` en una app real."""
+        (self.repo.escribe(".semilla", NUEVA)
+         .escribe("backend/app/aplicacion/casos/_operacion.py", "def ayuda():\n    return 1\n"))
+        r = self.repo.juzga()
+        self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
+
+    def test_los_puertos_y_las_pruebas_no_son_casos_de_uso(self):
+        (self.repo.escribe(".semilla", NUEVA)
+         .escribe("frontend/src/aplicacion/puertos/almacen.ts", "export interface Almacen {}\n")
+         .escribe("frontend/src/aplicacion/tema.test.ts", "// nada\n"))
+        r = self.repo.juzga()
+        self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
+        self.assertTrue(any("no hay casos de uso" in c for c in r.comprobado), r.comprobado)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

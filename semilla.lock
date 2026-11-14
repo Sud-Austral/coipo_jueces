@@ -11,7 +11,7 @@
 # fallaría en cada checkout de Windows por un motivo que no es el contenido, y
 # un juez que falla por algo que no importa se suprime en una semana.
 #
-# 42 archivos.
+# 43 archivos.
 
 d9573931f2b44f20deba53988044f4be9941d4ed40d910d85f8af7a8ef1ce572  backend/Dockerfile
 1f3aefd7b9591c92e31f1f9fc585996439b5ffb944412bf4729aa6fcf4410005  backend/app/adaptadores/entrada/http/guards.py
@@ -41,6 +41,7 @@ fbaebb24640ef14e1b9da3e4e2ac51d0ae119ee48d8522637e66fde7e21ae655  backend/tests/
 f5960daea4c693d364506afee86caff992e985bcf244f65e9cb099cbed7a9e84  backend/tests/conftest.py
 42b6a607d383f416ca050d7a79920d45f6f112cfa49c30d087457e4bf3ad7f27  backend/tests/contrato/test_health.py
 a4e5c19c8483039b4d0e5effeb9ae269d614984378152650f691a90fce66645c  backend/tests/contrato/test_la_semilla_importa.py
+b814371dbfe386a06735e789d0435d73df275fbc81415b57ad3ff14f3748b218  backend/tests/contrato/test_log_inmutable.py
 913faccf0fd96b732cc028df73565d3fc844f7b505c1338e6d73b37c4bffc24b  backend/tests/contrato/test_todo_importa.py
 3a37f47c5dcc76c5041663b408f3b2994fe12a5fdc8454a5d5c634e4f99b53bd  db/0000_01_capacidad.sql
 7c1e1f50d8e42fbce8570a4f8300eea80f9d2143675f4155e1bcb505dc899730  db/0000_02_catalogo_evento.sql

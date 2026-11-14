@@ -87,6 +87,7 @@ PERFILES = ("aplicacion",)
 COD_1 = "COD-1"
 COD_2 = "COD-2"
 COD_3 = "COD-3"
+COD_4 = "COD-4"
 
 # El día en que la regla entró. Una aplicación sembrada desde entonces la cumple
 # desde su primer commit, porque la semilla ya la cumple (`FILOSOFIA.md`, §5).
@@ -429,6 +430,52 @@ def _anotar_capas(repo: Repo, r: Resultado, nuevo: bool, ruta: str, motivos: lis
             r.avisa(COD_3, **datos)
 
 
+# ── COD-4 ─────────────────────────────────────────────────────────────────────
+#
+# Un caso de uso se prueba con dobles de sus puertos (docs/ESTANDAR_CODIGO.md, COD-4).
+# Lo que se puede comprobar LEYENDO es la mitad necesaria: que alguna prueba versionada
+# NOMBRE el módulo del caso de uso. Que la prueba sea buena no lo ve un juez; que no
+# exista, sí. Siempre AVISA: la semilla trajo casos de uso sin prueba hasta el
+# 2026-11-14, y una aplicación sembrada antes no tiene por qué saberlo.
+#
+# Calibración (2026-11-14): la semilla materializada sale OK (1 caso, `rechazar_tramite`,
+# nombrado por tests/aplicacion/test_rechazar_tramite.py); sin ese test, 1 AVISA. Sobre la
+# flota en disco: coipo_n8n y coipo_prensa2 sin COD-4; coipo_camara_deteccion daba un
+# FALSO POSITIVO con `casos/_operacion.py`, un auxiliar privado: un módulo que empieza
+# con `_` no es un caso de uso y ya no se cuenta.
+# Corregido eso, sobre los 91 repositorios coipo*/COIPO* del disco: 2 AVISA, los dos
+# reales (coipo_atraso_personal `tablero_comun` y coipo_avisete `log_de_envios`: ninguna
+# prueba versionada los nombra, comprobado con `git grep -w`).
+
+CASO_PY = re.compile(r"^(?:[^/]+/)?app/aplicacion/casos/([A-Za-z]\w*)\.py$")
+CASO_TS = re.compile(r"^frontend/src/aplicacion/(?!puertos/)([A-Za-z]\w*)\.tsx?$")
+PRUEBA = re.compile(r"(^|/)tests?/.*\.py$|\.(test|spec)\.tsx?$")
+
+
+def _casos_probados(repo: Repo, r: Resultado, excluidos: tuple[str, ...] = ()) -> None:
+    versionados = [v for v in repo.versionados() if not (excluidos and v.startswith(excluidos))]
+    casos = [(v, m.group(1)) for v in versionados
+             if (m := CASO_PY.match(v) or CASO_TS.match(v)) and not PRUEBA.search(v)]
+    if not casos:
+        r.comprobo("COD-4: no hay casos de uso en `app/aplicacion/casos/` ni en "
+                   "`frontend/src/aplicacion/`")
+        return
+    pruebas = "\n".join(repo.texto(v) or "" for v in versionados if PRUEBA.search(v))
+    sin_prueba = [(v, nombre) for v, nombre in casos
+                  if not re.search(rf"\b{re.escape(nombre)}\b", pruebas)]
+    r.comprobo(f"COD-4: {len(casos)} caso(s) de uso, {len(casos) - len(sin_prueba)} "
+               "nombrado(s) por alguna prueba versionada")
+    for ruta, nombre in sin_prueba:
+        r.avisa(COD_4, archivo=ruta,
+                mensaje=f"ninguna prueba versionada nombra el caso de uso `{nombre}`",
+                manifestacion=("la regla de negocio del caso de uso (quién puede, sobre qué "
+                               "ámbito, qué se confirma) cambia sin que nada se ponga rojo; "
+                               "el primer aviso es un usuario que ve o escribe lo que no debía"),
+                arreglo=("una prueba de la capa `aplicacion` contra dobles en memoria de sus "
+                         "puertos, sin MagicMock: el molde es "
+                         "`backend/tests/aplicacion/test_rechazar_tramite.py` de la semilla"))
+
+
 # ── Entrada ───────────────────────────────────────────────────────────────────
 
 def comprobar(repo: Repo, r: Resultado) -> None:
@@ -477,6 +524,7 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     _capas_frontend(repo, r, nuevo, contexto)
     _capas_backend(repo, r, nuevo)
     _capas_hermanos(repo, r, nuevo)
+    _casos_probados(repo, r, excluidos)
 
 
 if __name__ == "__main__":
