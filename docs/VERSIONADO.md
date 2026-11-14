@@ -560,6 +560,25 @@ El radio, medido con `consumidores.py --lock-candidato`, da lo mismo con el lock
 `coipo_atraso_personal`, `coipo_avisete`, `coipo_visor_saff`), con PR abierto o con una
 decisión pendiente. **0 `BLOQUEA` nuevos.**
 
+### `v2.0.18`, 2026-11-14 — conservación permanente
+
+Decisión de Luis Monsalve del 2026-11-14: en la flota no se purga ni se desidentifica nada.
+Él mismo autorizó esta publicación. `semilla.lock` pasa a 45 piezas:
+
+- **Nueva** `db/0000_10_conservacion_permanente.sql`. Retira las tres `fn_purgar_*` y deja
+  el DELETE prohibido siempre en los tres logs.
+- **Cambia** `clasificacion_catalogo.py`. Todo queda `permanente`, y las 10 columnas que
+  estaban en ELIMINAR pasan a CONSERVAR_JUSTIFICADO con su firma.
+- **Cambia** `test_log_inmutable.py`. Comprueba que ya no exista ninguna purga y que un
+  DELETE se rechace aunque esté puesto el antiguo flag.
+
+Radio medido con `consumidores.py --lock-candidato`: hay **0 `BLOQUEA` nuevos** (siguen los
+mismos 4). Los avisos por piezas atrasadas pasan de 9 a 15: son las aplicaciones cuyo
+catálogo de clasificación es el anterior, y `j12` los marca como atrasados, no como
+editados. Una aplicación desplegada deja de poder purgar sólo cuando corre
+`sembrar.py --actualizar` y su arranque aplica la `0000_10`. La base legal sigue marcada
+[VERIFICAR con Fiscalía].
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
