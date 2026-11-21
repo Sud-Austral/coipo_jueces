@@ -50,7 +50,7 @@ class PruebaCors(CasoConRepo):
 
     def test_comodin_bloquea(self):
         self.repo.escribe("backend/main.py", main_con('["*"]'))
-        self.assertBloquea("acepta `*`")
+        self.assertRegla("G8-5", "BLOQUEA", "acepta `*`")
 
     def test_el_mensaje_distingue_si_hay_credenciales(self):
         """`allow_credentials=False` limita el daño, y el hallazgo debe decirlo.
@@ -75,7 +75,7 @@ class PruebaCors(CasoConRepo):
     def test_origen_por_ip_bloquea(self):
         """Una IP en allow_origins no casa NUNCA con una petición real."""
         self.repo.escribe("backend/main.py", main_con('["http://192.0.2.10:8111"]'))
-        self.assertBloquea("incluye la IP")
+        self.assertRegla("G8-5", "BLOQUEA", "incluye la IP")
 
     def test_dominio_literal_no_bloquea_por_si_solo(self):
         self.repo.escribe("backend/main.py", main_con('["https://iam.conaf.cl"]'))
@@ -90,7 +90,7 @@ class PruebaCors(CasoConRepo):
         """
         self.repo.escribe("backend/main.py", main_con('["https://iam.conaf.cl"]'))
         self.repo.escribe(".env.example", "CORS_ORIGINS=https://iam.conaf.cl\n")
-        self.assertBloquea("está cableado en el código")
+        self.assertRegla("G8-5", "BLOQUEA", "está cableado en el código")
 
     def test_sin_cors_es_no_aplica_y_no_un_hallazgo(self):
         self.repo.escribe("backend/main.py",

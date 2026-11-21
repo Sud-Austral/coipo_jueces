@@ -47,19 +47,19 @@ class PruebaFab9(CasoConRepo):
 
     def test_sin_mirado_bloquea_en_lo_nuevo(self):
         self._app(HOY, BASE)
-        self.assertBloquea("no dice qué se MIRÓ")
+        self.assertRegla("FAB-9", "BLOQUEA", "no dice qué se MIRÓ")
 
     def test_mirado_pendiente_bloquea(self):
         self._app(HOY, BASE + "mirado: [PENDIENTE] fecha y comando\n")
-        self.assertBloquea("vacío o pendiente")
+        self.assertRegla("FAB-9", "BLOQUEA", "vacío o pendiente")
 
     def test_mirado_vacio_bloquea(self):
         self._app(HOY, BASE + "mirado: sí\n")
-        self.assertBloquea("vacío o pendiente")
+        self.assertRegla("FAB-9", "BLOQUEA", "vacío o pendiente")
 
     def test_en_lo_anterior_solo_avisa(self):
         self._app(AYER, BASE)
-        self.assertAvisa("no dice qué se MIRÓ")
+        self.assertRegla("FAB-9", "AVISA", "no dice qué se MIRÓ")
         self.assertFalse([h for h in self.repo.juzga().bloqueantes if h.regla == "FAB-9"])
 
     def test_sin_frontend_no_se_pide(self):

@@ -70,7 +70,7 @@ class PruebaSalud(CasoConRepo):
         """Sin `/health` el despliegue falla siempre, o nadie sabe si funcionó."""
         self.repo.escribe("backend/app/main.py",
                           "from fastapi import FastAPI\napp = FastAPI()\n")
-        self.assertBloquea("no se encontró ningún endpoint `/health`")
+        self.assertRegla("G8-9", "BLOQUEA", "no se encontró ningún endpoint `/health`")
 
     def test_execute_con_string_crudo_bloquea(self):
         """En SQLAlchemy 2.x lanza ArgumentError: el /health falla SIEMPRE.
@@ -80,19 +80,24 @@ class PruebaSalud(CasoConRepo):
         """
         self.repo.escribe("backend/app/routers/salud.py",
                           SALUD_CORRECTO.replace('text("SELECT 1")', '"SELECT 1"'))
-        self.assertBloquea("`execute()` con un string crudo")
+        self.assertRegla("G8-9", "BLOQUEA", "`execute()` con un string crudo")
 
-    def test_healthcheck_que_apunta_a_otra_ruta_bloquea(self):
+    def test_healthcheck_que_apunta_a_otra_ruta_avisa_dk5(self):
         """El incidente H9: `coipo_cabania` lleva días `unhealthy` con /health en 200.
 
         Un contenedor marcado mal para siempre no rompe nada hoy, y por eso
-        esconderá un problema real el día que lo haya.
+        esconderá un problema real el día que lo haya. AVISA (`DK-5`).
+
+        Hasta el 2026-11-21 se llamaba `..._bloquea` y sólo comprobaba que hubiera
+        ALGÚN hallazgo: el código salía como `DOCKER-hc`, sin fila en REGLAS.md, y
+        la prueba pasaba igual.
         """
         self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO)
         self.repo.escribe("docker-compose.yml",
                           COMPOSE.replace("/health", "/api/estado"))
         r = self.repo.juzga()
-        self.assertTrue(r.hallazgos, "el healthcheck apunta a otra ruta y nadie avisa")
+        self.assertRegla("DK-5", "AVISA", "`/api/estado`", r)
+        self.assertSinBloqueos(r)
 
 
 SALUD_CON = '''\
@@ -327,17 +332,26 @@ class PruebaSaludEnNginx(CasoConRepo):
     def test_location_comentada_no_cuenta(self):
         self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
             "    location = /health {", "    # location = /health {"))
-        self.assertBloquea("no se encontró ningún endpoint `/health`")
+        self.assertRegla("G8-9", "BLOQUEA", "no se encontró ningún endpoint `/health`")
 
     def test_el_vhost_del_host_no_cuenta(self):
         """El nginx del HOST está delante; el smoke test va directo al contenedor."""
         self.repo.escribe("ops/nginx-host/prueba.conaf.cl.conf", NGINX_SALUD)
-        self.assertBloquea("no se encontró ningún endpoint `/health`")
+        self.assertRegla("G8-9", "BLOQUEA", "no se encontró ningún endpoint `/health`")
+
+    def test_location_que_no_devuelve_2xx_bloquea(self):
+        """`curl -sf` falla con cualquier código >= 400 y no sigue redirecciones."""
+        for codigo in ("302 /login", "503"):
+            with self.subTest(codigo=codigo):
+                self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
+                    "return 200 '{\"status\":\"ok\",\"app\":\"prueba\"}';",
+                    f"return {codigo};"))
+                self.assertRegla("G8-9", "BLOQUEA", f"devuelve {codigo.split()[0]}")
 
     def test_location_con_autenticacion_bloquea(self):
         self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
             "        access_log off;\n", "        auth_basic \"restringido\";\n"))
-        self.assertBloquea("autenticación")
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación")
 
     def test_el_hallazgo_de_repositorio_se_puede_suprimir_en_el_compose(self):
         self.repo.escribe("docker-compose.yml",
@@ -387,7 +401,7 @@ class PruebaFalloDeDatos(CasoConRepo):
             '    return {"status": "ok", "app": "prueba"}\n'))
         r = self.repo.juzga()
         self.assertEqual([], r.bloqueantes, [h.mensaje for h in r.bloqueantes])
-        self.assertAvisa("ninguna sonda automatizada lee el estado degradado", r)
+        self.assertRegla("G8-11", "AVISA", "ninguna sonda automatizada lee el estado degradado", r)
 
     def test_el_arreglo_nombra_la_via_de_plataforma(self):
         """Un arreglo que sólo ofrece caminos imposibles no es un arreglo.

@@ -82,18 +82,18 @@ class PruebaCompose(CasoConRepo):
 
     def test_version_obsoleta_bloquea(self):
         self._base("version: '3.8'\n" + COMPOSE_BUENO)
-        self.assertBloquea("`version:`")
+        self.assertRegla("G8-7", "BLOQUEA", "`version:`")
 
     def test_dos_servicios_con_puerto_bloquean(self):
         self._base(COMPOSE_BUENO.replace(
             "    env_file: .env\n",
             '    env_file: .env\n    ports:\n      - "9000:8000"\n'))
-        self.assertBloquea("publican puerto")
+        self.assertRegla("G8-7", "BLOQUEA", "publican puerto")
 
     def test_ningun_puerto_bloquea(self):
         """Sin puerto no hay smoke test posible: el despliegue no se puede verificar."""
         self._base(COMPOSE_BUENO.replace('    ports:\n      - "${APP_PORT:-8080}:8000"\n', ""))
-        self.assertBloquea("ningún servicio publica un puerto")
+        self.assertRegla("G8-7", "BLOQUEA", "ningún servicio publica un puerto")
 
     def test_base_de_datos_en_el_compose_bloquea(self):
         self._base(COMPOSE_BUENO + """
@@ -104,7 +104,7 @@ class PruebaCompose(CasoConRepo):
     healthcheck:
       test: ["CMD", "true"]
 """)
-        self.assertBloquea("motor de base de datos")
+        self.assertRegla("DK-3", "BLOQUEA", "motor de base de datos")
 
     def test_compose_ausente_no_se_declara_limpio(self):
         """«No pude evaluar» y «evalué y está bien» no son lo mismo."""
@@ -137,9 +137,11 @@ services:
       - "8080:8000"
 """)
         r = self.repo.juzga()
-        for fragmento in ("no tiene healthcheck", "no declara `mem_limit`",
-                          "no declara `restart:`"):
-            self.assertAvisa(fragmento, r)
+        for codigo, fragmento in (("G8-7", "no tiene healthcheck"),
+                                  ("OPS-1", "no declara `mem_limit`"),
+                                  ("G8-7", "no declara `restart:`")):
+            with self.subTest(fragmento=fragmento):
+                self.assertRegla(codigo, "AVISA", fragmento, r)
 
     def test_un_servicio_de_imagen_upstream_no_exige_healthcheck(self):
         """El `app` de coipo_n8n es un nginx traductor sin healthcheck, a propósito.
@@ -169,14 +171,27 @@ class PruebaContextoDeBuild(CasoConRepo):
         """El defecto real de COIPO_ENTREGA_PLANTA, reproducido en sintético."""
         self.repo.escribe("docker-compose.yml", COMPOSE_BUENO)
         self.repo.escribe("frontend/nginx.conf", NGINX_BUENO)
-        self.assertBloquea("falta `.dockerignore`")
+        self.assertRegla("DK-4", "BLOQUEA", "falta `.dockerignore`")
 
     def test_dockerignore_que_no_excluye_env_bloquea(self):
         """El defecto real de COIPO_USUARIOS: existe, pero deja pasar el .env."""
         self.repo.escribe("docker-compose.yml", COMPOSE_BUENO)
         self.repo.escribe("frontend/nginx.conf", NGINX_BUENO)
         self.repo.escribe(".dockerignore", ".git\n**/node_modules\nfrontend/dist\n")
-        self.assertBloquea("no excluye `.env`")
+        self.assertRegla("DK-4", "BLOQUEA", "no excluye `.env`")
+
+    def test_sin_dockerignore_y_sin_contexto_raiz_avisa(self):
+        """La rama AVISA de DK-4: hoy nada viaja de más, pero el primer `context: .`
+        que alguien añada lo hará sin avisar."""
+        self.repo.escribe("docker-compose.yml", COMPOSE_BUENO.replace(
+            "      context: .\n      dockerfile: backend/Dockerfile\n",
+            "      context: ./backend\n").replace(
+            "      context: .\n      dockerfile: frontend/Dockerfile\n",
+            "      context: ./frontend\n"))
+        self.repo.escribe("frontend/nginx.conf", NGINX_BUENO)
+        r = self.repo.juzga()
+        self.assertRegla("DK-4", "AVISA", "no hay `.dockerignore` en la raíz", r)
+        self.assertSinBloqueos(r)
 
     def test_sin_builds_no_se_exige_dockerignore(self):
         """Un encuadre operativo que solo usa `image:` no tiene contexto que proteger."""
@@ -240,7 +255,7 @@ server {
     }
 }
 """)
-        self.assertSinBloqueos()
+        self.assertSinRegla("NG-1")
 
     def test_se_puede_suprimir_con_motivo(self):
         self._con_nginx(NGINX_LITERAL.replace(
@@ -248,7 +263,7 @@ server {
             "        # coipo-jueces:ignorar(NG-1) upstream fijo por decisión de red\n"
             "        proxy_pass http://backend:8000/api/;"))
         r = self.repo.juzga()
-        self.assertSinBloqueos(r)
+        self.assertSinRegla("NG-1", r)
         self.assertEqual(1, len(r.supresiones))
 
 
@@ -263,7 +278,7 @@ class PruebaDelPropioJuez(unittest.TestCase):
             repo.escribe("docker-compose.yml", COMPOSE_BUENO)
             repo.escribe(".dockerignore", ".git\n.env\n")
             repo.escribe("frontend/nginx.conf", NGINX_LITERAL)
-            self.assertTrue(repo.juzga().hallazgos,
+            self.assertTrue([h for h in repo.juzga().hallazgos if h.regla == "NG-1"],
                             "el juez dejó pasar un proxy_pass literal sin resolver")
         finally:
             repo.cierra()

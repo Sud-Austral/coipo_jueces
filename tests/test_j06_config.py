@@ -174,6 +174,14 @@ class PruebaVersiones(CasoConRepo):
         self.repo.escribe(".github/workflows/ci.yml", CI)
         self.assertAvisa("varias versiones de python")
 
+    def test_ningun_workflow_fija_la_version_avisa(self):
+        """La rama sin `python-version` ni `node-version` en ningún workflow."""
+        self._con(DOCKERFILE, "name: ci\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n"
+                              "    steps:\n      - run: python3 -m pytest\n")
+        r = self.repo.juzga()
+        self.assertRegla("CI-1", "AVISA", "ningún workflow fija la versión", r)
+        self.assertSinBloqueos(r)
+
 
 class PruebaDelPropioJuez(unittest.TestCase):
     def test_el_juez_detecta_lo_que_dice_detectar(self):

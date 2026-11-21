@@ -84,17 +84,17 @@ class Base(CasoConRepo):
 
 class PruebaNegativas(Base):
     def test_sin_archivo_bloquea(self):
-        self.assertBloquea("no existe `docs/CONSTRUCCION.md`", self.sembrado(construccion=None))
+        self.assertRegla("FAB-8", "BLOQUEA", "no existe `docs/CONSTRUCCION.md`", self.sembrado(construccion=None))
 
     def test_un_pendiente_bloquea_con_su_linea(self):
         r = self.sembrado(construccion=COMPLETO.replace("instancia: conaf", "instancia: [PENDIENTE]"))
-        self.assertBloquea("`[PENDIENTE]`", r)
+        self.assertRegla("FAB-8", "BLOQUEA", "`[PENDIENTE]`", r)
         pendiente = next(h for h in r.bloqueantes if "[PENDIENTE]" in h.mensaje)
         self.assertEqual(4, pendiente.linea)
 
     def test_un_verificar_tambien_bloquea(self):
         r = self.sembrado(construccion=COMPLETO + "\n- [VERIFICAR] el colector en uat\n")
-        self.assertBloquea("`[VERIFICAR]`", r)
+        self.assertRegla("FAB-8", "BLOQUEA", "`[VERIFICAR]`", r)
 
     def test_la_plantilla_a_medias_bloquea_una_vez_por_pendiente(self):
         r = self.sembrado(construccion=PLANTILLA_A_MEDIAS)
@@ -109,16 +109,16 @@ class PruebaNegativas(Base):
             with self.subTest(campo=campo):
                 self.setUp()
                 r = self.sembrado(construccion=COMPLETO.replace(f"{campo}:", f"{campo.upper()}_X ="))
-                self.assertBloquea(f"falta el campo `{campo}:`", r)
+                self.assertRegla("FAB-8", "BLOQUEA", f"falta el campo `{campo}:`", r)
 
     def test_sin_metodologia_bloquea(self):
         r = self.sembrado(construccion=COMPLETO.replace(METODOLOGIA, "la de la fábrica"))
-        self.assertBloquea("no cita ninguna metodología", r)
+        self.assertRegla("FAB-8", "BLOQUEA", "no cita ninguna metodología", r)
 
     def test_sin_correlation_id_bloquea(self):
         texto = (COMPLETO.replace(CORRELACION, "ok")
                  .replace("corr-1700000000001-0000beef", ""))
-        self.assertBloquea("ningún `correlation_id`", self.sembrado(construccion=texto))
+        self.assertRegla("FAB-8", "BLOQUEA", "ningún `correlation_id`", self.sembrado(construccion=texto))
 
     def test_un_correlation_id_con_forma_invalida_no_cuenta(self):
         """`corr-…` de la plantilla, o uno con pocos dígitos, no es rastro."""
@@ -127,15 +127,15 @@ class PruebaNegativas(Base):
                 self.setUp()
                 texto = (COMPLETO.replace(CORRELACION, falso)
                          .replace("corr-1700000000001-0000beef", ""))
-                self.assertBloquea("ningún `correlation_id`", self.sembrado(construccion=texto))
+                self.assertRegla("FAB-8", "BLOQUEA", "ningún `correlation_id`", self.sembrado(construccion=texto))
 
     def test_existe_en_el_disco_pero_no_versionado_bloquea(self):
         self.repo.escribe(".semilla", VIGENTE)
         self.repo.escribe("docs/CONSTRUCCION.md", COMPLETO, versionar=False)
-        self.assertBloquea("no está versionado")
+        self.assertRegla("FAB-8", "BLOQUEA", "no está versionado")
 
     def test_texto_basura_bloquea(self):
-        self.assertBloquea("falta el campo", self.sembrado(construccion="jkl\x00\x01 ::: {{}}\n"))
+        self.assertRegla("FAB-8", "BLOQUEA", "falta el campo", self.sembrado(construccion="jkl\x00\x01 ::: {{}}\n"))
 
 
 # ── Las fechas límite: mira hacia adelante ─────────────────────────────────────
@@ -144,33 +144,33 @@ class PruebaFechas(Base):
     def test_sembrado_el_19_solo_avisa(self):
         r = self.sembrado(VISPERA, construccion=None)
         self.assertSinBloqueos(r)
-        self.assertAvisa("no existe `docs/CONSTRUCCION.md`", r)
-        self.assertAvisa("antes de la regla del 2026-10-20", r)
+        self.assertRegla("FAB-8", "AVISA", "no existe `docs/CONSTRUCCION.md`", r)
+        self.assertRegla("FAB-8", "AVISA", "antes de la regla del 2026-10-20", r)
 
     def test_sembrado_el_20_bloquea(self):
-        self.assertBloquea("con la regla ya vigente desde el 2026-10-20",
+        self.assertRegla("FAB-8", "BLOQUEA", "con la regla ya vigente desde el 2026-10-20",
                            self.sembrado(VIGENTE, construccion=None))
 
     def test_la_plantilla_a_medias_del_19_solo_avisa(self):
         r = self.sembrado(VISPERA, construccion=PLANTILLA_A_MEDIAS)
         self.assertSinBloqueos(r)
-        self.assertAvisa("`[PENDIENTE]`", r)
+        self.assertRegla("FAB-8", "AVISA", "`[PENDIENTE]`", r)
 
     def test_sin_fabrica_solo_avisa(self):
         """Como coipo_prensa2 o coipo_atraso_personal: `.semilla` anterior a la clave."""
         r = self.sembrado(SIN_FECHA, construccion=None)
         self.assertSinBloqueos(r)
-        self.assertAvisa("sin `fabrica:`", r)
+        self.assertRegla("FAB-8", "AVISA", "sin `fabrica:`", r)
 
     def test_fabrica_comentada_no_declara_nada(self):
         r = self.sembrado("# fabrica: 2026-10-25\nadopta: semilla\n", construccion=None)
         self.assertSinBloqueos(r)
-        self.assertAvisa("sin `fabrica:`", r)
+        self.assertRegla("FAB-8", "AVISA", "sin `fabrica:`", r)
 
     def test_vigente_sin_semilla_en_adopta_avisa_y_se_cuenta_como_supresion(self):
         r = self.sembrado("fabrica: 2026-10-25\nadopta: interfaz\n", construccion=None)
         self.assertSinBloqueos(r)
-        self.assertAvisa("declara no adoptar `semilla`", r)
+        self.assertRegla("FAB-8", "AVISA", "declara no adoptar `semilla`", r)
         self.assertEqual(1, len(r.supresiones))
 
     def test_vigente_con_lista_en_bloque_se_lee_como_lista(self):
@@ -178,7 +178,7 @@ class PruebaFechas(Base):
         Hasta el 2026-10-25 se leía vacía y se juzgaba como «todo» (BLOQUEA)."""
         r = self.sembrado("fabrica: 2026-10-25\nadopta:\n  - interfaz\n", construccion=None)
         self.assertSinBloqueos(r)
-        self.assertAvisa("declara no adoptar `semilla`", r)
+        self.assertRegla("FAB-8", "AVISA", "declara no adoptar `semilla`", r)
         self.assertEqual(1, len(r.supresiones))
 
     def test_vigente_con_adopta_vacia_no_dictamina_y_lo_dice(self):
@@ -213,7 +213,7 @@ class PruebaPositivo(Base):
     def test_sin_registrado_solo_avisa(self):
         r = self.sembrado(construccion=COMPLETO.replace("registrado:", "cierre:"))
         self.assertSinBloqueos(r)
-        self.assertAvisa("`registrado:`", r)
+        self.assertRegla("FAB-8", "AVISA", "`registrado:`", r)
 
     def test_lee_el_disco_sin_git(self):
         """La prueba de paridad de la fábrica crea la aplicación SIN git."""

@@ -187,7 +187,8 @@ class PruebaArchivosDeEntorno(AsercionesDeJuez):
         self.repo.escribe(".env", f"JWT_SECRET={HEX_FALSO}\n")
         h = self.repo.juzga().bloqueantes
         self.assertEqual(len(h), 2)  # el archivo versionado + el valor
-        self.assertTrue(any("versionado en git" in x.mensaje for x in h))
+        self.assertRegla("G8-4", "BLOQUEA", "archivo de entorno versionado en git")
+        self.assertRegla("G8-4", "BLOQUEA", "parece llevar un valor real")
 
     def test_gitignore_no_salva_a_un_archivo_ya_trackeado(self):
         """El corazón del incidente de COIPO_USUARIOS.
@@ -199,7 +200,7 @@ class PruebaArchivosDeEntorno(AsercionesDeJuez):
         """
         self.repo.escribe(".gitignore", "/.env\n", versionar=True)
         self.repo.escribe(".env", f"JWT_SECRET={HEX_FALSO}\n", versionar=True)
-        self.assertTrue(self.repo.juzga().bloqueantes)
+        self.assertRegla("G8-4", "BLOQUEA", "archivo de entorno versionado en git")
 
     def test_env_example_con_placeholders_es_verde(self):
         self.repo.escribe(".gitignore", "/.env\n")
@@ -219,7 +220,7 @@ class PruebaArchivosDeEntorno(AsercionesDeJuez):
         "solo para probar" y olvidarlo.
         """
         self.repo.escribe(".env.example", f"JWT_SECRET={HEX_FALSO}\n")
-        self.assertTrue(self.repo.juzga().bloqueantes)
+        self.assertRegla("G8-4", "BLOQUEA", "'JWT_SECRET' parece llevar un valor real")
 
     def test_env_de_vite_versionado_es_legitimo(self):
         self.repo.escribe(".gitignore", "/.env\n")
@@ -255,7 +256,7 @@ class PruebaArchivosDeEntorno(AsercionesDeJuez):
         self.assertSinRegla("G8-4")
 
 
-class PruebaFixturesDePrueba(unittest.TestCase):
+class PruebaFixturesDePrueba(AsercionesDeJuez):
     def setUp(self):
         self.repo = RepoSintetico()
         self.addCleanup(self.repo.cierra)
@@ -279,7 +280,7 @@ class PruebaFixturesDePrueba(unittest.TestCase):
             "tests/fixtures/id_rsa",
             # coipo-jueces:ignorar(G8-4) encabezado sintético para probar el detector
             "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n")
-        self.assertTrue(self.repo.juzga().bloqueantes)
+        self.assertRegla("G8-4", "BLOQUEA", "bloque de clave privada versionado")
 
 
 class PruebaSupresion(unittest.TestCase):
