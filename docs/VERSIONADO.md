@@ -647,6 +647,8 @@ La tanda «P1a — que el gate no mienta» (2026-11-21), un commit por tema:
 | `j02` | el lado del host de `ports:` se lee entero (`127.0.0.1:${APP_PORT:?msg}:8000`, valores anidados) |
 | `j11` | `G8-9` ve `Depends()` por defecto, `dependencies=[...]`, `sesion_actual` y `RedirectResponse`; **`SEM-4`** (AVISA): el cuerpo de `/health` lleva `app` |
 | `j13` | sin ningún tema oscuro, `UI-3` es un hallazgo (antes «no evaluado» y OK): BLOQUEA en lo sembrado desde el 2026-11-22, AVISA en lo anterior |
+| `j16` | **`COD-5`** (AVISA): el CI corre `ruff check`/`ruff format --check` y `npm run lint` con las reglas del Zen, no más blandas que las de la semilla (lo mira `comun_zen.py`, lo emite `j16`). Calibrado: una siembra de hoy, 0; `coipo_app`, 4 |
+| Trazabilidad | un `comun_*.py` no puede emitir: la prueba sólo lee `jueces/j*.py`, y `COD-5` escrito en un auxiliar pasaba sin fila en REGLAS.md (visto en rojo) |
 | `.env` | un solo `ignora_env()` para `j01` y `j08`; `j09` deja el `.gitignore` a `G8-8`; la lista de Vite exige el sufijo de modo |
 | `j01` | `NG-1` sólo exime el upstream en `$variable`: un nombre literal con `resolver` avisa |
 | `j12` | **`SEM-3`** (AVISA): falta una pieza sellada de `backend/tests/` |

@@ -56,7 +56,10 @@ class PruebaJ16(CasoConRepo):
             with self.subTest(prefijo=prefijo):
                 self.assertFalse([c for c in r.comprobado if c.startswith(prefijo)], r.comprobado)
                 self.assertTrue([n for n in r.no_aplica if n.startswith(prefijo)], r.no_aplica)
-        self.assertEqual("OK", r.veredicto, "COD-1 sí midió: el juez sigue en OK")
+        # COD-5 (2026-11-21) avisa aquí con razón —hay backend y no hay ruff—, y no es lo
+        # que esta prueba mira: que COD-1 midió y que nada más dio un falso «comprobado».
+        self.assertEqual([], [h for h in r.hallazgos if h.regla != "COD-5"], r.hallazgos)
+        self.assertEqual([], r.bloqueantes, "COD-1 sí midió: el juez no bloquea")
 
 
 class PruebaJ11(CasoConRepo):

@@ -91,6 +91,8 @@ from comun import (  # noqa: E402
     sin_indice,
     suprimido,
 )
+from comun_zen import MANIFESTACION as MANIFESTACION_ZEN  # noqa: E402
+from comun_zen import mirar_zen  # noqa: E402 — COD-5, aparte por el tamaño (COD-1)
 
 PERFILES = ("aplicacion",)
 
@@ -630,6 +632,20 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     _capas_backend(repo, r, nuevo)
     _capas_hermanos(repo, r, nuevo)
     _casos_probados(repo, r, excluidos)
+    _zen(repo, r)
+
+
+def _zen(repo: Repo, r: Resultado) -> None:
+    """COD-5 (AVISA): el CI corre ruff y oxlint con reglas no más blandas que las de la
+    semilla. Lo mira `comun_zen` y aquí se emite, para que la trazabilidad lo vea."""
+    zen = mirar_zen(repo)
+    if zen.nada_que_mirar:
+        r.no_corresponde(zen.nada_que_mirar)
+        return
+    for aviso in zen.avisos:
+        r.avisa("COD-5", aviso.archivo, aviso.mensaje, MANIFESTACION_ZEN, arreglo=aviso.arreglo)
+    for que in zen.comprobado:
+        r.comprobo(que)
 
 
 if __name__ == "__main__":

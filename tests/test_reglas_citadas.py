@@ -241,6 +241,20 @@ class PruebaTrazabilidad(unittest.TestCase):
                     f"{codigo} lo emite {corto}, pero su fila en REGLAS.md no lo nombra: {fila}",
                 )
 
+    def test_un_modulo_auxiliar_no_emite_hallazgos(self):
+        """La trazabilidad lee `jueces/j*.py`: lo que emitiera un `comun_*.py` no lo vería.
+
+        Pasó el 2026-11-21 con COD-5, escrito en `comun_zen.py`: esta misma prueba siguió
+        verde sin su fila en REGLAS.md. Un auxiliar DEVUELVE datos y el juez emite el código.
+        """
+        for archivo in sorted(JUECES.glob("comun_*.py")):
+            emitidas = [
+                (e.linea, e.llamada)
+                for e in emisiones_de(archivo.read_text(encoding="utf-8"), archivo.stem)
+                if e.llamada != "suprimido"
+            ]
+            self.assertEqual([], emitidas, f"{archivo.name} emite hallazgos: {emitidas}")
+
 
 class PruebaDelExtractor(unittest.TestCase):
     """El extractor tiene que ver los defectos que dice ver, sobre fuentes sintéticos."""

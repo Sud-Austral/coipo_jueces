@@ -35,8 +35,29 @@ def lineas(n: int) -> str:
     return "".join(f"const x{i} = {i}\n" for i in range(n))
 
 
+# Lo que COD-5 pide a toda aplicación sana desde el 2026-11-21 (el Zen de Python con
+# chequeos): sin esto, cada prueba de COD-1..4 que espera OK recibiría sus avisos.
+CI_ZEN = (
+    "jobs:\n  backend:\n    steps:\n      - run: |\n          ruff check .\n"
+    "          ruff format --check .\n  frontend:\n    steps:\n      - run: npm run lint\n"
+)
+OXLINT_ZEN = (
+    '{"rules": {"no-empty": "error", "eqeqeq": "error", "no-nested-ternary": "error", '
+    '"prefer-const": "error", "no-var": "error", "max-depth": ["error", 4], '
+    '"max-params": ["error", 5], "complexity": ["error", 10]}}\n'
+)
+
+
 class Base(CasoConRepo):
     MODULO = j16
+
+    def setUp(self) -> None:
+        super().setUp()
+        (
+            self.repo.escribe(".github/workflows/ci.yml", CI_ZEN)
+            .escribe("backend/ruff.toml", "line-length = 100\n")
+            .escribe("frontend/.oxlintrc.json", OXLINT_ZEN)
+        )
 
     def frontend_sano(self) -> None:
         (
