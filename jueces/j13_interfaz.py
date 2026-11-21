@@ -226,22 +226,65 @@ def comprobar_tema_oscuro(repo: Repo, r: Resultado, hojas: list[str]) -> None:
     Sólo se miran los tokens que ADEMÁS se usan como texto, borde o foco: un
     token de color usado sólo como fondo puede ser legítimo en los dos temas.
     """
-    con_tema = []
-    for ruta in hojas:
-        texto = _sin_comentarios(repo.texto(ruta) or "")
-        if texto and BLOQUE_OSCURO.search(texto):
-            con_tema.append((ruta, texto))
+    textos = [(ruta, _sin_comentarios(repo.texto(ruta) or "")) for ruta in hojas]
+    con_tema = [(ruta, texto) for ruta, texto in textos if texto and BLOQUE_OSCURO.search(texto)]
 
     if not con_tema:
-        r.no_evaluado.append(
-            "tema oscuro: ninguna hoja declara `[data-theme=oscuro]` ni "
-            "`prefers-color-scheme: dark`. O esta aplicación no lo tiene todavía "
-            "—y entonces le falta, porque el tema oscuro es obligatorio— o lo "
-            "resuelve por una vía que este juez no reconoce")
+        # Hasta el 2026-11-21 esto era un `no_evaluado` y el juez salía OK —cero de
+        # cero— en un repositorio que DECLARA adoptar `interfaz`. UI-3 exige que todo
+        # token de texto, borde o foco «se redefine en los dos temas»: sin segundo tema
+        # no se redefine ninguno.
+        _sin_tema_oscuro(repo, r, [(ruta, texto) for ruta, texto in textos if texto])
+        r.comprobo("tema oscuro: los tokens de color de texto y borde se redefinen")
         return
 
+    _huerfanos_por_hoja(repo, r, con_tema)
     r.comprobo("tema oscuro: los tokens de color de texto y borde se redefinen")
 
+
+def _sin_tema_oscuro(repo: Repo, r: Resultado, textos: list[tuple[str, str]]) -> None:
+    """UI-3 con NINGÚN bloque de tema oscuro: los tokens que se quedan claros, nombrados."""
+    en_raiz: dict[str, tuple[str, int]] = {}
+    usados: set[str] = set()
+    for ruta, texto in textos:
+        for m in BLOQUE_RAIZ.finditer(texto):
+            for nombre, _valor in TOKEN_COLOR.findall(m.group(1)):
+                en_raiz.setdefault(nombre, (ruta, texto.count("\n", 0, m.start()) + 1))
+        usados |= set(USO_QUE_EXIGE_CONTRASTE.findall(texto))
+    huerfanos = sorted(t for t in en_raiz if t in usados)
+    if huerfanos:
+        ruta, linea = en_raiz[huerfanos[0]]
+        cerca = range(linea - 1, linea)
+    else:
+        ruta, linea = (textos[0][0] if textos else ""), None
+        cerca = range(0, 3)  # sin un `:root` que señalar, en la cabecera de la hoja
+    originales = (repo.texto(ruta) or "").splitlines()
+    if (motivo := next((m for i in cerca if (m := suprimido(originales, i, "UI-3"))), None)):
+        r.supresiones.append(f"{ruta}:{linea or 1} sin tema oscuro — {motivo}")
+        return
+    muestra = ", ".join(f"`{t}`" for t in huerfanos[:5])
+    cola = f" y {len(huerfanos) - 5} más" if len(huerfanos) > 5 else ""
+    r.bloquea(
+        "UI-3", ruta,
+        "ninguna hoja declara el tema oscuro (`[data-theme=oscuro]` ni "
+        "`prefers-color-scheme: dark`)"
+        + (f": {len(huerfanos)} token(es) de color de texto, borde o foco se quedan con "
+           f"su valor claro: {muestra}{cola}" if huerfanos
+           else ": el estándar pide los dos temas"),
+        "con el sistema en oscuro la aplicación no cambia: sus colores se quedan en el "
+        "valor claro, y si el HTML declara `color-scheme: light dark` —como el de la "
+        "semilla— los controles nativos del navegador sí pasan a oscuro y quedan "
+        "mezclados con superficies claras. El botón de tema, si lo hay, no hace nada",
+        linea=linea,
+        arreglo="un bloque `[data-theme='oscuro']` (y `@media (prefers-color-scheme: dark)` "
+                "para quien no eligió) que redefina cada token de texto, borde y foco con un "
+                "paso que alcance 4,5:1 en texto y 3:1 en borde y foco (UI-3), como "
+                "`frontend/src/estilos/interfaz.css` de la semilla",
+    )
+
+
+def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]]) -> None:
+    """UI-3 en cada hoja con tema oscuro: tokens de `:root` que el oscuro no redefine."""
     for ruta, texto in con_tema:
         en_raiz = {}
         for bloque in BLOQUE_RAIZ.findall(texto):

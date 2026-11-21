@@ -148,16 +148,32 @@ class PruebaTemaOscuro(ConSemilla):
         self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"],
                          "un token usado sólo de fondo no exige redefinición")
 
-    def test_sin_tema_oscuro_es_no_evaluado_y_no_hallazgo(self):
-        """No tener tema oscuro es una carencia del proyecto, no un defecto de
-        este archivo: se dice como no evaluado, que es lo honesto, en vez de
-        inventar un hallazgo sobre algo que el juez no puede ver."""
+    def test_sin_tema_oscuro_bloquea(self):
+        """UI-3: todo token de texto, borde o foco «se redefine en los dos temas».
+
+        Hasta el 2026-11-21 esto salía como «no evaluado» y el juez daba OK —cero de
+        cero— en un repositorio que declara adoptar `interfaz`. Ahora es un hallazgo
+        con la severidad de UI-3, y nombra los tokens que se quedan claros."""
         self.repo.escribe("src/estilos.css",
                           ":root { --verde: #064928; }\n.t { color: var(--verde); }\n")
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"])
-        self.assertTrue(any("tema oscuro" in n for n in r.no_evaluado),
-                        f"debía declararlo no evaluado: {r.no_evaluado}")
+        h = self.assertRegla("UI-3", "BLOQUEA", "tema oscuro", r)
+        self.assertIn("--verde", h.mensaje)
+        self.assertEqual(("src/estilos.css", 1), (h.archivo, h.linea))
+        self.assertEqual("HALLAZGOS", r.veredicto)
+
+    def test_sin_tema_oscuro_y_sin_tokens_tambien_bloquea(self):
+        """Sin tokens no hay nada que redefinir, pero tampoco hay segundo tema."""
+        self.repo.escribe("src/estilos.css", ".t { color: #111; }\n")
+        self.assertRegla("UI-3", "BLOQUEA", "tema oscuro")
+
+    def test_sin_tema_oscuro_se_suprime_con_motivo(self):
+        self.repo.escribe("src/estilos.css",
+                          "/* coipo-jueces:ignorar(UI-3) quiosco de pantalla fija, sin tema */\n"
+                          ":root { --verde: #064928; }\n.t { color: var(--verde); }\n")
+        r = self.repo.juzga()
+        self.assertSinRegla("UI-3", r)
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
 
     def test_css_minificado_en_una_linea_tambien_se_mira(self):
         """Regresión. La primera versión del juez exigía que el bloque del tema
