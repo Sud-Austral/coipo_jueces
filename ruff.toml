@@ -1,8 +1,9 @@
-# COPIA de `semilla/CONGELADO/backend/ruff.toml` de coipo_master_produccion (commit fb0e3c4,
+# COPIA de `semilla/CONGELADO/backend/ruff.toml` de coipo_master_produccion (commit 5296662,
 # 2026-11-21): las MISMAS reglas que la semilla siembra en cada aplicación. No se edita aquí:
-# se cambia allí y se vuelve a copiar, y la fábrica compara esta copia con la suya. Desde la
-# línea «---- copia ----» hacia abajo es el archivo tal cual, con sus comentarios: donde dice
-# «ARCHIVO CONGELADO DE LA SEMILLA» habla del original. Lo corre `autotest.yml` (ruff 0.17.4).
+# se cambia allí y se vuelve a copiar; `herramientas/coherencia.py ruff-de-los-jueces` de la
+# fábrica compara esta copia con la suya. Desde la línea «---- copia ----» hacia abajo es el
+# archivo tal cual, con sus comentarios: donde dice «ARCHIVO CONGELADO DE LA SEMILLA» habla del
+# original. Lo corre `autotest.yml` (ruff 0.17.4).
 # ---- copia ----
 # El Zen de Python (PEP 20) que una máquina puede comprobar — ARCHIVO CONGELADO DE LA SEMILLA.
 #
@@ -66,6 +67,13 @@ max-statements = 50
 [lint.pep8-naming]
 # Los métodos de unittest (`setUp`, `assertBloquea`) siguen la convención de unittest.
 extend-ignore-names = ["assert*", "setUp*", "tearDown*"]
+
+[lint.isort]
+# `app` y `tests` son de la aplicación. Dentro de backend/ ruff ya lo sabe solo; se declara
+# para que el orden de los imports no dependa de DESDE DÓNDE se corre: en la fábrica, el
+# paquete `app` vive repartido en dos árboles (CONGELADO y ESQUELETO) y, sin esta línea,
+# lo que está en el otro árbol salía «de terceros» (14 I001, medido el 2026-11-21).
+known-first-party = ["app", "tests"]
 
 [format]
 # «Beautiful is better than ugly»: un solo formato, el de `ruff format`, sin discutirlo.
