@@ -82,7 +82,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Adopcion, Repo, Resultado, alcance_semilla, ejecutar, leer_siembra, sin_indice,
+    Adopcion,
+    Repo,
+    Resultado,
+    alcance_semilla,
+    ejecutar,
+    leer_siembra,
+    sin_indice,
 )
 
 PERFILES = ("aplicacion",)
@@ -167,6 +173,23 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         return
     r.comprobo(f"FAB-8: buscado `{CONSTRUCCION}` ({contexto})")
 
+    _no_versionado(repo, r, nuevo, contexto)
+    texto = repo.texto(CONSTRUCCION) or ""
+    ids, correlaciones = _forma(r, nuevo, contexto, texto)
+
+    _mirado(repo, r, marcador, texto)
+
+    r.comprobo(f"FAB-8: `{CONSTRUCCION}` leído — {len(ids)} metodología(s) citada(s), "
+               f"{len(correlaciones)} `correlation_id` con forma válida")
+    if ids or correlaciones:
+        r.no_evaluado.append(
+            "que la metodología y los `correlation_id` de `docs/CONSTRUCCION.md` existan "
+            "DE VERDAD en IGNUS: este juez no tiene red ni `MCP_API_KEY` en el CI y sólo "
+            "mira la forma. Lo comprueba `python flota/herramientas_de_fabrica.py "
+            "--construccion <repo>` en la fábrica, con la clave en el entorno.")
+
+
+def _no_versionado(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> None:
     if repo.tiene_git():
         versionados = repo.versionados()
         if versionados and CONSTRUCCION not in versionados:
@@ -176,8 +199,10 @@ def comprobar(repo: Repo, r: Resultado) -> None:
                                   "el despliegue y la persona que herede la aplicación no lo ven"),
                    arreglo=f"`git add {CONSTRUCCION}` y comprobar que `.gitignore` no lo excluye")
 
-    texto = repo.texto(CONSTRUCCION) or ""
 
+def _forma(r: Resultado, nuevo: bool, contexto: str, texto: str) -> tuple[list[str], list[str]]:
+    """La forma de `CONSTRUCCION.md`: sin pendientes, con sus campos, una metodología,
+    algún `correlation_id` y `registrado:`. Devuelve (metodologías, correlation_id)."""
     for m in PENDIENTE.finditer(texto):
         _anota(r, nuevo, archivo=CONSTRUCCION, linea=texto.count("\n", 0, m.start()) + 1,
                mensaje=f"queda un `{m.group(0)}` de la plantilla de la semilla ({contexto})",
@@ -220,17 +245,7 @@ def comprobar(repo: Repo, r: Resultado) -> None:
                 "siguiente aplicación tropieza con lo mismo",
                 arreglo="`registrado:` con el `objetivo_id` creado en IGNUS y su "
                         "`correlation_id`, o «no aplica: <motivo>»")
-
-    _mirado(repo, r, marcador, texto)
-
-    r.comprobo(f"FAB-8: `{CONSTRUCCION}` leído — {len(ids)} metodología(s) citada(s), "
-               f"{len(correlaciones)} `correlation_id` con forma válida")
-    if ids or correlaciones:
-        r.no_evaluado.append(
-            "que la metodología y los `correlation_id` de `docs/CONSTRUCCION.md` existan "
-            "DE VERDAD en IGNUS: este juez no tiene red ni `MCP_API_KEY` en el CI y sólo "
-            "mira la forma. Lo comprueba `python flota/herramientas_de_fabrica.py "
-            "--construccion <repo>` en la fábrica, con la clave en el entorno.")
+    return ids, correlaciones
 
 
 # ── FAB-9: alguien MIRÓ la interfaz antes de desplegar ───────────────────────

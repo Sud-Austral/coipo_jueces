@@ -80,6 +80,16 @@ jobs:
           print('verificar.yml ok')
           "
 
+      - name: El Zen de Python (ruff)
+        # Decisión de Luis Monsalve del 2026-11-21: los principios, con chequeos.
+        # `ruff.toml` es una copia del sellado de la semilla. Va DESPUÉS de la
+        # comprobación de biblioteca estándar y no la toca: ruff es una herramienta
+        # de este CI, no una dependencia de los jueces, y el CI de las apps sigue
+        # sin instalar nada.
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet ruff==0.17.4
+          python3 -m ruff check .
+
       - name: actionlint sobre el reusable
         # La validación que de verdad cuenta es la de GitHub al LLAMAR al reusable (el
         # job de abajo), pero llega tarde: `v2.0.3` salió rota por dos defectos que

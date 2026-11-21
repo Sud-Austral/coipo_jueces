@@ -190,8 +190,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, alcance_semilla, ejecutar, leer_maqueta, no_adopta,  # noqa: E402
-                   suprimido)
+from comun import Repo, Resultado, alcance_semilla, ejecutar, leer_maqueta, no_adopta, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -250,42 +249,61 @@ def _historial() -> dict[str, dict[str, datetime.date]] | None:
     except (OSError, UnicodeDecodeError) as e:
         raise ValueError(f"no se pudo leer el archivo ({type(e).__name__})") from e
 
-    formato = None
-    hasta: datetime.date | None = None
-    en_el_bloque = 0
-    salida: dict[str, dict[str, datetime.date]] = {}
+    lector = _LectorDeHistorial()
     for n, crudo in enumerate(texto.splitlines(), start=1):
-        linea = crudo.strip()
+        lector.leer(n, crudo.strip())
+    return lector.fin()
+
+
+class _LectorDeHistorial:
+    """Las líneas de `semilla.lock.historial`, una a una. Levanta `ValueError` con el
+    motivo en cuanto algo no cuadra (ver `_historial`)."""
+
+    def __init__(self) -> None:
+        self.formato: str | None = None
+        self.hasta: datetime.date | None = None
+        self.en_el_bloque = 0
+        self.salida: dict[str, dict[str, datetime.date]] = {}
+
+    def leer(self, n: int, linea: str) -> None:
         if (m := FORMATO.match(linea)):
-            formato = m.group(1)
-            continue
-        if CABECERA_DE_BLOQUE.match(linea):
-            m = VIGENTE_HASTA.match(linea)
-            if not m:
-                raise ValueError(f"línea {n}: `vigente_hasta:` sin una fecha AAAA-MM-DD")
-            if hasta is not None and en_el_bloque == 0:
-                raise ValueError(f"el bloque `vigente_hasta: {hasta}` no tiene entradas")
-            try:
-                hasta = datetime.date.fromisoformat(m.group(1))
-            except ValueError as e:
-                raise ValueError(f"línea {n}: `{m.group(1)}` no es una fecha") from e
-            en_el_bloque = 0
-            continue
-        if (m := ENTRADA.match(linea)):
-            if hasta is None:
-                raise ValueError(f"línea {n}: una entrada antes de cualquier `# vigente_hasta:`")
-            en_el_bloque += 1
-            por_huella = salida.setdefault(m.group("ruta"), {})
-            previa = por_huella.get(m.group("huella"))
-            por_huella[m.group("huella")] = hasta if previa is None else max(previa, hasta)
-    if formato is None:
-        raise ValueError("falta la línea `# formato: 1`: no es un historial")
-    if formato != FORMATO_HISTORIAL:
-        raise ValueError(f"`formato: {formato}` no es uno que este juez sepa leer "
-                         f"(lee el {FORMATO_HISTORIAL})")
-    if hasta is not None and en_el_bloque == 0:
-        raise ValueError(f"el bloque `vigente_hasta: {hasta}` no tiene entradas")
-    return salida
+            self.formato = m.group(1)
+        elif CABECERA_DE_BLOQUE.match(linea):
+            self._bloque(n, linea)
+        elif (m := ENTRADA.match(linea)):
+            self._entrada(n, m)
+
+    def _bloque(self, n: int, linea: str) -> None:
+        m = VIGENTE_HASTA.match(linea)
+        if not m:
+            raise ValueError(f"línea {n}: `vigente_hasta:` sin una fecha AAAA-MM-DD")
+        self._cerrar_bloque()
+        try:
+            self.hasta = datetime.date.fromisoformat(m.group(1))
+        except ValueError as e:
+            raise ValueError(f"línea {n}: `{m.group(1)}` no es una fecha") from e
+        self.en_el_bloque = 0
+
+    def _cerrar_bloque(self) -> None:
+        if self.hasta is not None and self.en_el_bloque == 0:
+            raise ValueError(f"el bloque `vigente_hasta: {self.hasta}` no tiene entradas")
+
+    def _entrada(self, n: int, m: re.Match[str]) -> None:
+        if self.hasta is None:
+            raise ValueError(f"línea {n}: una entrada antes de cualquier `# vigente_hasta:`")
+        self.en_el_bloque += 1
+        por_huella = self.salida.setdefault(m.group("ruta"), {})
+        previa = por_huella.get(m.group("huella"))
+        por_huella[m.group("huella")] = self.hasta if previa is None else max(previa, self.hasta)
+
+    def fin(self) -> dict[str, dict[str, datetime.date]]:
+        if self.formato is None:
+            raise ValueError("falta la línea `# formato: 1`: no es un historial")
+        if self.formato != FORMATO_HISTORIAL:
+            raise ValueError(f"`formato: {self.formato}` no es uno que este juez sepa leer "
+                             f"(lee el {FORMATO_HISTORIAL})")
+        self._cerrar_bloque()
+        return self.salida
 
 
 def _huella(ruta: Path) -> str | None:
@@ -439,6 +457,16 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # un archivo roto o ausente se anote siempre y no sólo cuando hace falta.
     historial = _leer_historial(r)
 
+    _juzgar_presentes(repo, r, presentes, esperado, historial)
+    _juzgar_retiradas(repo, r, esperado, historial)
+    _pruebas_ausentes(repo, r, esperado)
+    _maqueta(repo, r)
+    _paquetes_sistema(repo, r)
+
+
+def _juzgar_presentes(repo: Repo, r: Resultado, presentes: list[str], esperado: dict[str, str],
+                      historial: dict[str, dict[str, datetime.date]]) -> None:
+    """Cada pieza del lock que la aplicación tiene: vigente, suprimida, atrasada o editada."""
     for ruta in sorted(presentes):
         actual = _huella(repo.ruta(ruta))
         if actual is None:
@@ -457,9 +485,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
         _editada(r, ruta)
 
-    # Las piezas que la semilla RETIRÓ del lock y siguen en el historial. Sólo se
-    # mira si coinciden con lo que se publicó: si no coinciden, ya no son piezas
-    # congeladas y no hay regla que mire hacia atrás (FILOSOFIA.md, §4).
+
+def _juzgar_retiradas(repo: Repo, r: Resultado, esperado: dict[str, str],
+                      historial: dict[str, dict[str, datetime.date]]) -> None:
+    """Las piezas que la semilla RETIRÓ del lock y siguen en el historial. Sólo se mira
+    si coinciden con lo que se publicó: si no coinciden, ya no son piezas congeladas y
+    no hay regla que mire hacia atrás (FILOSOFIA.md, §4)."""
     for ruta in sorted(set(historial) - set(esperado)):
         if not repo.existe(ruta):
             continue
@@ -470,10 +501,6 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             r.supresiones.append(f"{ruta} pieza retirada de la semilla — {motivo}")
             continue
         _retirada(r, ruta, hasta)
-
-    _pruebas_ausentes(repo, r, esperado)
-    _maqueta(repo, r)
-    _paquetes_sistema(repo, r)
 
 
 # ── SEM-3: una prueba sellada que falta ───────────────────────────────────────

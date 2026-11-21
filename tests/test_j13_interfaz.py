@@ -28,7 +28,6 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "jueces"))
 import j13_interfaz as j13  # noqa: E402
 
-
 SEMILLA = """\
 version: 2026-09-07
 gerencia: 1_banner_SECOM

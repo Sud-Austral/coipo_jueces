@@ -31,7 +31,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, ignora_env, numero_de_linea,
+    Repo,
+    Resultado,
+    YamlNoSoportado,
+    carga_yaml,
+    ejecutar,
+    ignora_env,
+    numero_de_linea,
     suprimido,
 )
 
@@ -114,7 +120,15 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
                   "connection-refused")
         return
 
-    # ---- exactamente un servicio publica puerto ----
+    _un_solo_puerto(r, ruta, texto, servicios)
+    _sin_base_propia(r, ruta, texto, servicios)
+    for nombre, s in servicios.items():
+        if isinstance(s, dict):
+            _robustez(r, ruta, nombre, s)
+
+
+def _un_solo_puerto(r: Resultado, ruta: str, texto: str, servicios: dict) -> None:
+    """Exactamente un servicio publica puerto."""
     con_puerto = [n for n, s in servicios.items() if isinstance(s, dict) and s.get("ports")]
     if len(con_puerto) == 0:
         r.bloquea("G8-7", ruta, "ningún servicio publica un puerto al host",
@@ -132,7 +146,9 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
                   arreglo="solo el servicio `app` publica puerto; el backend habla "
                           "por la red interna de Docker")
 
-    # ---- la base de datos no vive aquí ----
+
+def _sin_base_propia(r: Resultado, ruta: str, texto: str, servicios: dict) -> None:
+    """La base de datos no vive aquí."""
     for nombre, s in servicios.items():
         if not isinstance(s, dict):
             continue
@@ -147,27 +163,26 @@ def comprobar_compose(repo: Repo, r: Resultado) -> None:
                       arreglo="conectar al Postgres compartido con las cinco "
                               "variables DATABASE_* (Guía 8, punto 3)")
 
-    # ---- avisos de robustez, uno por servicio ----
-    for nombre, s in servicios.items():
-        if not isinstance(s, dict):
-            continue
-        if "healthcheck" not in s and "image" not in s:
-            r.avisa("G8-7", ruta, f"el servicio `{nombre}` no tiene healthcheck",
-                    "`docker compose ps` lo da por sano pase lo que pase; "
-                    "coipo_cabania lleva días `unhealthy` sin que nadie se entere",
-                    arreglo="añadir un healthcheck, aunque sea de proceso vivo")
-        if "mem_limit" not in s and "deploy" not in s:
-            r.avisa("OPS-1", ruta, f"el servicio `{nombre}` no declara `mem_limit`",
-                    "un servicio que se desboca se lleva por delante a las demás "
-                    "apps de la misma VM",
-                    arreglo="MEDIR la RAM de la VM antes de fijar el valor: un "
-                            "límite mal puesto es un OOM kill silencioso, que es "
-                            "peor que no tenerlo")
-        if "restart" not in s:
-            r.avisa("G8-7", ruta, f"el servicio `{nombre}` no declara `restart:`",
-                    "tras un reinicio del servidor el servicio no vuelve solo",
-                    arreglo="`restart: unless-stopped`, salvo en tareas de un "
-                            "solo tiro, donde `restart: \"no\"` es lo correcto")
+
+def _robustez(r: Resultado, ruta: str, nombre: str, s: dict) -> None:
+    """Avisos de robustez de UN servicio: healthcheck, `mem_limit` y `restart:`."""
+    if "healthcheck" not in s and "image" not in s:
+        r.avisa("G8-7", ruta, f"el servicio `{nombre}` no tiene healthcheck",
+                "`docker compose ps` lo da por sano pase lo que pase; "
+                "coipo_cabania lleva días `unhealthy` sin que nadie se entere",
+                arreglo="añadir un healthcheck, aunque sea de proceso vivo")
+    if "mem_limit" not in s and "deploy" not in s:
+        r.avisa("OPS-1", ruta, f"el servicio `{nombre}` no declara `mem_limit`",
+                "un servicio que se desboca se lleva por delante a las demás "
+                "apps de la misma VM",
+                arreglo="MEDIR la RAM de la VM antes de fijar el valor: un "
+                        "límite mal puesto es un OOM kill silencioso, que es "
+                        "peor que no tenerlo")
+    if "restart" not in s:
+        r.avisa("G8-7", ruta, f"el servicio `{nombre}` no declara `restart:`",
+                "tras un reinicio del servidor el servicio no vuelve solo",
+                arreglo="`restart: unless-stopped`, salvo en tareas de un "
+                        "solo tiro, donde `restart: \"no\"` es lo correcto")
 
 
 def comprobar_contexto_de_build(repo: Repo, r: Resultado) -> None:

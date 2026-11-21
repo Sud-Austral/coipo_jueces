@@ -68,7 +68,7 @@ class PruebaRefPorDefecto(unittest.TestCase):
             salida = subprocess.run(
                 ["git", "tag", "-l", "v[0-9]*"], cwd=RAIZ,
                 capture_output=True, text=True, check=True).stdout
-        except (OSError, subprocess.CalledProcessError) as e:  # pragma: no cover
+        except (OSError, subprocess.CalledProcessError):  # pragma: no cover
             return []
         return sorted((int(x[1:]) for x in salida.split()
                        if re.fullmatch(r"v\d+", x)), reverse=True)

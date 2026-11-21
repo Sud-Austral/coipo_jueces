@@ -81,7 +81,14 @@ from pathlib import Path, PurePosixPath
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Repo, Resultado, alcance_semilla, ejecutar, leer_ajeno, leer_maqueta, leer_siembra, sin_indice,
+    Repo,
+    Resultado,
+    alcance_semilla,
+    ejecutar,
+    leer_ajeno,
+    leer_maqueta,
+    leer_siembra,
+    sin_indice,
     suprimido,
 )
 

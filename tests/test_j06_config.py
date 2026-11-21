@@ -246,7 +246,7 @@ APP_PORT=8080
             [], [h for h in r.hallazgos if h.regla == "CI-1"],
             [h.mensaje for h in r.hallazgos])
 
-    def test_version_por_variable_DIVERGENTE_si_avisa(self):
+    def test_version_por_variable_divergente_si_avisa(self):
         """La indirección no puede convertirse en un escondite.
 
         Si el `env:` dice 3.14 y la imagen construye 3.11, sigue siendo el mismo

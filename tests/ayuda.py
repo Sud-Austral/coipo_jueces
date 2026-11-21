@@ -51,7 +51,7 @@ class RepoSintetico:
         _git(self.dir, "config", "user.email", "prueba@ejemplo.invalid")
         _git(self.dir, "config", "user.name", "prueba")
 
-    def escribe(self, ruta: str, contenido: str, *, versionar: bool = True) -> "RepoSintetico":
+    def escribe(self, ruta: str, contenido: str, *, versionar: bool = True) -> RepoSintetico:
         p = self.dir / ruta
         p.parent.mkdir(parents=True, exist_ok=True)
         # `newline=""` desactiva la traduccion de fin de linea de Python. Sin

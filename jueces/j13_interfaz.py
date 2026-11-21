@@ -69,8 +69,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, alcance_semilla, ejecutar, leer_maqueta,  # noqa: E402
-                   no_adopta, sin_indice, suprimido)
+from comun import (  # noqa: E402
+    Repo,
+    Resultado,
+    alcance_semilla,
+    ejecutar,
+    leer_maqueta,
+    no_adopta,
+    sin_indice,
+    suprimido,
+)
 
 PERFILES = ("aplicacion",)
 
@@ -303,7 +311,7 @@ def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]
         if not huerfanos:
             continue
 
-        n = next((i for i, l in enumerate(texto.splitlines()) if huerfanos[0] in l), 0)
+        n = next((i for i, linea in enumerate(texto.splitlines()) if huerfanos[0] in linea), 0)
         # Con comentarios: ahí van las supresiones, en las mismas líneas.
         if (motivo := suprimido((repo.texto(ruta) or "").splitlines(), n, "UI-3")):
             r.supresiones.append(f"{ruta}:{n + 1} tokens sin redefinir — {motivo}")
@@ -423,38 +431,43 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
         return
 
     for ruta, texto in con_movimiento:
-        m = MOVIMIENTO_REDUCIDO.search(texto)
-        if not m:
-            continue
-        bloque = _cuerpo_del_media(texto, m.end())
-        if not bloque:
-            continue
+        _bloque_selectivo(repo, r, ruta, texto)
 
-        propios = len(HAY_MOVIMIENTO.findall(_fuera_de_movimiento_reducido(texto)))
-        apagados = len(re.findall(r"[{;]\s*(?:transition|animation)[^;}]*", bloque))
-        if apagados >= propios:
-            continue
 
-        lineas = (repo.texto(ruta) or "").splitlines()  # con comentarios: ahí van las supresiones
-        n = texto[:m.start()].count("\n")
-        if (motivo := suprimido(lineas, n, "UI-15")):
-            r.supresiones.append(f"{ruta}:{n + 1} movimiento reducido — {motivo}")
-            continue
+def _bloque_selectivo(repo: Repo, r: Resultado, ruta: str, texto: str) -> None:
+    """UI-15 en UNA hoja: su bloque `prefers-reduced-motion` apaga menos de lo que mueve."""
+    m = MOVIMIENTO_REDUCIDO.search(texto)
+    if not m:
+        return
+    bloque = _cuerpo_del_media(texto, m.end())
+    if not bloque:
+        return
 
-        r.bloquea(
-            "UI-15", ruta,
-            f"el bloque `prefers-reduced-motion` es selectivo: apaga "
-            f"{apagados} de {propios} declaración(es) de movimiento de este archivo",
-            "cumple la letra y no la función. Quien pidió reducir el movimiento "
-            "sigue recibiendo la mayor parte, y además con la peor cara: unas "
-            "cosas se mueven y otras no, que es más desconcertante que el "
-            "movimiento completo",
-            linea=n + 1,
-            arreglo="usar el selector universal `*, *::before, *::after` y bajar "
-                    "`transition-duration` y `animation-duration` a `.01ms "
-                    "!important`, en vez de enumerar selectores que hay que "
-                    "acordarse de ampliar cada vez que se añade una transición",
-        )
+    propios = len(HAY_MOVIMIENTO.findall(_fuera_de_movimiento_reducido(texto)))
+    apagados = len(re.findall(r"[{;]\s*(?:transition|animation)[^;}]*", bloque))
+    if apagados >= propios:
+        return
+
+    lineas = (repo.texto(ruta) or "").splitlines()  # con comentarios: ahí van las supresiones
+    n = texto[:m.start()].count("\n")
+    if (motivo := suprimido(lineas, n, "UI-15")):
+        r.supresiones.append(f"{ruta}:{n + 1} movimiento reducido — {motivo}")
+        return
+
+    r.bloquea(
+        "UI-15", ruta,
+        f"el bloque `prefers-reduced-motion` es selectivo: apaga "
+        f"{apagados} de {propios} declaración(es) de movimiento de este archivo",
+        "cumple la letra y no la función. Quien pidió reducir el movimiento "
+        "sigue recibiendo la mayor parte, y además con la peor cara: unas "
+        "cosas se mueven y otras no, que es más desconcertante que el "
+        "movimiento completo",
+        linea=n + 1,
+        arreglo="usar el selector universal `*, *::before, *::after` y bajar "
+                "`transition-duration` y `animation-duration` a `.01ms "
+                "!important`, en vez de enumerar selectores que hay que "
+                "acordarse de ampliar cada vez que se añade una transición",
+    )
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:

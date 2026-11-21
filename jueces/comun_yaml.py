@@ -28,19 +28,20 @@ class YamlNoSoportado(Exception):
     """
 
 
+_PALABRAS: dict[str, Any] = {
+    **dict.fromkeys(("true", "True", "yes", "on"), True),
+    **dict.fromkeys(("false", "False", "no", "off"), False),
+    **dict.fromkeys(("null", "~"), None),
+}
+
+
 def _desescalar(texto: str) -> Any:
     """Escalar YAML -> valor Python. Sin sorpresas de tipado."""
     t = texto.strip()
-    if not t:
-        return ""
     if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
         return t[1:-1]
-    if t in ("true", "True", "yes", "on"):
-        return True
-    if t in ("false", "False", "no", "off"):
-        return False
-    if t in ("null", "~"):
-        return None
+    if t in _PALABRAS:
+        return _PALABRAS[t]
     # `re.fullmatch` y no `lstrip("-").isdigit()`: "--5" pasaba el segundo y
     # reventaba en int(), tumbando al juez entero con un ValueError por un
     # `command: --5` en el compose. Medido el 2026-09-08.
@@ -283,8 +284,20 @@ class _Lector:
         m = _ENCABEZADO_BLOQUE.match(cabecera)
         assert m
         estilo, mordida, explicita = m.group(1), m.group(2) or m.group(4), m.group(3)
-        j = i + 1
         sangria = ind + int(explicita) if explicita else None
+        cuerpo, j = self._lineas_del_bloque(i + 1, ind, sangria)
+        finales = 0  # líneas en blanco al final: sólo las conserva la mordida `+`
+        while cuerpo and not cuerpo[-1]:
+            cuerpo.pop()
+            finales += 1
+        texto = "\n".join(cuerpo) if estilo == "|" else _plegar(cuerpo)
+        if not cuerpo or mordida == "-":
+            return texto, j
+        return texto + ("\n" * (1 + finales) if mordida == "+" else "\n"), j
+
+    def _lineas_del_bloque(self, j: int, ind: int,
+                           sangria: int | None) -> tuple[list[str], int]:
+        """Las líneas de un escalar en bloque, sin su sangría, y la primera que no es suya."""
         cuerpo: list[str] = []
         while j < len(self.lineas):
             linea = self.lineas[j]
@@ -301,28 +314,7 @@ class _Lector:
                 break
             cuerpo.append(linea[sangria:])
             j += 1
-        finales = 0  # líneas en blanco al final: sólo las conserva la mordida `+`
-        while cuerpo and not cuerpo[-1]:
-            cuerpo.pop()
-            finales += 1
-        if estilo == "|":
-            texto = "\n".join(cuerpo)
-        else:
-            parrafos, actual = [], []
-            for linea in cuerpo:
-                if linea and not linea.startswith((" ", "\t")):
-                    actual.append(linea)
-                else:
-                    if actual:
-                        parrafos.append(" ".join(actual))
-                        actual = []
-                    parrafos.append(linea)
-            if actual:
-                parrafos.append(" ".join(actual))
-            texto = "\n".join(parrafos)
-        if not cuerpo or mordida == "-":
-            return texto, j
-        return texto + ("\n" * (1 + finales) if mordida == "+" else "\n"), j
+        return cuerpo, j
 
     # -- colecciones en línea ----------------------------------------------------
     def _en_linea_completa(self, texto: str, i: int) -> tuple[str, int]:
@@ -382,6 +374,24 @@ def carga_yaml(texto: str) -> dict[str, Any]:
     verificar» por su sintaxis, no por sus defectos.
     """
     return _Lector(texto).cargar()
+
+
+def _plegar(cuerpo: list[str]) -> str:
+    """El estilo `>`: las líneas seguidas de un párrafo se unen con un espacio; las
+    vacías y las más sangradas se conservan tal cual."""
+    parrafos: list[str] = []
+    actual: list[str] = []
+    for linea in cuerpo:
+        if linea and not linea.startswith((" ", "\t")):
+            actual.append(linea)
+            continue
+        if actual:
+            parrafos.append(" ".join(actual))
+            actual = []
+        parrafos.append(linea)
+    if actual:
+        parrafos.append(" ".join(actual))
+    return "\n".join(parrafos)
 
 
 def numero_de_linea(texto: str, aguja: str) -> int | None:

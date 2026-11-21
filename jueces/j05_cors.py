@@ -45,7 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import Repo, Resultado, ejecutar, sin_indice, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion",)
 

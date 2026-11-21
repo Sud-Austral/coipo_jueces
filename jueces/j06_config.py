@@ -115,7 +115,7 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
     r.comprobo(".env.example y las variables base")
     texto = repo.texto(".env.example") or ""
     lineas = texto.splitlines()
-    declaradas = {m.group("clave") for l in lineas if (m := ASIGNACION_ENV.match(l))}
+    declaradas = {m.group("clave") for linea in lineas if (m := ASIGNACION_ENV.match(linea))}
 
     faltan = [v for v in BASE if v not in declaradas]
     if faltan:
@@ -128,8 +128,8 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
 
     # `APP_PORT` lo extrae el pipeline con `grep '^APP_PORT=' .env | cut -d= -f2`.
     # Comillas o espacios producen `"8125"` y una URL inválida en el smoke test.
-    for i, l in enumerate(lineas):
-        m = ASIGNACION_ENV.match(l)
+    for i, linea in enumerate(lineas):
+        m = ASIGNACION_ENV.match(linea)
         if not m or m.group("clave") != "APP_PORT":
             continue
         valor = m.group("valor")
@@ -147,8 +147,8 @@ def comprobar_ejemplo(repo: Repo, r: Resultado) -> None:
                   "una URL única esconde la contraseña dentro de una cadena que "
                   "acaba en logs y trazas, y rompe la convención que el resto de "
                   "la flota y los scripts de respaldo dan por supuesta",
-                  linea=next((i + 1 for i, l in enumerate(lineas)
-                              if l.startswith("DATABASE_URL")), None),
+                  linea=next((i + 1 for i, texto_linea in enumerate(lineas)
+                              if texto_linea.startswith("DATABASE_URL")), None),
                   arreglo="componerla en el código desde las cinco variables (Guía 8, punto 3)")
 
 
@@ -169,8 +169,8 @@ def comprobar_grafia_de_sesion(repo: Repo, r: Resultado) -> None:
         r.comprobo("grafia SESSION_/SESION_ en los archivos de entorno")
     con_dos, con_una = {}, {}
     for ruta in archivos:
-        for i, l in enumerate(repo.lineas(ruta)):
-            m = ASIGNACION_ENV.match(l)
+        for i, linea in enumerate(repo.lineas(ruta)):
+            m = ASIGNACION_ENV.match(linea)
             if not m:
                 continue
             clave = m.group("clave")
@@ -207,19 +207,8 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
     suite con python 3.11 y node 22. Todo lo que el CI declara verde está
     probado sobre un intérprete que no llega nunca a producción.
     """
-    de_imagen: dict[str, set[str]] = {}
-    for ruta in repo.versionados():
-        if Path(ruta).name != "Dockerfile" and not ruta.endswith(".Dockerfile"):
-            continue
-        for m in FROM_IMAGEN.finditer(repo.texto(ruta) or ""):
-            de_imagen.setdefault(m.group("lenguaje"), set()).add(m.group("version"))
-
-    del_ci: dict[str, set[tuple[str, str]]] = {}
-    for ruta in repo.versionados():
-        if not re.match(r"\.github/workflows/.*\.ya?ml$", ruta):
-            continue
-        for m in VERSION_CI.finditer(_resolver_env(repo.texto(ruta) or "")):
-            del_ci.setdefault(m.group("lenguaje"), set()).add((m.group("version"), ruta))
+    de_imagen = _versiones_de_imagen(repo)
+    del_ci = _versiones_del_ci(repo)
 
     if not de_imagen:
         r.no_evaluado.append(
@@ -237,22 +226,51 @@ def comprobar_versiones(repo: Repo, r: Resultado) -> None:
     r.comprobo("versiones del CI frente a las del Dockerfile")
     for lenguaje, versiones in del_ci.items():
         imagenes = de_imagen.get(lenguaje)
-        if not imagenes:
-            continue
-        for version, ruta in sorted(versiones):
-            # `3.1` casaría con `3.13` por prefijo; se compara por componentes.
-            partes = version.split(".")
-            if any(i.split(".")[:len(partes)] == partes for i in imagenes):
-                continue
-            r.avisa("CI-1", ruta,
-                      f"el CI prueba con {lenguaje} {version} y ninguna imagen se "
-                      f"construye con esa versión (las imágenes usan "
-                      f"{', '.join(sorted(imagenes))})",
-                      "todo lo que el CI declara verde está probado sobre un "
-                      "intérprete que no llega a producción; el fallo aparece "
-                      "solo en el servidor y sin ninguna pista de por qué",
-                      arreglo=f"igualar la versión del CI a la del Dockerfile")
+        if imagenes:
+            _ci_frente_a_imagenes(r, lenguaje, versiones, imagenes)
+    _varias_versiones(r, de_imagen)
 
+
+def _versiones_de_imagen(repo: Repo) -> dict[str, set[str]]:
+    """lenguaje -> versiones de `FROM python:`/`FROM node:` de los Dockerfile."""
+    de_imagen: dict[str, set[str]] = {}
+    for ruta in repo.versionados():
+        if Path(ruta).name != "Dockerfile" and not ruta.endswith(".Dockerfile"):
+            continue
+        for m in FROM_IMAGEN.finditer(repo.texto(ruta) or ""):
+            de_imagen.setdefault(m.group("lenguaje"), set()).add(m.group("version"))
+    return de_imagen
+
+
+def _versiones_del_ci(repo: Repo) -> dict[str, set[tuple[str, str]]]:
+    """lenguaje -> (versión, workflow) de cada `python-version`/`node-version`."""
+    del_ci: dict[str, set[tuple[str, str]]] = {}
+    for ruta in repo.versionados():
+        if not re.match(r"\.github/workflows/.*\.ya?ml$", ruta):
+            continue
+        for m in VERSION_CI.finditer(_resolver_env(repo.texto(ruta) or "")):
+            del_ci.setdefault(m.group("lenguaje"), set()).add((m.group("version"), ruta))
+    return del_ci
+
+
+def _ci_frente_a_imagenes(r: Resultado, lenguaje: str, versiones: set[tuple[str, str]],
+                          imagenes: set[str]) -> None:
+    for version, ruta in sorted(versiones):
+        # `3.1` casaría con `3.13` por prefijo; se compara por componentes.
+        partes = version.split(".")
+        if any(i.split(".")[:len(partes)] == partes for i in imagenes):
+            continue
+        r.avisa("CI-1", ruta,
+                f"el CI prueba con {lenguaje} {version} y ninguna imagen se "
+                f"construye con esa versión (las imágenes usan "
+                f"{', '.join(sorted(imagenes))})",
+                "todo lo que el CI declara verde está probado sobre un "
+                "intérprete que no llega a producción; el fallo aparece "
+                "solo en el servidor y sin ninguna pista de por qué",
+                arreglo="igualar la versión del CI a la del Dockerfile")
+
+
+def _varias_versiones(r: Resultado, de_imagen: dict[str, set[str]]) -> None:
     for lenguaje, versiones in de_imagen.items():
         if len(versiones) > 1:
             r.avisa("CI-1", "",

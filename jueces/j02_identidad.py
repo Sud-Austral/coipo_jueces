@@ -40,7 +40,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, numero_de_linea, suprimido,
+    Repo,
+    Resultado,
+    YamlNoSoportado,
+    carga_yaml,
+    ejecutar,
+    numero_de_linea,
+    suprimido,
 )
 
 PERFILES = ("aplicacion", "encuadre_operativo")

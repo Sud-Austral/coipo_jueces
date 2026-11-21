@@ -1,0 +1,73 @@
+# COPIA de `semilla/CONGELADO/backend/ruff.toml` de coipo_master_produccion (commit fb0e3c4,
+# 2026-11-21): las MISMAS reglas que la semilla siembra en cada aplicación. No se edita aquí:
+# se cambia allí y se vuelve a copiar, y la fábrica compara esta copia con la suya. Desde la
+# línea «---- copia ----» hacia abajo es el archivo tal cual, con sus comentarios: donde dice
+# «ARCHIVO CONGELADO DE LA SEMILLA» habla del original. Lo corre `autotest.yml` (ruff 0.17.4).
+# ---- copia ----
+# El Zen de Python (PEP 20) que una máquina puede comprobar — ARCHIVO CONGELADO DE LA SEMILLA.
+#
+# La tabla completa, aforismo por aforismo, está en docs/ESTANDAR_CODIGO.md de
+# coipo_master_produccion (§ «El Zen de Python»). Lo que no se automatiza («Now is better than
+# never») lo cuida la revisión. Decisión de Luis Monsalve del 2026-11-21: los principios, con
+# chequeos, en el CI de la fábrica y en el de cada aplicación.
+#
+# Se SELLA para que una aplicación no lo afloje sin que se note. Una excepción puntual va en
+# su línea, con el código y el motivo (`# noqa: C901 <motivo>`); un `# noqa` sin código lo
+# rechaza PGH004. La fábrica usa estas MISMAS reglas: su ruff.toml de la raíz extiende éste.
+#
+# ruff fijado en requirements-dev-base.txt (0.17.4, publicado el 2026-11-05).
+
+# El mínimo para desarrollar (semilla/doctor.py, PYTHON_MINIMO), no el de la imagen (3.14):
+# una sugerencia de `UP` que sólo corre en 3.14 rompería el desarrollo local en 3.11.
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = [
+    # Errores reales (pyflakes) y «Sparse is better than dense»: una sentencia por línea
+    # (E701, E702, E703) y nada de lambdas asignadas a un nombre (E731).
+    "E4", "E7", "E9", "F",
+    # «Errors should never pass silently»: ni `except:` a secas, ni `except Exception`
+    # que traga todo, ni un `try/except/pass` o `continue`.
+    "E722", "BLE001", "S110", "S112",
+    # «Unless explicitly silenced»: si de verdad se ignora, que se vea (`contextlib.suppress`).
+    "SIM105",
+    # «In the face of ambiguity, refuse the temptation to guess»: `raise ... from` y
+    # `zip(..., strict=)` dicen lo que se quiere en vez de dejarlo a la suerte.
+    "B904", "B905",
+    # «Simple is better than complex» / «Complex is better than complicated».
+    "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+    # «Flat is better than nested»: `if` colapsables y `else` sobrantes tras un `return`.
+    "SIM102", "RET505", "RET506", "RET507", "RET508",
+    # «Readability counts»: nombres que se leen (pep8-naming; `l`, `O` e `I` ya los da E741).
+    "N",
+    # «There should be one-- and preferably only one --obvious way to do it»: un orden de
+    # imports y la sintaxis moderna, no tres variantes de lo mismo.
+    "I", "UP",
+    # «Namespaces are one honking great idea»: imports absolutos (`app.dominio...`), sin `*`
+    # (F403/F405, ya en `F`).
+    "TID252",
+    # «Special cases aren't special enough to break the rules»: un `noqa` siempre con código.
+    "PGH004",
+]
+# Las excepciones de esta flota se nombran en español (`ErrorDeSiembra`, `RolInsuficiente`):
+# no terminan en «Error», que es lo que pide N818.
+ignore = ["N818"]
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.pylint]
+max-args = 6
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+[lint.pep8-naming]
+# Los métodos de unittest (`setUp`, `assertBloquea`) siguen la convención de unittest.
+extend-ignore-names = ["assert*", "setUp*", "tearDown*"]
+
+[format]
+# «Beautiful is better than ugly»: un solo formato, el de `ruff format`, sin discutirlo.
+quote-style = "double"
+line-ending = "lf"

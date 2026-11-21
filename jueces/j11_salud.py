@@ -52,7 +52,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    Repo, Resultado, YamlNoSoportado, _sin_comentario, carga_yaml, ejecutar, sin_indice,
+    Repo,
+    Resultado,
+    YamlNoSoportado,
+    _sin_comentario,
+    carga_yaml,
+    ejecutar,
+    sin_indice,
     suprimido,
 )
 
@@ -140,9 +146,9 @@ def _funcion_de_salud(arbol: ast.Module) -> ast.FunctionDef | ast.AsyncFunctionD
             if not isinstance(dec, ast.Call):
                 continue
             for arg in dec.args:
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    if arg.value.rstrip("/") == "/health":
-                        return nodo
+                if (isinstance(arg, ast.Constant) and isinstance(arg.value, str)
+                        and arg.value.rstrip("/") == "/health"):
+                    return nodo
     return None
 
 
@@ -183,7 +189,8 @@ def _nginx_con_salud(repo: Repo) -> tuple[str, int, str] | None:
         if not NGINX_INTERNO.search(ruta) or NO_ES_NGINX_INTERNO.search(ruta):
             continue
         # Sin comentarios, respetando comillas: un `# location = /health {` no sirve nada.
-        limpio = "\n".join(_sin_comentario(l) for l in (repo.texto(ruta) or "").splitlines())
+        limpio = "\n".join(_sin_comentario(linea)
+                           for linea in (repo.texto(ruta) or "").splitlines())
         m = LOCATION_SALUD.search(limpio)
         if m:
             return ruta, limpio.count("\n", 0, m.start()) + 1, _cuerpo_entre_llaves(limpio, m.end() - 1)
@@ -269,9 +276,12 @@ def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
 
 def _parametros(fn) -> list[tuple[ast.arg, ast.expr | None]]:
     """(parámetro, valor por defecto) de la función, posicionales y de palabra clave."""
+    # Por índice y no con `zip(..., strict=True)`: `strict=` es de Python 3.10 y los
+    # jueces corren con el `python3` del runner, que puede ser anterior.
     posicionales = list(fn.args.posonlyargs) + list(fn.args.args)
     defectos = [None] * (len(posicionales) - len(fn.args.defaults)) + list(fn.args.defaults)
-    return list(zip(posicionales, defectos)) + list(zip(fn.args.kwonlyargs, fn.args.kw_defaults))
+    pares = [(arg, defectos[i]) for i, arg in enumerate(posicionales)]
+    return pares + [(arg, fn.args.kw_defaults[i]) for i, arg in enumerate(fn.args.kwonlyargs)]
 
 
 def _dependencias(llamada: ast.AST) -> str:

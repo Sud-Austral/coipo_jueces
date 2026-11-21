@@ -34,31 +34,40 @@ def claves_duplicadas(texto: str) -> list[tuple[int, str]]:
         if not linea.strip() or linea.lstrip().startswith("#"):
             continue
         sangria = len(linea) - len(linea.lstrip(" "))
-        if bloque_desde is not None:
-            if sangria > bloque_desde:
-                continue
-            bloque_desde = None
-        cuerpo = linea.strip()
-        if cuerpo.startswith("- "):
-            cuerpo = cuerpo[2:].lstrip()
-            sangria += 2
-            while pila and pila[-1][0] >= sangria:
-                pila.pop()
-            pila.append((sangria, set()))
+        if bloque_desde is not None and sangria > bloque_desde:
+            continue
+        bloque_desde = None
+        cuerpo, sangria = _abrir_item(pila, linea.strip(), sangria)
         m = _CLAVE.match(cuerpo)
         if not m:
             continue
-        clave = m.group(1)
-        while pila and pila[-1][0] > sangria:
-            pila.pop()
-        if not pila or pila[-1][0] < sangria:
-            pila.append((sangria, set()))
-        if clave in pila[-1][1]:
-            problemas.append((n, clave))
-        pila[-1][1].add(clave)
+        mapa = _mapa_de(pila, sangria)
+        if m.group(1) in mapa:
+            problemas.append((n, m.group(1)))
+        mapa.add(m.group(1))
         if _BLOQUE.match(cuerpo[m.end():].strip()):
             bloque_desde = sangria
     return problemas
+
+
+def _abrir_item(pila: list[tuple[int, set[str]]], cuerpo: str, sangria: int) -> tuple[str, int]:
+    """`- clave: x` abre un mapa nuevo dos columnas más adentro."""
+    if not cuerpo.startswith("- "):
+        return cuerpo, sangria
+    sangria += 2
+    while pila and pila[-1][0] >= sangria:
+        pila.pop()
+    pila.append((sangria, set()))
+    return cuerpo[2:].lstrip(), sangria
+
+
+def _mapa_de(pila: list[tuple[int, set[str]]], sangria: int) -> set[str]:
+    """Las claves ya vistas del mapa al que pertenece una clave con esta sangría."""
+    while pila and pila[-1][0] > sangria:
+        pila.pop()
+    if not pila or pila[-1][0] < sangria:
+        pila.append((sangria, set()))
+    return pila[-1][1]
 
 
 class PruebaWorkflowsSinClavesDuplicadas(unittest.TestCase):
@@ -78,7 +87,8 @@ class PruebaWorkflowsSinClavesDuplicadas(unittest.TestCase):
         for p in WORKFLOWS:
             with self.subTest(workflow=p.name):
                 t = p.read_text(encoding="utf-8")
-                vacias = [n for n, l in enumerate(t.splitlines(), 1) if re.search(r"\$\{\{\s*\}\}", l)]
+                vacias = [n for n, linea in enumerate(t.splitlines(), 1)
+                          if re.search(r"\$\{\{\s*\}\}", linea)]
                 self.assertEqual([], vacias)
 
     def test_el_detector_detecta_el_caso_de_v2_0_3(self):

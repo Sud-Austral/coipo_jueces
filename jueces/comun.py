@@ -26,10 +26,11 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field, asdict
+from collections.abc import Callable, Iterable
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 
 # Los módulos hermanos (`comun_yaml`, `comun_semilla`) se importan por nombre: este
 # directorio tiene que estar en la ruta aunque quien importe `comun` no lo haya
@@ -37,11 +38,20 @@ from typing import Any, Callable, Iterable
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun_yaml import (  # noqa: E402,F401  (reexportados: los jueces los importan de aquí)
-    YamlNoSoportado, _sin_comentario, carga_yaml, numero_de_linea,
-)
 from comun_semilla import (  # noqa: E402,F401
-    Adopcion, Siembra, leer_adopcion, leer_ajeno, leer_fabrica, leer_maqueta, leer_siembra,
+    Adopcion,
+    Siembra,
+    leer_adopcion,
+    leer_ajeno,
+    leer_fabrica,
+    leer_maqueta,
+    leer_siembra,
+)
+from comun_yaml import (  # noqa: E402,F401  (reexportados: los jueces los importan de aquí)
+    YamlNoSoportado,
+    _sin_comentario,
+    carga_yaml,
+    numero_de_linea,
 )
 
 # --------------------------------------------------------------------------
@@ -49,7 +59,7 @@ from comun_semilla import (  # noqa: E402,F401
 # --------------------------------------------------------------------------
 
 
-class Severidad(str, Enum):
+class Severidad(str, Enum):  # noqa: UP042 StrEnum exige Python 3.11 y los jueces corren con el python3 del runner
     """Solo dos niveles a propósito.
 
     Un tercer nivel intermedio ("importante", "menor") se convierte siempre en
@@ -430,9 +440,8 @@ def _anotacion_github(h: Hallazgo, juez: str, modo: str) -> str:
     return f"::{nivel} {loc}::[{juez}/{h.regla}] {h.mensaje} — {h.manifestacion}"
 
 
-def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
-    print(f"\n{'=' * 78}\n{resultado.juez} — {resultado.descripcion}\n{'=' * 78}")
-
+def _informar_estado(resultado: Resultado, en_github: bool) -> None:
+    """El veredicto, lo que no aplica, lo no evaluado y las supresiones."""
     marca = {"OK": _VERDE, "HALLAZGOS": _AMARILLO,
              "SIN_EVALUAR": _AMARILLO, "NO_APLICA": _GRIS}[resultado.veredicto]
     print(f"{marca}  veredicto: {resultado.veredicto}"
@@ -444,15 +453,12 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
             print(f"::warning::[{resultado.juez}] no comprobo nada: "
                   f"cero hallazgos no equivale a conforme")
 
-    for razon in resultado.no_aplica:
-        print(f"{_GRIS}  no aplica: {razon}{_FIN}")
-        if en_github:
-            print(f"::notice::[{resultado.juez}] no aplica: {razon}")
-
-    for nota in resultado.no_evaluado:
-        print(f"{_GRIS}  no evaluado: {nota}{_FIN}")
-        if en_github:
-            print(f"::notice::[{resultado.juez}] no evaluado: {nota}")
+    for etiqueta, notas in (("no aplica", resultado.no_aplica),
+                            ("no evaluado", resultado.no_evaluado)):
+        for nota in notas:
+            print(f"{_GRIS}  {etiqueta}: {nota}{_FIN}")
+            if en_github:
+                print(f"::notice::[{resultado.juez}] {etiqueta}: {nota}")
 
     for s in resultado.supresiones:
         print(f"{_AMARILLO}  suprimido: {s}{_FIN}")
@@ -463,24 +469,33 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
             print(f"::warning::[{resultado.juez}] {n} supresión(es) activa(s). "
                   f"Cada una exige una fila en DEUDA.md.")
 
+
+def _informar_hallazgo(h: Hallazgo, juez: str, modo: str, en_github: bool) -> None:
+    color = _ROJO if h.severidad is Severidad.BLOQUEA else _AMARILLO
+    # La severidad REAL también en advisory. Hasta el 2026-11-21 todo salía
+    # `[AVISA]` en ese modo, y quien medía la distancia no veía qué lo detendría.
+    nota = " (no detiene en advisory)" if (
+        modo != "bloqueante" and h.severidad is Severidad.BLOQUEA) else ""
+    print(f"{color}  [{h.severidad.value}] {h.regla}  {h.ubicacion()}{nota}{_FIN}")
+    print(f"           {h.mensaje}")
+    print(f"           {_GRIS}en producción: {h.manifestacion}{_FIN}")
+    if h.arreglo:
+        print(f"           {_GRIS}arreglo: {h.arreglo}{_FIN}")
+    if en_github:
+        print(_anotacion_github(h, juez, modo))
+
+
+def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
+    print(f"\n{'=' * 78}\n{resultado.juez} — {resultado.descripcion}\n{'=' * 78}")
+    _informar_estado(resultado, en_github)
+
     if not resultado.hallazgos:
         if resultado.comprobado:
             print(f"{_VERDE}  sin hallazgos{_FIN}")
         return
 
     for h in resultado.hallazgos:
-        color = _ROJO if h.severidad is Severidad.BLOQUEA else _AMARILLO
-        # La severidad REAL también en advisory. Hasta el 2026-11-21 todo salía
-        # `[AVISA]` en ese modo, y quien medía la distancia no veía qué lo detendría.
-        nota = " (no detiene en advisory)" if (
-            modo != "bloqueante" and h.severidad is Severidad.BLOQUEA) else ""
-        print(f"{color}  [{h.severidad.value}] {h.regla}  {h.ubicacion()}{nota}{_FIN}")
-        print(f"           {h.mensaje}")
-        print(f"           {_GRIS}en producción: {h.manifestacion}{_FIN}")
-        if h.arreglo:
-            print(f"           {_GRIS}arreglo: {h.arreglo}{_FIN}")
-        if en_github:
-            print(_anotacion_github(h, resultado.juez, modo))
+        _informar_hallazgo(h, resultado.juez, modo, en_github)
 
     b = len(resultado.bloqueantes)
     print(f"\n  {len(resultado.hallazgos)} hallazgo(s), {b} de severidad BLOQUEA")

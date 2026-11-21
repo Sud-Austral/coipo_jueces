@@ -21,10 +21,10 @@ import argparse
 import importlib.util
 import json
 import os
-import traceback
 import re
 import sys
-from dataclasses import asdict
+import traceback
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -122,7 +122,7 @@ def resumen_markdown(resultados: list[Resultado], *, modo: str, repo: str) -> st
     return "\n".join(lineas) + "\n"
 
 
-def main() -> int:
+def _argumentos() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="corre los jueces COIPO")
     p.add_argument("--repo", default=".")
     p.add_argument("--modo", choices=("advisory", "bloqueante"), default="advisory")
@@ -133,41 +133,38 @@ def main() -> int:
                         "vacío = todos los del perfil")
     p.add_argument("--resumen", default=None, help="ruta del RESUMEN.md a escribir")
     p.add_argument("--json", dest="json_salida", default=None)
-    args = p.parse_args()
+    return p.parse_args()
 
-    solo = [x for x in re.split(r"[,\s]+", args.jueces) if x]
 
-    # Centinela en las salidas del job ANTES de correr nada: si este script muere
-    # a medias, el workflow no puede leer `bloqueantes=` vacio y tratarlo como 0.
-    # Se sobreescribe al terminar.
-    salida_gh = os.environ.get("GITHUB_OUTPUT")
-    if salida_gh:
-        with open(salida_gh, "a", encoding="utf-8") as fh:
-            fh.write("estado=no_corrio\nbloqueantes=-1\navisos=-1\nsupresiones=-1\n")
-    repo = Repo(args.repo)
-    en_github = os.environ.get("GITHUB_ACTIONS") == "true"
+def _avisar(aviso: str, en_github: bool) -> None:
+    print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
 
-    disponibles = [n for n, _ in descubrir(AQUI, args.perfil, [])]
+
+def _modulos(perfil: str, solo: list[str], en_github: bool) -> list[tuple[str, object]] | None:
+    """Los jueces que corren, o None (y el porqué impreso) si no corre ninguno."""
+    disponibles = [n for n, _ in descubrir(AQUI, perfil, [])]
     # Un --jueces que no casa con nada NO es "el perfil no tiene jueces". Decirlo
     # asi manda a revisar el perfil cuando el error es un id mal escrito
     # (`j11_salud` en vez de `j11`), y eso cuesta media hora de CI.
     desconocidos = [x for x in solo if x not in disponibles]
     if desconocidos:
-        aviso = (f"--jueces nombra {', '.join(desconocidos)}, que no existe(n) "
-                 f"para el perfil '{args.perfil}'. Se espera el id corto del juez "
-                 f"(p. ej. 'j11', no 'j11_salud'). Disponibles: "
-                 f"{', '.join(disponibles) or 'ninguno'}")
-        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
-        return 1
+        _avisar(f"--jueces nombra {', '.join(desconocidos)}, que no existe(n) "
+                f"para el perfil '{perfil}'. Se espera el id corto del juez "
+                f"(p. ej. 'j11', no 'j11_salud'). Disponibles: "
+                f"{', '.join(disponibles) or 'ninguno'}", en_github)
+        return None
 
-    modulos = descubrir(AQUI, args.perfil, solo)
+    modulos = descubrir(AQUI, perfil, solo)
     if not modulos:
-        aviso = (f"ningún juez aplica al perfil '{args.perfil}'. "
-                 f"Jueces del perfil: {', '.join(disponibles) or 'ninguno'}")
-        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
         # Salir 1: "no corrió ningún juez" nunca puede leerse como "todo bien".
-        return 1
+        _avisar(f"ningún juez aplica al perfil '{perfil}'. "
+                f"Jueces del perfil: {', '.join(disponibles) or 'ninguno'}", en_github)
+        return None
+    return modulos
 
+
+def _correr(modulos: list[tuple[str, object]], repo: Repo, modo: str,
+            en_github: bool) -> tuple[list[Resultado], list[str]]:
     resultados: list[Resultado] = []
     reventados: list[str] = []
     for nombre, modulo in modulos:
@@ -182,23 +179,42 @@ def main() -> int:
             traceback.print_exc()
             r.no_evaluado.append(f"EL JUEZ REVENTO: {type(e).__name__}: {e}")
             reventados.append(nombre)
-        informar(r, modo=args.modo, en_github=en_github)
+        informar(r, modo=modo, en_github=en_github)
         resultados.append(r)
+    return resultados, reventados
 
-    total_b = sum(len(r.bloqueantes) for r in resultados)
-    total_a = sum(len(r.hallazgos) for r in resultados) - total_b
-    total_s = sum(len(r.supresiones) for r in resultados)
-    total_c = sum(len(r.comprobado) for r in resultados)
-    sin_evaluar = [r.juez for r in resultados if r.veredicto == "SIN_EVALUAR"]
-    todo_na = all(r.veredicto == "NO_APLICA" for r in resultados)
 
+@dataclass(frozen=True)
+class Totales:
+    bloqueantes: int
+    avisos: int
+    supresiones: int
+    comprobaciones: int
+    sin_evaluar: list[str]
+    todo_na: bool
+
+
+def _totales(resultados: list[Resultado]) -> Totales:
+    bloqueantes = sum(len(r.bloqueantes) for r in resultados)
+    return Totales(
+        bloqueantes=bloqueantes,
+        avisos=sum(len(r.hallazgos) for r in resultados) - bloqueantes,
+        supresiones=sum(len(r.supresiones) for r in resultados),
+        comprobaciones=sum(len(r.comprobado) for r in resultados),
+        sin_evaluar=[r.juez for r in resultados if r.veredicto == "SIN_EVALUAR"],
+        todo_na=all(r.veredicto == "NO_APLICA" for r in resultados),
+    )
+
+
+def _escribir(args: argparse.Namespace, repo: Repo, resultados: list[Resultado],
+              t: Totales, salida_gh: str | None) -> None:
     if args.resumen:
         Path(args.resumen).write_text(
             resumen_markdown(resultados, modo=args.modo, repo=repo.nombre), encoding="utf-8")
     if args.json_salida:
         Path(args.json_salida).write_text(json.dumps(
             {"repo": repo.nombre, "modo": args.modo, "perfil": args.perfil,
-             "bloqueantes": total_b, "avisos": total_a, "supresiones": total_s,
+             "bloqueantes": t.bloqueantes, "avisos": t.avisos, "supresiones": t.supresiones,
              "resultados": [
                  {"juez": r.juez, "veredicto": r.veredicto,
                   "comprobado": r.comprobado, "no_evaluado": r.no_evaluado,
@@ -215,19 +231,25 @@ def main() -> int:
     if salida_gh:
         with open(salida_gh, "a", encoding="utf-8") as fh:
             fh.write("estado=corrio\n")
-            fh.write(f"bloqueantes={total_b}\n")
-            fh.write(f"avisos={total_a}\n")
-            fh.write(f"supresiones={total_s}\n")
+            fh.write(f"bloqueantes={t.bloqueantes}\n")
+            fh.write(f"avisos={t.avisos}\n")
+            fh.write(f"supresiones={t.supresiones}\n")
 
+
+def _imprimir_cierre(n_jueces: int, t: Totales, modo: str) -> None:
     print(f"\n{'=' * 78}")
-    print(f"{len(modulos)} juez/jueces · {total_c} comprobación(es) · {total_b} bloqueante(s) · "
-          f"{total_a} aviso(s) · {total_s} supresión(es) · modo {args.modo}")
-    if sin_evaluar:
-        print(f"SIN EVALUAR: {', '.join(sin_evaluar)} — no comprobaron nada. "
+    print(f"{n_jueces} juez/jueces · {t.comprobaciones} comprobación(es) · "
+          f"{t.bloqueantes} bloqueante(s) · "
+          f"{t.avisos} aviso(s) · {t.supresiones} supresión(es) · modo {modo}")
+    if t.sin_evaluar:
+        print(f"SIN EVALUAR: {', '.join(t.sin_evaluar)} — no comprobaron nada. "
               f"Cero hallazgos ahí NO significa conforme.")
     print("=" * 78)
 
-    if args.modo == "bloqueante" and total_b:
+
+def _codigo_de_salida(args: argparse.Namespace, t: Totales, reventados: list[str],
+                      en_github: bool) -> int:
+    if args.modo == "bloqueante" and t.bloqueantes:
         return 1
 
     # CERO COMPROBACIONES TAMBIÉN ES UN FALLO.
@@ -249,11 +271,10 @@ def main() -> int:
     # sobre una app de mismo origen, que legítimamente no tiene CORS—. En el CI
     # corren todos, así que basta con que UNO compruebe algo para que esta rama
     # no se active.
-    if not total_c and not todo_na:
-        aviso = ("ningún juez comprobó nada: un gate que no verifica no aprueba. "
-                 "Revisa el perfil, o si el repositorio tiene una forma que los "
-                 "jueces no reconocen.")
-        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
+    if not t.comprobaciones and not t.todo_na:
+        _avisar("ningún juez comprobó nada: un gate que no verifica no aprueba. "
+                "Revisa el perfil, o si el repositorio tiene una forma que los "
+                "jueces no reconocen.", en_github)
         return 1
 
     # El PERFIL es una declaración, y obliga.
@@ -267,25 +288,48 @@ def main() -> int:
     #
     # Un `encuadre_operativo` (software de terceros) SÍ puede tener jueces sin
     # evaluar —no tiene Dockerfile ni tests— y por eso la regla no le aplica.
-    if args.modo == "bloqueante" and args.perfil == "aplicacion" and sin_evaluar:
-        aviso = (f"perfil 'aplicacion' pero {', '.join(sin_evaluar)} no encontró nada "
-                 f"que comprobar. O el repositorio no es una aplicación de la flota, "
-                 f"o la detección del juez está rota. Un gate no aprueba lo que no miró.")
-        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
+    if args.modo == "bloqueante" and args.perfil == "aplicacion" and t.sin_evaluar:
+        _avisar(f"perfil 'aplicacion' pero {', '.join(t.sin_evaluar)} no encontró nada "
+                f"que comprobar. O el repositorio no es una aplicación de la flota, "
+                f"o la detección del juez está rota. Un gate no aprueba lo que no miró.",
+                en_github)
         return 1
-    if args.modo == "advisory" and total_b and en_github:
+    if args.modo == "advisory" and t.bloqueantes and en_github:
         # En advisory NO se rompe el build: la flota tiene que poder desplegar
         # sus arreglos urgentes mientras se mide la distancia. Pero el número
         # se publica, para que "advisory" no acabe significando "invisible".
-        print(f"::warning::{total_b} hallazgo(s) bloqueante(s) en modo advisory. "
+        print(f"::warning::{t.bloqueantes} hallazgo(s) bloqueante(s) en modo advisory. "
               f"Ver RESUMEN.md.")
     if reventados:
-        aviso = (f"{len(reventados)} juez/jueces reventaron con una excepcion: "
-                 f"{', '.join(reventados)}. Un gate con un juez roto no verifica lo "
-                 "que dice verificar: se sale con 1 en cualquier modo.")
-        print(f"::error::{aviso}" if en_github else f"[jueces] {aviso}")
+        _avisar(f"{len(reventados)} juez/jueces reventaron con una excepcion: "
+                f"{', '.join(reventados)}. Un gate con un juez roto no verifica lo "
+                "que dice verificar: se sale con 1 en cualquier modo.", en_github)
         return 1
     return 0
+
+
+def main() -> int:
+    args = _argumentos()
+    solo = [x for x in re.split(r"[,\s]+", args.jueces) if x]
+
+    # Centinela en las salidas del job ANTES de correr nada: si este script muere
+    # a medias, el workflow no puede leer `bloqueantes=` vacio y tratarlo como 0.
+    # Se sobreescribe al terminar.
+    salida_gh = os.environ.get("GITHUB_OUTPUT")
+    if salida_gh:
+        with open(salida_gh, "a", encoding="utf-8") as fh:
+            fh.write("estado=no_corrio\nbloqueantes=-1\navisos=-1\nsupresiones=-1\n")
+    repo = Repo(args.repo)
+    en_github = os.environ.get("GITHUB_ACTIONS") == "true"
+
+    modulos = _modulos(args.perfil, solo, en_github)
+    if modulos is None:
+        return 1
+    resultados, reventados = _correr(modulos, repo, args.modo, en_github)
+    t = _totales(resultados)
+    _escribir(args, repo, resultados, t, salida_gh)
+    _imprimir_cierre(len(modulos), t, args.modo)
+    return _codigo_de_salida(args, t, reventados, en_github)
 
 
 if __name__ == "__main__":
