@@ -439,8 +439,11 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
 
     for h in resultado.hallazgos:
         color = _ROJO if h.severidad is Severidad.BLOQUEA else _AMARILLO
-        etiqueta = h.severidad.value if modo == "bloqueante" else "AVISA"
-        print(f"{color}  [{etiqueta}] {h.regla}  {h.ubicacion()}{_FIN}")
+        # La severidad REAL también en advisory. Hasta el 2026-11-21 todo salía
+        # `[AVISA]` en ese modo, y quien medía la distancia no veía qué lo detendría.
+        nota = " (no detiene en advisory)" if (
+            modo != "bloqueante" and h.severidad is Severidad.BLOQUEA) else ""
+        print(f"{color}  [{h.severidad.value}] {h.regla}  {h.ubicacion()}{nota}{_FIN}")
         print(f"           {h.mensaje}")
         print(f"           {_GRIS}en producción: {h.manifestacion}{_FIN}")
         if h.arreglo:

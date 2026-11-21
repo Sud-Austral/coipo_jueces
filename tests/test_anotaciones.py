@@ -56,6 +56,31 @@ class PruebaInformar(unittest.TestCase):
         self.assertIn("::error file=.env,line=1::[j09/G8-4]", self._salida("bloqueante"))
 
 
+class PruebaEtiquetaEnConsola(unittest.TestCase):
+    """La consola dice la severidad REAL, también en advisory.
+
+    Hasta el 2026-11-21 `informar` etiquetaba `[AVISA]` todo hallazgo en advisory,
+    BLOQUEA incluido: quien medía la distancia de su aplicación en advisory no veía
+    cuáles la detendrían el día que pasara a bloqueante."""
+
+    def _consola(self, modo: str) -> str:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            informar(_resultado_con_bloqueo(), modo=modo, en_github=False)
+        return buf.getvalue()
+
+    def test_advisory_muestra_bloquea_y_que_no_detiene(self):
+        salida = self._consola("advisory")
+        self.assertIn("[BLOQUEA] G8-4", salida)
+        self.assertIn("(no detiene en advisory)", salida)
+        self.assertNotIn("[AVISA] G8-4", salida)
+
+    def test_bloqueante_no_lleva_la_nota(self):
+        salida = self._consola("bloqueante")
+        self.assertIn("[BLOQUEA] G8-4", salida)
+        self.assertNotIn("no detiene", salida)
+
+
 class PruebaCorrerEnGithub(unittest.TestCase):
 
     def setUp(self):
