@@ -83,15 +83,19 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
         desplegable = any(repo.existe(n) for n in
                           ("docker-compose.yml", "docker-compose.yaml",
                            "compose.yml", "compose.yaml"))
-        anota = r.bloquea if desplegable else r.avisa
-        anota(
-            "G8-8", "", "no hay `.gitignore`",
-            "nada impide que el `.env` de desarrollo, un volcado de base de datos "
-            "o un directorio de datos acaben versionados de un `git add -A`"
-            + (". Y este repositorio tiene compose, así que en el servidor va a "
-               "existir un `.env` con credenciales de producción" if desplegable else ""),
-            arreglo="crear `.gitignore` con al menos `/.env` y `/data/`",
-        )
+        # Dos llamadas explícitas y no un alias (`anota = r.bloquea if ... else
+        # r.avisa`): `test_reglas_citadas` lee el código y la severidad de cada
+        # llamada en el AST, y un alias se los escondía (2026-11-21).
+        manifestacion = ("nada impide que el `.env` de desarrollo, un volcado de base de "
+                         "datos o un directorio de datos acaben versionados de un `git add -A`")
+        arreglo = "crear `.gitignore` con al menos `/.env` y `/data/`"
+        if desplegable:
+            r.bloquea("G8-8", "", "no hay `.gitignore`",
+                      manifestacion + ". Y este repositorio tiene compose, así que en el "
+                      "servidor va a existir un `.env` con credenciales de producción",
+                      arreglo=arreglo)
+        else:
+            r.avisa("G8-8", "", "no hay `.gitignore`", manifestacion, arreglo=arreglo)
         return
 
     entradas = _entradas_gitignore(repo)

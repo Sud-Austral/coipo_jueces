@@ -57,6 +57,7 @@ Este repositorio es público y por eso los **cita**, no los copia.
 | `FAB-9` | `j14` | en una aplicación con `frontend/package.json`, `docs/CONSTRUCCION.md` lleva `mirado:` con qué se miró de la interfaz (`npm run capturas`, `npm run comparar:maqueta`) y qué se vio: al menos 12 caracteres y sin `[PENDIENTE]`. **Sólo la forma**: las capturas no se versionan. Severidad **por fecha de siembra**: BLOQUEA si `fabrica:` es del 2026-11-13 o posterior —el día siguiente a su publicación: con el 12, dos aplicaciones sembradas ese mismo día pasaban a bloquear— y adopta `semilla`, AVISA si no | `AGENTS.md` de la fábrica, sección 4 («no por revisión, sino por ejecución») y la decisión de Luis Monsalve del 2026-11-12, tras `coipo_catastro_equipo`, cuyo frontend llegó al CI sin que nadie lo construyera ni lo mirara | BLOQUEA / AVISA |
 | `DK-3` | `j01` | ningún servicio del compose levanta un motor de base de datos | `DOCKER.md`, «La base de datos no está en el `docker-compose.yml`» | BLOQUEA |
 | `DK-4` | `j01` | hay `.dockerignore` en la raíz cuando se construye con `context: .`, y excluye `.env` | `DOCKER.md`, «conviene un `.dockerignore` en la raíz» | BLOQUEA / AVISA |
+| `DK-5` | `j11` | el `test:` del healthcheck de cada servicio del compose, si lleva una URL, apunta a `/health`. **Se emitía como `DOCKER-hc` hasta el 2026-11-21**: sin forma de código ni fila aquí, y `tests/test_reglas_citadas.py` no lo veía | `DOCKER.md`, «El `healthcheck` y el `/health` tienen que apuntar al mismo sitio» | AVISA |
 
 ## Reglas sin fuente escrita
 

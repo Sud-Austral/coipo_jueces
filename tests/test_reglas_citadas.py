@@ -17,6 +17,21 @@ La comprobación va en las DOS direcciones a propósito:
   - un código listado y no emitido es una regla fantasma, que hace parecer que
     el gate cubre algo que en realidad no mira. Es el mismo error que el
     incidente de COIPO_PDF_EXCEL, movido al nivel del catálogo.
+
+EL AGUJERO QUE TENÍA HASTA EL 2026-11-21. El extractor buscaba, entre los
+argumentos de cada llamada, el PRIMERO con forma de código (`^[A-Z0-9]+-[0-9]+$`) y
+se saltaba el resto. `j11` emitía `DOCKER-hc` —minúsculas, sin forma de código—, que
+no figuraba en `REGLAS.md`, y la prueba no lo veía: el código no casaba con la
+forma, así que el extractor no lo contaba ni como emitido ni como huérfano. Salía de
+verdad en dos aplicaciones. Y `j08` emitía `G8-8` a través de un alias
+(`anota = r.bloquea if desplegable else r.avisa`), que el extractor tampoco veía.
+
+Desde entonces se mira TODA llamada a `.bloquea(` / `.avisa(` de un juez: su primer
+argumento tiene que ser un literal —o una constante de módulo con un literal— con
+forma de código y presente en `REGLAS.md`; y un `.bloquea`/`.avisa` que no se llama
+en el sitio (un alias) o un `.anota(` directo es un fallo, porque esconden el
+código o la severidad a esta prueba. `PruebaDelExtractor` lo hace fallar a propósito
+con casos sintéticos: una prueba que no se ha visto fallar no es una prueba.
 """
 
 from __future__ import annotations
@@ -24,51 +39,119 @@ from __future__ import annotations
 import ast
 import re
 import unittest
+from dataclasses import dataclass
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 JUECES = RAIZ / "jueces"
 REGLAS = RAIZ / "REGLAS.md"
 
-CODIGO = re.compile(r"^[A-Z0-9]+-[0-9]+$")
-EN_TABLA = re.compile(r"^\|\s*`(?P<codigo>[A-Z0-9]+-[0-9]+)`\s*\|", re.MULTILINE)
+# La forma de un código: un prefijo de 2 a 4 caracteres que empieza por letra
+# (`G8`, `DK`, `SEM`, `COD`, `UI`...) y un número. `G8-4` lleva un dígito en el
+# prefijo: por eso no es `[A-Z]{2,4}`.
+FORMA = re.compile(r"^[A-Z][A-Z0-9]{1,3}-[0-9]+$")
+EN_TABLA = re.compile(r"^\|\s*`(?P<codigo>[A-Z][A-Z0-9]{1,3}-[0-9]+)`\s*\|", re.MULTILINE)
 
-# Se recorre el AST y no el texto. Un extractor por regex no ve
-# `r.bloquea(REGLA, ...)` —la forma que usa j09— y daria por no emitida una
-# regla que si bloquea: exactamente el falso verde que estas pruebas existen
-# para impedir.
-LLAMADAS = {"bloquea", "avisa", "suprimido"}
+EMISORES = frozenset({"bloquea", "avisa"})
+# `anota()` es el método común que hay debajo de los dos: llamarlo directo esconde
+# la severidad a `PruebaSeveridad`.
+OCULTOS = EMISORES | {"anota"}
+
+
+@dataclass(frozen=True)
+class Emision:
+    juez: str
+    linea: int
+    llamada: str  # `bloquea`, `avisa` o `suprimido`
+    codigo: str | None  # None si el argumento no es un literal
+    problema: str = ""
 
 
 def _constantes(arbol: ast.Module) -> dict[str, str]:
-    """Constantes de modulo con valor de texto: `REGLA = "G8-4"`."""
+    """Constantes de módulo con valor de texto: `REGLA = "G8-4"`."""
     salida: dict[str, str] = {}
     for nodo in arbol.body:
-        if isinstance(nodo, ast.Assign) and isinstance(nodo.value, ast.Constant)                 and isinstance(nodo.value.value, str):
+        if isinstance(nodo, ast.Assign) and isinstance(nodo.value, ast.Constant) \
+                and isinstance(nodo.value.value, str):
             for destino in nodo.targets:
                 if isinstance(destino, ast.Name):
                     salida[destino.id] = nodo.value.value
     return salida
 
 
-def codigos_emitidos() -> dict[str, set[str]]:
-    """codigo -> conjunto de jueces que lo emiten."""
-    salida: dict[str, set[str]] = {}
+def _literal(nodo: ast.AST | None, constantes: dict[str, str]) -> str | None:
+    if isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
+        return nodo.value
+    if isinstance(nodo, ast.Name):
+        return constantes.get(nodo.id)
+    return None
+
+
+def _argumento(llamada: ast.Call, posicion: int) -> ast.AST | None:
+    if len(llamada.args) > posicion:
+        return llamada.args[posicion]
+    return next((k.value for k in llamada.keywords if k.arg == "regla"), None)
+
+
+def _nombre(func: ast.AST) -> str | None:
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return func.id if isinstance(func, ast.Name) else None
+
+
+def emisiones_de(texto: str, juez: str) -> list[Emision]:
+    """Cada llamada que emite o suprime un código en el fuente de un juez."""
+    arbol = ast.parse(texto)
+    constantes = _constantes(arbol)
+    llamados = {id(n.func) for n in ast.walk(arbol) if isinstance(n, ast.Call)}
+    salida: list[Emision] = []
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Attribute) and nodo.attr in OCULTOS and id(nodo) not in llamados:
+            salida.append(Emision(juez, nodo.lineno, nodo.attr, None,
+                                  f"`.{nodo.attr}` usado sin llamarlo (un alias): el código y "
+                                  "la severidad quedan fuera del alcance de esta prueba"))
+        if not isinstance(nodo, ast.Call):
+            continue
+        nombre = _nombre(nodo.func)
+        if nombre == "anota" and isinstance(nodo.func, ast.Attribute):
+            salida.append(Emision(juez, nodo.lineno, nombre, None,
+                                  "`.anota(` directo: se emite con `bloquea()` o `avisa()`"))
+        elif nombre in EMISORES and isinstance(nodo.func, ast.Attribute):
+            salida.append(_emision(juez, nodo, nombre, _argumento(nodo, 0), constantes))
+        elif nombre == "suprimido":
+            # El código es el tercer argumento. Una variable (un auxiliar que recibe la
+            # regla) no es una emisión: suprime lo que otra llamada emite.
+            codigo = _literal(_argumento(nodo, 2), constantes)
+            if codigo is not None:
+                salida.append(_emision(juez, nodo, nombre, _argumento(nodo, 2), constantes))
+    return salida
+
+
+def _emision(juez: str, nodo: ast.Call, llamada: str, arg: ast.AST | None,
+             constantes: dict[str, str]) -> Emision:
+    codigo = _literal(arg, constantes)
+    if codigo is None:
+        return Emision(juez, nodo.lineno, llamada, None,
+                       "el código no es un literal ni una constante de módulo con uno")
+    if not FORMA.match(codigo):
+        return Emision(juez, nodo.lineno, llamada, codigo,
+                       f"`{codigo}` no tiene forma de código (`{FORMA.pattern}`)")
+    return Emision(juez, nodo.lineno, llamada, codigo)
+
+
+def emisiones() -> list[Emision]:
+    salida: list[Emision] = []
     for archivo in sorted(JUECES.glob("j*.py")):
-        arbol = ast.parse(archivo.read_text(encoding="utf-8"), filename=str(archivo))
-        constantes = _constantes(arbol)
-        for nodo in ast.walk(arbol):
-            if not isinstance(nodo, ast.Call):
-                continue
-            f = nodo.func
-            nombre = f.attr if isinstance(f, ast.Attribute) else                 f.id if isinstance(f, ast.Name) else None
-            if nombre not in LLAMADAS:
-                continue
-            for arg in nodo.args:
-                valor = arg.value if isinstance(arg, ast.Constant) else                     constantes.get(arg.id) if isinstance(arg, ast.Name) else None
-                if isinstance(valor, str) and CODIGO.match(valor):
-                    salida.setdefault(valor, set()).add(archivo.stem)
-                    break
+        salida += emisiones_de(archivo.read_text(encoding="utf-8"), archivo.stem)
+    return salida
+
+
+def codigos_emitidos() -> dict[str, set[str]]:
+    """codigo -> conjunto de jueces que lo EMITEN (con `bloquea` o `avisa`)."""
+    salida: dict[str, set[str]] = {}
+    for e in emisiones():
+        if e.codigo and e.llamada in EMISORES:
+            salida.setdefault(e.codigo, set()).add(e.juez)
     return salida
 
 
@@ -81,14 +164,21 @@ class PruebaTrazabilidad(unittest.TestCase):
         self.assertTrue(REGLAS.exists(), "falta REGLAS.md: sin él no hay forma de "
                                          "saber qué documento respalda cada regla")
 
+    def test_toda_emision_es_un_codigo_literal(self):
+        """Sin alias, sin `.anota(` directo y con un literal con forma de código."""
+        problemas = [f"{e.juez}:{e.linea} {e.problema}" for e in emisiones() if e.problema]
+        self.assertEqual([], problemas,
+                         "estas emisiones esconden su código o su severidad a esta prueba")
+
     def test_todo_codigo_emitido_esta_documentado(self):
-        emitidos, documentados = codigos_emitidos(), codigos_documentados()
-        self.assertTrue(emitidos, "ningún juez emite códigos: el extractor está roto")
-        huerfanos = {c: sorted(j) for c, j in emitidos.items() if c not in documentados}
+        documentados = codigos_documentados()
+        huerfanos = sorted(f"{e.juez}:{e.linea} {e.codigo}" for e in emisiones()
+                           if e.codigo and e.codigo not in documentados)
+        self.assertTrue(codigos_emitidos(), "ningún juez emite códigos: el extractor está roto")
         self.assertEqual(
-            {}, huerfanos,
-            f"estos códigos bloquean o avisan sin figurar en REGLAS.md, así que "
-            f"nadie puede saber qué documento los respalda: {huerfanos}")
+            [], huerfanos,
+            f"estos códigos bloquean, avisan o se suprimen sin figurar en REGLAS.md, así "
+            f"que nadie puede saber qué documento los respalda: {huerfanos}")
 
     def test_todo_codigo_documentado_se_emite(self):
         emitidos, documentados = codigos_emitidos(), codigos_documentados()
@@ -102,45 +192,55 @@ class PruebaTrazabilidad(unittest.TestCase):
         """La columna «Juez» de REGLAS.md no puede mentir sobre quién comprueba qué."""
         texto = REGLAS.read_text(encoding="utf-8")
         for codigo, jueces in sorted(codigos_emitidos().items()):
-            fila = next((l for l in texto.splitlines()
-                         if l.startswith(f"| `{codigo}`")), None)
+            fila = next((linea for linea in texto.splitlines()
+                         if linea.startswith(f"| `{codigo}`")), None)
             self.assertIsNotNone(fila, f"{codigo} sin fila en REGLAS.md")
-            cortos = {j.split("_")[0] for j in jueces}
-            for corto in cortos:
+            for corto in {j.split("_")[0] for j in jueces}:
                 self.assertIn(f"`{corto}`", fila,
                               f"{codigo} lo emite {corto}, pero su fila en REGLAS.md "
                               f"no lo nombra: {fila}")
 
 
+class PruebaDelExtractor(unittest.TestCase):
+    """El extractor tiene que ver los defectos que dice ver, sobre fuentes sintéticos."""
+
+    def _problemas(self, fuente: str) -> list[str]:
+        return [e.problema for e in emisiones_de(fuente, "jXX") if e.problema]
+
+    def test_un_codigo_sin_forma_es_un_problema(self):
+        self.assertTrue(self._problemas('def f(r):\n    r.avisa("DOCKER-hc", "", "m", "p")\n'))
+
+    def test_un_alias_es_un_problema(self):
+        fuente = ("def f(r, x):\n"
+                  "    anota = r.bloquea if x else r.avisa\n"
+                  '    anota("G8-8", "", "m", "p")\n')
+        self.assertEqual(2, len(self._problemas(fuente)), self._problemas(fuente))
+
+    def test_un_codigo_en_una_variable_es_un_problema(self):
+        self.assertTrue(self._problemas('def f(r, regla):\n    r.bloquea(regla, "", "m", "p")\n'))
+
+    def test_anota_directo_es_un_problema(self):
+        self.assertTrue(self._problemas('def f(r):\n    r.anota("G8-1", 1, "", "m", "p")\n'))
+
+    def test_un_literal_y_una_constante_valen(self):
+        fuente = ('REGLA = "G8-4"\n'
+                  "def f(r):\n"
+                  '    r.bloquea(REGLA, "", "m", "p")\n'
+                  '    r.avisa(regla="SEM-1", archivo="", mensaje="m", manifestacion="p")\n')
+        emitidas = emisiones_de(fuente, "jXX")
+        self.assertEqual([], [e.problema for e in emitidas if e.problema])
+        self.assertEqual({"G8-4", "SEM-1"}, {e.codigo for e in emitidas})
+
+
 SECCION_SIN_FUENTE = "## Reglas sin fuente escrita"
 
 
-def _emisiones():
-    """(código, juez, nombre de la llamada) para cada código emitido."""
-    for archivo in sorted(JUECES.glob("j*.py")):
-        arbol = ast.parse(archivo.read_text(encoding="utf-8"), filename=str(archivo))
-        constantes = _constantes(arbol)
-        for nodo in ast.walk(arbol):
-            if not isinstance(nodo, ast.Call):
-                continue
-            f = nodo.func
-            nombre = f.attr if isinstance(f, ast.Attribute) else (
-                f.id if isinstance(f, ast.Name) else None)
-            if nombre not in LLAMADAS:
-                continue
-            for arg in nodo.args:
-                valor = arg.value if isinstance(arg, ast.Constant) else (
-                    constantes.get(arg.id) if isinstance(arg, ast.Name) else None)
-                if isinstance(valor, str) and CODIGO.match(valor):
-                    yield valor, archivo.stem, nombre
-                    break
-
-
 def severidades_emitidas() -> dict[str, set[str]]:
-    """código -> con qué llamadas se emite: `bloquea`, `avisa`, `suprimido`."""
+    """código -> con qué llamadas se emite: `bloquea`, `avisa`."""
     salida: dict[str, set[str]] = {}
-    for codigo, _juez, llamada in _emisiones():
-        salida.setdefault(codigo, set()).add(llamada)
+    for e in emisiones():
+        if e.codigo and e.llamada in EMISORES:
+            salida.setdefault(e.codigo, set()).add(e.llamada)
     return salida
 
 

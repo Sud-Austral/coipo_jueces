@@ -26,7 +26,7 @@ QUÉ COMPRUEBA, Y DE DÓNDE SALE CADA REGLA
   4. Un `except` que devuelve sin cambiar el código.      Guía 8, punto 11
      `{"status": "error"}` con código 200 hace que el smoke test dé VERDE con la
      base caída.
-  5. El `test:` del healthcheck y el `/health` real       DOCKER.md
+  5. El `test:` del healthcheck y el `/health` real       DOCKER.md (`DK-5`)
      apuntan al mismo sitio. Hoy `coipo_cabania` lleva días `unhealthy` mientras
      su `/health` devuelve 200 (hallazgo H9): el contenedor queda marcado mal
      para siempre sin que nada se rompa, y ese `unhealthy` permanente esconderá
@@ -439,7 +439,7 @@ def comprobar_coherencia_healthcheck(repo: Repo, r: Resultado) -> None:
             camino = re.sub(r"^https?://[^/]+", "", url).split("?")[0].rstrip("/")
             if camino and camino != "/health":
                 r.avisa(
-                    "DOCKER-hc", ruta_compose,
+                    "DK-5", ruta_compose,
                     f"el healthcheck de `{nombre}` apunta a `{camino}`, no a `/health`",
                     "si el `test:` no mira donde el endpoint real, el contenedor queda "
                     "`unhealthy` para siempre sin que nada se rompa, y ese `unhealthy` "
