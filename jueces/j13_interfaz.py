@@ -75,6 +75,7 @@ from comun import (  # noqa: E402
     alcance_semilla,
     ejecutar,
     leer_maqueta,
+    leer_siembra,
     no_adopta,
     sin_indice,
     suprimido,
@@ -104,6 +105,14 @@ MARCADOR = ".semilla"
 # NO se sembro puede adoptar solo esta -- `adopta: interfaz` -- y entonces j12
 # se declara N/A sin que sus piezas propias salgan rojas. Ver comun.py.
 CAPA = "interfaz"
+
+# UI-3 SIN NINGÚN bloque de tema oscuro (hasta el 2026-11-21 eso era «no evaluado» y el
+# juez salía OK). Bloquea sólo en lo sembrado desde el día SIGUIENTE a su publicación y
+# avisa en lo anterior, como FAB-9: con BLOQUEA para todos, la calibración del
+# 2026-11-21 ponía rojo a `coipo_app`, que estaba verde, y una regla que cambia el
+# veredicto de lo que ya existe es mayor nueva (docs/VERSIONADO.md). FILOSOFIA.md §4
+# de la fábrica: toda regla nueva mira hacia adelante.
+VIGENCIA_SIN_TEMA = "2026-11-22"
 
 ES_CSS = re.compile(r"\.css$", re.IGNORECASE)
 ES_PRUEBA = re.compile(r"(^|/)(tests?|__tests__|spec|fixtures|node_modules|dist|build)(/|$)")
@@ -278,20 +287,21 @@ def _sin_tema_oscuro(repo: Repo, r: Resultado, textos: list[tuple[str, str]]) ->
         return
     muestra = ", ".join(f"`{t}`" for t in huerfanos[:5])
     cola = f" y {len(huerfanos) - 5} más" if len(huerfanos) > 5 else ""
-    r.bloquea(
-        "UI-3",
-        ruta,
-        "ninguna hoja declara el tema oscuro (`[data-theme=oscuro]` ni "
+    siembra = leer_siembra(repo.texto(MARCADOR), VIGENCIA_SIN_TEMA, CAPA)
+    datos = dict(
+        archivo=ruta,
+        mensaje="ninguna hoja declara el tema oscuro (`[data-theme=oscuro]` ni "
         "`prefers-color-scheme: dark`)"
         + (
             f": {len(huerfanos)} token(es) de color de texto, borde o foco se quedan con "
             f"su valor claro: {muestra}{cola}"
             if huerfanos
             else ": el estándar pide los dos temas"
-        ),
-        "con el sistema en oscuro la aplicación no cambia: sus colores se quedan en el "
-        "valor claro, y si el HTML declara `color-scheme: light dark` —como el de la "
-        "semilla— los controles nativos del navegador sí pasan a oscuro y quedan "
+        )
+        + f" ({siembra.contexto(CAPA, MARCADOR)})",
+        manifestacion="con el sistema en oscuro la aplicación no cambia: sus colores se "
+        "quedan en el valor claro, y si el HTML declara `color-scheme: light dark` —como el "
+        "de la semilla— los controles nativos del navegador sí pasan a oscuro y quedan "
         "mezclados con superficies claras. El botón de tema, si lo hay, no hace nada",
         linea=linea,
         arreglo="un bloque `[data-theme='oscuro']` (y `@media (prefers-color-scheme: dark)` "
@@ -299,6 +309,10 @@ def _sin_tema_oscuro(repo: Repo, r: Resultado, textos: list[tuple[str, str]]) ->
         "paso que alcance 4,5:1 en texto y 3:1 en borde y foco (UI-3), como "
         "`frontend/src/estilos/interfaz.css` de la semilla",
     )
+    if siembra.nuevo:
+        r.bloquea("UI-3", **datos)  # type: ignore[arg-type]
+    else:
+        r.avisa("UI-3", **datos)  # type: ignore[arg-type]
 
 
 def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]]) -> None:

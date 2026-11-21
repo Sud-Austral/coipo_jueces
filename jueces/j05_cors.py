@@ -29,11 +29,11 @@ CALIBRACIÓN INVERSA (medida el 2026-09-05)
                           `.env.example` trae un dominio real.
   coipo_prensa2        -> NO_APLICA: no usa CORS (mismo origen).
   COIPO_ENTREGA_PLANTA -> NO_APLICA: no usa CORS (mismo origen).
-  COIPO_USUARIOS       -> ROJO por los dos defectos a la vez: `backend/main.py`
-                          cablea `allow_origins=["*"]` mientras
-                          `core/config.py` define `cors_origins_list`, que no
-                          usa nadie. Y es el IAM: el servicio del que dependen
-                          las demás aplicaciones de la flota.
+  una aplicación       -> ROJO por los dos defectos a la vez: su `main.py`
+                          cablea `allow_origins=["*"]` mientras su configuración
+                          define una lista de orígenes que no usa nadie. (Sin
+                          nombre desde el 2026-11-21: este repositorio es
+                          público, y la calibración no necesita decir cuál.)
 """
 
 from __future__ import annotations

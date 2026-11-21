@@ -159,12 +159,16 @@ class PruebaTemaOscuro(ConSemilla):
             "un token usado sólo de fondo no exige redefinición",
         )
 
-    def test_sin_tema_oscuro_bloquea(self):
+    # Sembrado con la regla «sin tema oscuro» ya vigente (j13.VIGENCIA_SIN_TEMA).
+    SEMILLA_NUEVA = "version: 2026-11-22\nfabrica: 2026-11-22\nadopta: semilla, interfaz\n"
+
+    def test_sin_tema_oscuro_bloquea_en_lo_sembrado_desde_la_vigencia(self):
         """UI-3: todo token de texto, borde o foco «se redefine en los dos temas».
 
         Hasta el 2026-11-21 esto salía como «no evaluado» y el juez daba OK —cero de
         cero— en un repositorio que declara adoptar `interfaz`. Ahora es un hallazgo
         con la severidad de UI-3, y nombra los tokens que se quedan claros."""
+        self.repo.escribe(".semilla", self.SEMILLA_NUEVA)
         self.repo.escribe(
             "src/estilos.css", ":root { --verde: #064928; }\n.t { color: var(--verde); }\n"
         )
@@ -176,8 +180,30 @@ class PruebaTemaOscuro(ConSemilla):
 
     def test_sin_tema_oscuro_y_sin_tokens_tambien_bloquea(self):
         """Sin tokens no hay nada que redefinir, pero tampoco hay segundo tema."""
+        self.repo.escribe(".semilla", self.SEMILLA_NUEVA)
         self.repo.escribe("src/estilos.css", ".t { color: #111; }\n")
         self.assertRegla("UI-3", "BLOQUEA", "tema oscuro")
+
+    def test_sin_tema_oscuro_solo_avisa_en_lo_sembrado_antes(self):
+        """Mira hacia adelante (FILOSOFIA.md §4): con BLOQUEA para todos, la calibración
+        del 2026-11-21 ponía rojo a un repositorio que estaba verde (sembrado el
+        2026-10-14), y eso es una mayor nueva."""
+        self.repo.escribe(
+            ".semilla", "version: 2026-10-14\nfabrica: 2026-10-14\nadopta: semilla, interfaz\n"
+        )
+        self.repo.escribe(
+            "src/estilos.css", ":root { --verde: #064928; }\n.t { color: var(--verde); }\n"
+        )
+        r = self.repo.juzga()
+        self.assertRegla("UI-3", "AVISA", "antes de la regla", r)
+        self.assertEqual([], r.bloqueantes)
+
+    def test_sin_tema_oscuro_sin_fecha_de_siembra_solo_avisa(self):
+        """`adopta: interfaz` sin `fabrica:` (un repositorio alineado, no sembrado)."""
+        self.repo.escribe(
+            "src/estilos.css", ":root { --verde: #064928; }\n.t { color: var(--verde); }\n"
+        )
+        self.assertRegla("UI-3", "AVISA", "tema oscuro")
 
     def test_sin_tema_oscuro_se_suprime_con_motivo(self):
         self.repo.escribe(

@@ -32,8 +32,9 @@ CALIBRACIÓN INVERSA (medida el 2026-09-05, sobre `git ls-files`)
   el caso de j09       -> ROJO doble: `data/` SIN anclar, y `.env` versionado
                           pese a figurar en el `.gitignore` —porque
                           `.gitignore` no se aplica a lo que ya está trackeado.
-  COIPO_DIRECTORIO     -> ROJO: versiona `frontend/.env`, que desde agosto de
-                          2026 llega al servidor.
+  otra aplicación      -> ROJO: versiona `frontend/.env`, que desde agosto de
+                          2026 llega al servidor. (Sin nombre desde el 2026-11-21:
+                          este repositorio es público.)
   coipo_seguimiento_madera y coipo_vista_catastro -> AVISO: versionan archivos
                           dentro del `data/` de la raíz, que el rsync excluye:
                           esos archivos NO existen en el servidor.
