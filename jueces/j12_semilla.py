@@ -482,6 +482,44 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         _retirada(r, ruta, hasta)
 
     _maqueta(repo, r)
+    _paquetes_sistema(repo, r)
+
+
+PAQUETES = "backend/paquetes-sistema.txt"
+_COMPILADOR = re.compile(r"^(gcc|g\+\+|make|build-essential|.+-dev)$")
+_MANIFESTACION_PAQ = (
+    "un paquete de sistema sin motivo no lo retira nadie y la imagen crece en cada "
+    "aplicación; un compilador en la imagen de producción es superficie de ataque y "
+    "builds de minutos")
+
+
+def _paquetes_sistema(repo: Repo, r: Resultado) -> None:
+    """SEM-2: la lista apt que lee el `backend/Dockerfile` sellado (desde el 2026-11-20).
+
+    Cada línea lleva su motivo y ninguna instala un compilador. AVISA, no bloquea
+    (AGENTS.md §5): la regla es nueva y la lista es de la aplicación.
+    """
+    texto = repo.texto(PAQUETES)
+    if texto is None:
+        return
+    lineas = texto.splitlines()
+    r.comprobo(f"SEM-2: {PAQUETES}")
+    for n, linea in enumerate(lineas, start=1):
+        datos, _, motivo = linea.partition("#")
+        for paquete in datos.split():
+            if _COMPILADOR.match(paquete):
+                r.avisa("SEM-2", PAQUETES,
+                        f"línea {n}: `{paquete}` es para compilar, no para ejecutar",
+                        _MANIFESTACION_PAQ,
+                        arreglo="usar la versión de la dependencia que trae rueda "
+                                "precompilada; si de verdad hay que compilar, en una "
+                                "etapa de build aparte, llevada a la semilla")
+        if datos.strip() and len(motivo.strip()) < 12:
+            r.avisa("SEM-2", PAQUETES,
+                    f"línea {n}: `{datos.strip()}` sin motivo (o de menos de 12 caracteres)",
+                    _MANIFESTACION_PAQ,
+                    arreglo="escribir en la misma línea qué dependencia lo exige: "
+                            "`libexpat1  # rasterio 1.5.2 la carga al importar`")
 
 
 PROCEDENCIA = "maqueta/PROCEDENCIA.md"

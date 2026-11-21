@@ -13,7 +13,7 @@
 #
 # 45 archivos.
 
-d9573931f2b44f20deba53988044f4be9941d4ed40d910d85f8af7a8ef1ce572  backend/Dockerfile
+5edbbf55eb9d84dcd607f40584734a313ec9615dccc9760063a0f8255b8dd7ea  backend/Dockerfile
 1f3aefd7b9591c92e31f1f9fc585996439b5ffb944412bf4729aa6fcf4410005  backend/app/adaptadores/entrada/http/guards.py
 90d3bcf9fb35def075147189eea220b106cac2fe8f7d09b9a549bc9880c51095  backend/app/adaptadores/entrada/http/sesion.py
 74e4d3f53cb46cf0a3476527ea184e42d029ce874bcc539365ae13012ba5f03e  backend/app/adaptadores/salida/iam/cliente_iam.py
