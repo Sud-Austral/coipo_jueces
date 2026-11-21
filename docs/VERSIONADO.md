@@ -626,9 +626,15 @@ La versión nueva:
 Se probó con los dos runners. **0 `BLOQUEA` nuevos:** la pieza anterior queda en el historial,
 así que una app que la tenga sólo recibe un aviso de atrasada.
 
-### Sin publicar (en `main` local, sin tag)
+### `v2.0.20`, 2026-11-21 — el gate que no miente, la auditoría siempre (`AUD-1`), el Zen (`COD-5`) y el lock con la auditoría
 
-Lo que hay en `main` después de `v2.0.19` y todavía no tiene tag. **Ningún tag se movió.**
+Autorizada por Luis Monsalve el 2026-11-21: en el plan aprobado ese día («Publicación, al
+final y en este orden») y, con el radio de abajo a la vista, al elegir que `j12` avisara antes
+de publicar. **Reversión:** antes de este tag `v2` apuntaba a
+`26301b98ef588b84e41bcd43c70e8c5b4dc0ca91` (`v2.0.19`). El tag se crea sólo con `Autotest` en
+verde sobre su commit, en GitHub (`docs/publicar-los-jueces.md` de la fábrica).
+
+Lo que entra, después de `v2.0.19`:
 
 Commits anteriores a esta tanda:
 
@@ -690,9 +696,38 @@ sembrarlas), +11 `SEM-4`, +2 `NG-1` en una aplicación (nombre literal con `reso
 y `DOCKER-hc` → `DK-5` en dos repositorios (3 avisos). Los refactores del
 motor y de ruff se comprobaron aparte: la misma salida, JSON y consola, en los 90.
 
-Antes de publicar, además de lo de arriba: `semilla.lock` se resella en su propio paso
-(cambió `verificar.yml`), y el run de `Autotest` tiene que salir verde con los pasos
-nuevos de actionlint y ruff, que sólo se han ejecutado en local.
+Después de medir ese radio entraron:
+
+- `2b9f201` — ERS: `docs/ERS.md` es la fuente y `documentacion/ERS.docx` se genera.
+- `af329f8` — `ruff.toml`: la copia al día con el sellado (`[lint.isort]`), y la fábrica la
+  compara desde ese día (`herramientas/coherencia.py ruff-de-los-jueces`).
+- `7c9180c` — `j14`: el docstring apunta a donde viven hoy la lógica y la prueba de paridad.
+- `dd6b779` — **`j12`: una ruta recién sellada no es una pieza editada.** Una pieza que ningún
+  bloque del historial nombra es nueva en el lock vigente: AVISA en lo sembrado antes del día
+  siguiente al último `vigente_hasta` (o sin `fabrica:`), BLOQUEA en lo sembrado después, y
+  sin historial BLOQUEA como siempre. Seis pruebas nuevas y tres mutaciones vistas en rojo.
+- `565f1ff` — `semilla.lock` resellado desde `semilla/CONGELADO/` de la fábrica en `5296662`:
+  **45 → 54 piezas** (la auditoría siempre, el `ruff.toml` del Zen y lo demás de la tanda); el
+  lock anterior entra al historial (18 bloques).
+- y este commit: esta entrada y el ERS al día con la publicación.
+
+**Radio del lock**, `flota/consumidores.py --lock-candidato` de la fábrica contra la
+organización (2026-11-21; 104 repositorios con el prefijo leídos): 32 consumidores del gate
+(2 en `bloqueante`), 20 aplicaciones que `j12` juzga. Con el lock nuevo, antes del cambio de
+`j12`, **5** quedaban con un `SEM-1 BLOQUEA`, y 4 de ellas por la misma razón: tenían un
+archivo PROPIO en una ruta que el lock sellaba por primera vez (`middleware_acceso.py` y
+`backend/ruff.toml` en una, `postgres/auditor.py` en otra, y `rutas/autenticacion.py` —su
+login con el IAM— en dos). Con `dd6b779`: **2** con `SEM-1 BLOQUEA`, las dos por piezas que
+YA estaban selladas en `v2` y ya bloqueaban (una pieza de pruebas editada en una aplicación
+y un `Dockerfile` editado en otra, que su rama `uat` corrige); 18 sólo avisan (atrasadas, o
+las 5 rutas propias); **frenarían el despliegue: 0** (las dos van en `advisory`). Ningún
+`BLOQUEA` nuevo. Las aplicaciones no se nombran aquí, que es público: van en el informe de la
+tanda, en la fábrica.
+
+Verificado en local antes del tag: la suite (449 pruebas, OK), el autojuicio (0 bloqueantes),
+`ruff check`/`ruff format --check` y `actionlint` 1.7.12 sobre los tres workflows (visto en
+rojo con un `${{ }}` vacío); en la fábrica, una siembra nueva juzgada en `bloqueante` con este
+lock sale con 0 bloqueantes y 0 avisos (con el `CONSTRUCCION.md` de prueba de su CI).
 
 ### Migrar a una mayor nueva
 
