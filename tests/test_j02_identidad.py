@@ -49,17 +49,24 @@ class PruebaNombre(unittest.TestCase):
 
     def test_mayusculas_bloquea(self):
         r = self._juzga("COIPO_ENTREGA_PLANTA")
-        self.assertTrue([h for h in r.bloqueantes if h.regla == "G8-1" and "mayúsculas" in h.mensaje],
-                        [(h.regla, h.mensaje) for h in r.bloqueantes])
+        self.assertTrue(
+            [h for h in r.bloqueantes if h.regla == "G8-1" and "mayúsculas" in h.mensaje],
+            [(h.regla, h.mensaje) for h in r.bloqueantes],
+        )
 
     def test_un_caracter_fuera_de_la_lista_bloquea(self):
         """En minúsculas pero con un punto, o empezando por guion: la otra rama de G8-1."""
         for nombre in ("coipo.prensa", "-coipo_prensa"):
             with self.subTest(nombre=nombre):
                 r = self._juzga(nombre)
-                self.assertTrue([h for h in r.bloqueantes if h.regla == "G8-1"
-                                 and "sale de [a-z0-9_-]" in h.mensaje],
-                                [(h.regla, h.mensaje) for h in r.bloqueantes])
+                self.assertTrue(
+                    [
+                        h
+                        for h in r.bloqueantes
+                        if h.regla == "G8-1" and "sale de [a-z0-9_-]" in h.mensaje
+                    ],
+                    [(h.regla, h.mensaje) for h in r.bloqueantes],
+                )
 
     def test_el_arreglo_trae_el_nombre_ya_en_minusculas(self):
         """Un arreglo que hay que traducir a mano es un arreglo que no se aplica."""
@@ -82,14 +89,18 @@ class PruebaPuerto(CasoConRepo):
         self.assertSinBloqueos()
 
     def test_puerto_cableado_bloquea(self):
-        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
-            '"${APP_PORT:-8080}:8000"', '"8113:8000"'))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_CORRECTO.replace('"${APP_PORT:-8080}:8000"', '"8113:8000"'),
+        )
         self.assertRegla("G8-2", "BLOQUEA", "cablea el puerto 8113")
 
     def test_otra_variable_bloquea(self):
         """El bootstrap y el smoke test usan APP_PORT; publicar por otra no sirve."""
-        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
-            "${APP_PORT:-8080}", "${PUERTO_WEB:-8080}"))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_CORRECTO.replace("${APP_PORT:-8080}", "${PUERTO_WEB:-8080}"),
+        )
         self.assertRegla("G8-2", "BLOQUEA", "no es `APP_PORT`")
 
     def test_la_unicidad_se_declara_no_evaluada(self):
@@ -101,8 +112,7 @@ class PruebaPuerto(CasoConRepo):
         """
         self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO)
         r = self.repo.juzga()
-        self.assertTrue(any("unicidad de APP_PORT" in n for n in r.no_evaluado),
-                        r.no_evaluado)
+        self.assertTrue(any("unicidad de APP_PORT" in n for n in r.no_evaluado), r.no_evaluado)
 
     def test_env_example_con_8080_no_es_hallazgo(self):
         """El caso que tumbó la primera versión de esta regla.
@@ -125,25 +135,35 @@ class PruebaPuerto(CasoConRepo):
 
     def test_la_linea_de_la_semilla_pasa(self):
         """La forma que siembra la fábrica: IP de escucha y guarda `:?` con mensaje."""
-        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
-            '"${APP_PORT:-8080}:8000"', LINEA_DE_LA_SEMILLA))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_CORRECTO.replace('"${APP_PORT:-8080}:8000"', LINEA_DE_LA_SEMILLA),
+        )
         self.assertSinRegla("G8-2")
 
     def test_otra_variable_bloquea_aunque_su_mensaje_diga_app_port(self):
         """El mensaje de la guarda no es la variable: `${PUERTO:?defina APP_PORT}` es PUERTO."""
-        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
-            '"${APP_PORT:-8080}:8000"', '"127.0.0.1:${PUERTO:?defina APP_PORT}:8000"'))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_CORRECTO.replace(
+                '"${APP_PORT:-8080}:8000"', '"127.0.0.1:${PUERTO:?defina APP_PORT}:8000"'
+            ),
+        )
         h = self.assertRegla("G8-2", "BLOQUEA", "no es `APP_PORT`")
         self.assertIn("${PUERTO:?defina APP_PORT}", h.mensaje)
 
     def test_otra_variable_con_ip_sigue_bloqueando(self):
-        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
-            '"${APP_PORT:-8080}:8000"', '"127.0.0.1:${OTRA}:8000"'))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_CORRECTO.replace('"${APP_PORT:-8080}:8000"', '"127.0.0.1:${OTRA}:8000"'),
+        )
         self.assertRegla("G8-2", "BLOQUEA", "no es `APP_PORT`")
 
     def test_puerto_cableado_con_protocolo_bloquea(self):
-        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
-            '"${APP_PORT:-8080}:8000"', '"127.0.0.1:8113:8000/tcp"'))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_CORRECTO.replace('"${APP_PORT:-8080}:8000"', '"127.0.0.1:8113:8000/tcp"'),
+        )
         self.assertRegla("G8-2", "BLOQUEA", "cablea el puerto 8113")
 
 
@@ -160,8 +180,10 @@ class PruebaLadoHost(unittest.TestCase):
     que ni se juzgaba— y `${PUERTO:?defina APP_PORT}` pasaba igual."""
 
     def test_la_linea_de_la_semilla_se_lee_entera(self):
-        self.assertEqual("${APP_PORT:?falta APP_PORT en el .env del servidor}",
-                         j02._lado_host(LINEA_DE_LA_SEMILLA))
+        self.assertEqual(
+            "${APP_PORT:?falta APP_PORT en el .env del servidor}",
+            j02._lado_host(LINEA_DE_LA_SEMILLA),
+        )
 
     def test_la_variable_es_el_nombre_y_no_el_mensaje(self):
         self.assertEqual("PUERTO", j02._variable("${PUERTO:?defina APP_PORT}"))

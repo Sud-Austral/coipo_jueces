@@ -85,7 +85,6 @@ class PruebaEjemplo(CasoConRepo):
         self._base(ENV_BUENO + "DATABASE_URL=postgresql://a:b@c/d\n")
         self.assertBloquea("`DATABASE_URL` como variable de entorno")
 
-
     def test_un_repo_que_no_despliega_no_necesita_env_example(self):
         """`coipo_jueces` y `coipo_master_produccion` no son aplicaciones.
 
@@ -120,14 +119,18 @@ class PruebaGrafiaDeSesion(CasoConRepo):
         lee con el nombre con que se escribe. El agujero aparece cuando conviven
         las dos y alguien escribe la que no toca.
         """
-        self._con(ENV_BUENO.replace("SESSION_SECRET", "SESION_SECRET")
-                           .replace("SESSION_HTTPS_ONLY", "SESION_HTTPS_ONLY"))
+        self._con(
+            ENV_BUENO.replace("SESSION_SECRET", "SESION_SECRET").replace(
+                "SESSION_HTTPS_ONLY", "SESION_HTTPS_ONLY"
+            )
+        )
         self.assertSinBloqueos()
 
     def test_se_puede_suprimir_con_motivo(self):
-        self._con(ENV_BUENO
-                  + "# coipo-jueces:ignorar(G8-6) convención heredada, migra en el trimestre\n"
-                    "SESION_HTTPS_ONLY=false\n")
+        self._con(
+            ENV_BUENO + "# coipo-jueces:ignorar(G8-6) convención heredada, migra en el trimestre\n"
+            "SESION_HTTPS_ONLY=false\n"
+        )
         r = self.repo.juzga()
         self.assertSinBloqueos(r)
         self.assertEqual(1, len(r.supresiones))
@@ -176,8 +179,11 @@ class PruebaVersiones(CasoConRepo):
 
     def test_ningun_workflow_fija_la_version_avisa(self):
         """La rama sin `python-version` ni `node-version` en ningún workflow."""
-        self._con(DOCKERFILE, "name: ci\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n"
-                              "    steps:\n      - run: python3 -m pytest\n")
+        self._con(
+            DOCKERFILE,
+            "name: ci\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n"
+            "    steps:\n      - run: python3 -m pytest\n",
+        )
         r = self.repo.juzga()
         self.assertRegla("CI-1", "AVISA", "ningún workflow fija la versión", r)
         self.assertSinBloqueos(r)
@@ -192,8 +198,9 @@ class PruebaDelPropioJuez(unittest.TestCase):
             repo.escribe(".env.example", ENV_BUENO + "SESION_HTTPS_ONLY=false\n")
             repo.escribe("backend/Dockerfile", DOCKERFILE)
             repo.escribe(".github/workflows/ci.yml", CI)
-            self.assertTrue(repo.juzga().bloqueantes,
-                            "el juez dejó pasar las dos grafías conviviendo")
+            self.assertTrue(
+                repo.juzga().bloqueantes, "el juez dejó pasar las dos grafías conviviendo"
+            )
         finally:
             repo.cierra()
 
@@ -233,9 +240,7 @@ APP_PORT=8080
 
     def setUp(self):
         super().setUp()
-        self.repo.escribe(
-            "docker-compose.yml",
-            "services:\n  app:\n    build:\n      context: .\n")
+        self.repo.escribe("docker-compose.yml", "services:\n  app:\n    build:\n      context: .\n")
         self.repo.escribe(".env.example", self.ENV_EXAMPLE)
         self.repo.escribe(".github/workflows/ci.yml", self.WORKFLOW)
 
@@ -243,8 +248,8 @@ APP_PORT=8080
         self.repo.escribe("backend/Dockerfile", "FROM python:3.14-slim\n")
         r = self.repo.juzga()
         self.assertEqual(
-            [], [h for h in r.hallazgos if h.regla == "CI-1"],
-            [h.mensaje for h in r.hallazgos])
+            [], [h for h in r.hallazgos if h.regla == "CI-1"], [h.mensaje for h in r.hallazgos]
+        )
 
     def test_version_por_variable_divergente_si_avisa(self):
         """La indirección no puede convertirse en un escondite.

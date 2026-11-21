@@ -47,8 +47,7 @@ class PruebaGitignore(CasoConRepo):
         self.repo.escribe("frontend/src/data/comunas.json", "[]\n")
         r = self.repo.juzga()
         manifestaciones = [h.manifestacion for h in r.bloqueantes]
-        self.assertTrue(any("frontend/src/data" in m for m in manifestaciones),
-                        manifestaciones)
+        self.assertTrue(any("frontend/src/data" in m for m in manifestaciones), manifestaciones)
 
     def test_env_no_ignorado_bloquea(self):
         self.repo.escribe(".gitignore", "node_modules/\n")

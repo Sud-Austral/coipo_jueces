@@ -120,8 +120,11 @@ def leer_clave(texto: str | None, nombre: str) -> Clave | None:
     porque `#` no es espacio en blanco."""
     if not texto:
         return None
-    m = re.search(rf"^(?P<sangria>[ \t]*){re.escape(nombre)}[ \t]*:[ \t]*(?P<resto>[^\r\n]*)",
-                  texto, re.MULTILINE)
+    m = re.search(
+        rf"^(?P<sangria>[ \t]*){re.escape(nombre)}[ \t]*:[ \t]*(?P<resto>[^\r\n]*)",
+        texto,
+        re.MULTILINE,
+    )
     if not m:
         return None
     numero = texto[: m.start()].count("\n") + 1
@@ -134,7 +137,7 @@ def leer_clave(texto: str | None, nombre: str) -> Clave | None:
     sangria = len(m.group("sangria").expandtabs())
     items: list[str] = []
     hasta = numero
-    for n, linea in enumerate(texto[m.end():].splitlines()[1:], start=numero + 1):
+    for n, linea in enumerate(texto[m.end() :].splitlines()[1:], start=numero + 1):
         if not linea.strip() or linea.lstrip().startswith("#"):
             continue
         item = _ITEM.match(linea)
@@ -204,22 +207,28 @@ class Adopcion:
         if self.hasta and self.hasta != self.numero:
             # La lista en bloque ocupa varias líneas: se cita normalizada y con el rango.
             capas = ", ".join(sorted(self.declarado))
-            texto = (f"`{marcador}:{self.numero}-{self.hasta}` declara «adopta: [{capas}]» "
-                     f"({self.forma})")
+            texto = (
+                f"`{marcador}:{self.numero}-{self.hasta}` declara «adopta: [{capas}]» "
+                f"({self.forma})"
+            )
         else:
             # En una línea se cita LITERAL: se lee quién se apagó y con qué texto.
             texto = f"`{marcador}:{self.numero}` declara «{(self.linea or '').strip()}»"
         if self.desconocidas:
-            texto += (f" — capa desconocida: {', '.join(f'`{c}`' for c in sorted(self.desconocidas))}"
-                      f"; las que existen son {', '.join(f'`{c}`' for c in sorted(CAPAS_CONOCIDAS))}")
+            texto += (
+                f" — capa desconocida: {', '.join(f'`{c}`' for c in sorted(self.desconocidas))}"
+                f"; las que existen son {', '.join(f'`{c}`' for c in sorted(CAPAS_CONOCIDAS))}"
+            )
         return texto
 
     def motivo_vacia(self, marcador: str = ".semilla") -> str:
         """El `no_evaluado` de una `adopta:` vacía: el mismo texto en los cuatro jueces."""
-        return (f"`{marcador}:{self.numero}` declara «{(self.linea or '').strip()}» y la lista "
-                "está VACÍA: no declara ninguna capa. Este juez no dictamina con una "
-                "declaración rota. O se quita la clave (= adopta todo) o se listan las "
-                "capas: `adopta: semilla, interfaz`.")
+        return (
+            f"`{marcador}:{self.numero}` declara «{(self.linea or '').strip()}» y la lista "
+            "está VACÍA: no declara ninguna capa. Este juez no dictamina con una "
+            "declaración rota. O se quita la clave (= adopta todo) o se listan las "
+            "capas: `adopta: semilla, interfaz`."
+        )
 
 
 def leer_adopcion(texto: str | None) -> Adopcion:
@@ -231,8 +240,13 @@ def leer_adopcion(texto: str | None) -> Adopcion:
         return Adopcion(None)
     crudo = clave.valor
     if crudo:
-        forma = ("lista en línea YAML" if crudo.startswith("[")
-                 else "entre comillas" if crudo[0] in "\"'" else "en línea")
+        forma = (
+            "lista en línea YAML"
+            if crudo.startswith("[")
+            else "entre comillas"
+            if crudo[0] in "\"'"
+            else "en línea"
+        )
         return Adopcion(frozenset(_capas(crudo)), clave.numero, clave.linea, forma)
     capas = [c for item in clave.items for c in _capas(item)]
     forma = "lista en bloque YAML" if clave.hasta != clave.numero else "sin capas"
@@ -335,5 +349,3 @@ def leer_maqueta(texto: str | None) -> tuple[int, str] | None:
     clave = leer_clave(texto, "maqueta")
     valor = _sin_comillas(clave.valor).split() if clave else []
     return (clave.numero, valor[0]) if clave and valor else None
-
-

@@ -62,15 +62,17 @@ PROTOCOLO = re.compile(r"/(?:tcp|udp|sctp)$", re.IGNORECASE)
 # nombre es lo que va ANTES del modificador; el mensaje de una guarda no es la variable.
 # El resto, hasta la última llave, puede llevar otra variable anidada como valor por
 # defecto: `${APP_PORT:-${PUERTO_PUBLICADO:-3000}}` (coipo_meteodmc) publica APP_PORT.
-VARIABLE = re.compile(r"^\$(?:\{(?P<llaves>[A-Za-z_][A-Za-z0-9_]*)(?:[:?\-+=].*)?\}"
-                      r"|(?P<suelta>[A-Za-z_][A-Za-z0-9_]*))$")
+VARIABLE = re.compile(
+    r"^\$(?:\{(?P<llaves>[A-Za-z_][A-Za-z0-9_]*)(?:[:?\-+=].*)?\}"
+    r"|(?P<suelta>[A-Za-z_][A-Za-z0-9_]*))$"
+)
 
 
 def _trozos(spec: str) -> list[str]:
     """`spec` partido por los `:` que NO están dentro de `${...}` ni de `[...]` (IPv6)."""
     trozos, actual, profundidad = [], [], 0
     for i, ch in enumerate(spec):
-        if ch in "{[" and (ch == "[" or spec[i - 1:i] == "$"):
+        if ch in "{[" and (ch == "[" or spec[i - 1 : i] == "$"):
             profundidad += 1
         elif ch in "}]" and profundidad:
             profundidad -= 1
@@ -116,21 +118,24 @@ def comprobar_nombre(repo: Repo, r: Resultado) -> None:
 
     if nombre != nombre.lower():
         r.bloquea(
-            "G8-1", "", f"el repositorio se llama `{nombre}`, con mayúsculas",
+            "G8-1",
+            "",
+            f"el repositorio se llama `{nombre}`, con mayúsculas",
             "el workflow arma la ruta `/opt/apps/<nombre-del-repo>/` con este "
             "nombre tal cual, así que la carpeta del servidor queda en mayúsculas. "
             "Si el repositorio ya desplegó alguna vez, renombrarlo después deja la "
             "carpeta vieja huérfana en la VM y el `rsync --delete` empieza a "
             "sincronizar contra una ruta nueva y vacía",
             arreglo=f"`gh repo rename {nombre.lower()} --repo <org>/{nombre}` ANTES "
-                    f"del primer push a main. Si ya desplegó, hay que renombrar "
-                    f"también la carpeta en la VM, y eso no se hace sin avisar: "
-                    f"confirmar el nombre final con el responsable primero "
-                    f"(Guía 8, punto 1)",
+            f"del primer push a main. Si ya desplegó, hay que renombrar "
+            f"también la carpeta en la VM, y eso no se hace sin avisar: "
+            f"confirmar el nombre final con el responsable primero "
+            f"(Guía 8, punto 1)",
         )
     elif not NOMBRE_VALIDO.match(nombre):
         r.bloquea(
-            "G8-1", "",
+            "G8-1",
+            "",
             f"el nombre `{nombre}` sale de [a-z0-9_-] o no empieza por letra o dígito",
             "se usa como nombre de carpeta y como parte de nombres de contenedor; "
             "un carácter raro rompe el despliegue en un punto que no dice por qué",
@@ -158,7 +163,7 @@ def comprobar_puerto(repo: Repo, r: Resultado) -> None:
         for nombre, s in servicios.items():
             if not isinstance(s, dict):
                 continue
-            for p in (s.get("ports") or []):
+            for p in s.get("ports") or []:
                 host = _lado_host(p)
                 if host:
                     _juzgar_publicacion(r, ruta, texto, nombre, host)
@@ -180,15 +185,15 @@ def comprobar_puerto(repo: Repo, r: Resultado) -> None:
     )
 
 
-def _juzgar_publicacion(r: Resultado, ruta: str, texto: str,
-                        servicio: str, host: str) -> None:
+def _juzgar_publicacion(r: Resultado, ruta: str, texto: str, servicio: str, host: str) -> None:
     # `${APP_PORT:-8080}` es la forma correcta: el valor real lo pone el `.env`
     # del servidor y el default solo sirve para levantar en local. Se compara el
     # NOMBRE de la variable, no el texto: `${PUERTO:?defina APP_PORT}` es PUERTO.
     if "$" in host:
         if _variable(host) != "APP_PORT":
             r.bloquea(
-                "G8-2", ruta,
+                "G8-2",
+                ruta,
                 f"el servicio `{servicio}` publica `{host}`, que no es `APP_PORT`",
                 "el bootstrap del servidor y el smoke test del despliegue usan "
                 "`APP_PORT`; publicar por otra variable significa que el "
@@ -203,11 +208,12 @@ def _juzgar_publicacion(r: Resultado, ruta: str, texto: str,
         return
 
     n = numero_de_linea(texto, host) or 1
-    if (motivo := suprimido(texto.splitlines(), n - 1, "G8-2")):
+    if motivo := suprimido(texto.splitlines(), n - 1, "G8-2"):
         r.supresiones.append(f"{ruta}:{n} puerto cableado — {motivo}")
         return
     r.bloquea(
-        "G8-2", ruta,
+        "G8-2",
+        ruta,
         f"el servicio `{servicio}` cablea el puerto {host} en el compose",
         "el puerto deja de venir del `.env` del servidor, así que reasignarlo exige "
         "editar y desplegar el repositorio. Y si dos apps cablean el mismo número, "
@@ -215,7 +221,7 @@ def _juzgar_publicacion(r: Resultado, ruta: str, texto: str,
         "despliegue parece correcto estando roto",
         linea=n,
         arreglo='publicar `"${APP_PORT:-8080}:8000"` y fijar el número real en el '
-                '`.env` del servidor (Guía 8, punto 2)',
+        "`.env` del servidor (Guía 8, punto 2)",
     )
 
 
@@ -225,5 +231,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
 
 if __name__ == "__main__":
-    ejecutar("j02", "identidad del despliegue: nombre del repositorio y APP_PORT "
-                    "(Guía 8, puntos 1 y 2)", comprobar)
+    ejecutar(
+        "j02",
+        "identidad del despliegue: nombre del repositorio y APP_PORT (Guía 8, puntos 1 y 2)",
+        comprobar,
+    )

@@ -111,36 +111,59 @@ CAPA = "semilla"
 TECHO = 1000
 AVISO = 800
 
-EXTENSIONES_DE_CODIGO = frozenset({
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".css", ".scss",
-    ".html", ".vue", ".svelte", ".sql", ".sh",
-})
+EXTENSIONES_DE_CODIGO = frozenset(
+    {
+        ".py",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".css",
+        ".scss",
+        ".html",
+        ".vue",
+        ".svelte",
+        ".sql",
+        ".sh",
+    }
+)
 # Lo generado o de terceros no lo escribió nadie de la flota: partirlo no se puede.
 GENERADO = re.compile(r"(^|/)(node_modules|dist|build|vendor|\.venv|venv|coverage)(/|$)|\.min\.")
 
 # ── COD-3 ─────────────────────────────────────────────────────────────────────
 IMPORT_JS = re.compile(
-    r"""(?:\bimport\b[^'"`;]*?\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"]+)['"]""")
+    r"""(?:\bimport\b[^'"`;]*?\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"]+)['"]"""
+)
 # La interfaz (React, hojas de estilo) y, para un dominio que corre en Node —el
 # colector de `coipo_prensa2`—, la red, la base de datos y el sistema: los módulos
 # de Node que hablan con afuera y los clientes de red y de base más comunes.
 PROHIBIDO_JS_MODULO = re.compile(
     r"^(react|react-dom)(/|$)|\.css$"
     r"|^(node:)?(fs|fs/promises|http|https|http2|net|tls|dgram|child_process)$"
-    r"|^(pg|mysql2?|mongodb|axios|node-fetch|undici)(/|$)")
+    r"|^(pg|mysql2?|mongodb|axios|node-fetch|undici)(/|$)"
+)
 # Las capas de afuera, con los nombres de la semilla (`aplicacion/`, `adaptadores/`,
 # `componentes/`, `vistas/`, `estilos/`) y el genérico `interfaz/`.
-PROHIBIDO_JS_CAPA = re.compile(r"(^|/)(aplicacion|adaptadores|componentes|vistas|estilos|interfaz)(/|$)")
+PROHIBIDO_JS_CAPA = re.compile(
+    r"(^|/)(aplicacion|adaptadores|componentes|vistas|estilos|interfaz)(/|$)"
+)
 # El lookbehind descarta `puerto.fetch(` o `noticia.document.x`: un método de un
 # puerto inyectado no es la red, y una propiedad que se llama `document` no es el DOM.
 PROHIBIDO_JS_USO = re.compile(
-    r"(?<![\w$.])(fetch\s*\(|window\.|document\.|localStorage\b|sessionStorage\b|process\.env\b)")
-IMPORT_PY = re.compile(r"^[ \t]*(?:from[ \t]+([\w.]+)[ \t]+import|import[ \t]+([\w.]+))", re.MULTILINE)
+    r"(?<![\w$.])(fetch\s*\(|window\.|document\.|localStorage\b|sessionStorage\b|process\.env\b)"
+)
+IMPORT_PY = re.compile(
+    r"^[ \t]*(?:from[ \t]+([\w.]+)[ \t]+import|import[ \t]+([\w.]+))", re.MULTILINE
+)
 # Python: la lista del dominio de `backend/tests/arquitectura/test_capas.py`, pieza
 # CONGELADA de la semilla, en lo que ya miraba este juez más `os` («en el dominio,
 # `os.environ` sería una regla de negocio que depende del entorno, y una regla que
 # cambia con una variable no se puede probar», dice esa prueba).
-PROHIBIDO_PY = re.compile(r"^(fastapi|starlette|sqlalchemy|httpx|requests|psycopg2?|asyncpg|os)(\.|$)")
+PROHIBIDO_PY = re.compile(
+    r"^(fastapi|starlette|sqlalchemy|httpx|requests|psycopg2?|asyncpg|os)(\.|$)"
+)
 # Y las capas de afuera por NOMBRE DE SEGMENTO, no por paquete: el colector de una
 # aplicación no se llama `app` (`colector.adaptadores`), y un import relativo
 # (`from ..adaptadores import x`) no lleva paquete.
@@ -153,8 +176,22 @@ EXT_PY = frozenset({".py"})
 EXT_JS = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"})
 DOMINIOS_PROPIOS = ("frontend/src/dominio", "backend/app/dominio")
 # Una carpeta `dominio/` dentro de pruebas, fixtures o lo generado no es un dominio.
-NO_ES_DOMINIO = frozenset({"tests", "test", "__tests__", "spec", "fixtures", "node_modules",
-                           "dist", "build", "vendor", ".venv", "venv", "coverage"})
+NO_ES_DOMINIO = frozenset(
+    {
+        "tests",
+        "test",
+        "__tests__",
+        "spec",
+        "fixtures",
+        "node_modules",
+        "dist",
+        "build",
+        "vendor",
+        ".venv",
+        "venv",
+        "coverage",
+    }
+)
 
 
 def _lineas_de(repo: Repo, ruta: str) -> int | None:
@@ -172,7 +209,7 @@ def _suprimido_en_cabecera(repo: Repo, ruta: str, regla: str) -> str | None:
     ocupan la primera y no admiten comentario."""
     lineas = repo.lineas(ruta)[:3]
     for i in range(len(lineas)):
-        if (motivo := suprimido(lineas, i, regla)):
+        if motivo := suprimido(lineas, i, regla):
             return motivo
     return None
 
@@ -196,8 +233,9 @@ def _linea_de(texto: str, posicion: int) -> int:
 DE_LA_MAQUETA = ("maqueta/", "frontend/src/maqueta/")
 
 
-def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
-            excluidos: tuple[str, ...] = ()) -> None:
+def _tamano(
+    repo: Repo, r: Resultado, nuevo: bool, contexto: str, excluidos: tuple[str, ...] = ()
+) -> None:
     medidos = 0
     for ruta in repo.versionados():
         if PurePosixPath(ruta).suffix.lower() not in EXTENSIONES_DE_CODIGO or GENERADO.search(ruta):
@@ -211,7 +249,7 @@ def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
         medidos += 1
         if n <= AVISO:
             continue
-        if (motivo := _suprimido_en_cabecera(repo, ruta, COD_1)):
+        if motivo := _suprimido_en_cabecera(repo, ruta, COD_1):
             r.supresiones.append(f"{ruta} ({n} líneas) — {motivo}")
             continue
         datos = dict(
@@ -219,12 +257,14 @@ def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
             manifestacion=(
                 "un asistente no lee entero un archivo de este tamaño: lo lee a trozos, "
                 "edita lo que vio y rompe lo que no vio. Y una persona que hereda la "
-                "aplicación no sabe por dónde empezar"),
+                "aplicación no sabe por dónde empezar"
+            ),
             arreglo=(
                 "partirlo por responsabilidad, no por número de línea: los estilos por "
                 "componente, el SQL por tema en archivos ordenados, las pruebas por lo que "
                 "prueban. Si de verdad no se puede, `coipo-jueces:ignorar(COD-1) <motivo>` "
-                "en una de sus tres primeras líneas: se cuenta y se publica"),
+                "en una de sus tres primeras líneas: se cuenta y se publica"
+            ),
         )
         if n > TECHO:
             mensaje = f"{n} líneas: pasa el techo de {TECHO} ({contexto})"
@@ -233,25 +273,36 @@ def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
             else:
                 r.avisa(COD_1, mensaje=mensaje, **datos)
         else:
-            r.avisa(COD_1, mensaje=f"{n} líneas: pasa de {AVISO}; conviene partirlo antes de {TECHO}",
-                    **datos)
+            r.avisa(
+                COD_1,
+                mensaje=f"{n} líneas: pasa de {AVISO}; conviene partirlo antes de {TECHO}",
+                **datos,
+            )
     r.comprobo(f"COD-1: tamaño de {medidos} archivo(s) de código versionados")
 
 
 # ── COD-2 ─────────────────────────────────────────────────────────────────────
 
-def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
-                excluidos: tuple[str, ...] = ()) -> None:
+
+def _typescript(
+    repo: Repo, r: Resultado, nuevo: bool, contexto: str, excluidos: tuple[str, ...] = ()
+) -> None:
     if not repo.existe("frontend/package.json"):
         # N/A y no una comprobación (hasta el 2026-11-21 contaba como hecha).
         r.no_corresponde("COD-2: no hay `frontend/package.json`; no hay frontend que juzgar")
         return
     versionados = repo.versionados()
     versionados = [p for p in versionados if not (excluidos and p.startswith(excluidos))]
-    js = [p for p in versionados
-          if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".js", ".jsx")]
-    ts = [p for p in versionados
-          if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".ts", ".tsx")]
+    js = [
+        p
+        for p in versionados
+        if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".js", ".jsx")
+    ]
+    ts = [
+        p
+        for p in versionados
+        if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".ts", ".tsx")
+    ]
     _sin_typescript(r, nuevo, contexto, js)
     _sin_estricto(repo, r, nuevo, contexto, versionados)
     r.comprobo(f"COD-2: {len(ts)} archivo(s) TypeScript y {len(js)} JavaScript en `frontend/src/`")
@@ -259,17 +310,21 @@ def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
 
 def _sin_typescript(r: Resultado, nuevo: bool, contexto: str, js: list[str]) -> None:
     if js:
-        muestra = ", ".join(f"`{p}`" for p in js[:5]) + (f" y {len(js) - 5} más" if len(js) > 5 else "")
+        muestra = ", ".join(f"`{p}`" for p in js[:5]) + (
+            f" y {len(js) - 5} más" if len(js) > 5 else ""
+        )
         datos = dict(
             archivo=js[0],
             mensaje=f"{len(js)} archivo(s) JavaScript en `frontend/src/` ({contexto}): {muestra}",
             manifestacion=(
                 "sin tipos, la forma de los datos se adivina: un campo que el backend "
                 "renombra llega como `undefined` y la pantalla muestra un vacío en vez de "
-                "un error, sin que nada lo detecte antes de producción"),
+                "un error, sin que nada lo detecte antes de producción"
+            ),
             arreglo=(
                 "renombrar a `.ts`/`.tsx` y tiparlo; `tsc --noEmit` en el CI lo hace "
-                "cumplir. La semilla desde el 2026-10-24 ya viene así"),
+                "cumplir. La semilla desde el 2026-10-24 ya viene así"
+            ),
         )
         if nuevo:
             r.bloquea(COD_2, **datos)
@@ -277,19 +332,20 @@ def _sin_typescript(r: Resultado, nuevo: bool, contexto: str, js: list[str]) -> 
             r.avisa(COD_2, **datos)
 
 
-def _sin_estricto(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
-                  versionados: list[str]) -> None:
+def _sin_estricto(
+    repo: Repo, r: Resultado, nuevo: bool, contexto: str, versionados: list[str]
+) -> None:
     configuraciones = [p for p in versionados if re.fullmatch(r"frontend/tsconfig[\w.-]*\.json", p)]
     estricto = any(re.search(r'"strict"\s*:\s*true', repo.texto(p) or "") for p in configuraciones)
     if not estricto:
         datos = dict(
             archivo=configuraciones[0] if configuraciones else "frontend/tsconfig.json",
-            mensaje=("no hay `frontend/tsconfig*.json` con `\"strict\": true`"
-                     f" ({contexto})"),
+            mensaje=(f'no hay `frontend/tsconfig*.json` con `"strict": true` ({contexto})'),
             manifestacion=(
                 "TypeScript sin `strict` deja pasar `null` y `any` implícitos: compila "
-                "verde y falla igual que JavaScript en la pantalla de la persona"),
-            arreglo="un `frontend/tsconfig.json` con `\"strict\": true`, como el de la semilla",
+                "verde y falla igual que JavaScript en la pantalla de la persona"
+            ),
+            arreglo='un `frontend/tsconfig.json` con `"strict": true`, como el de la semilla',
         )
         if nuevo:
             r.bloquea(COD_2, **datos)
@@ -302,22 +358,28 @@ def _sin_estricto(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
 _MANIFESTACION_CAPAS = (
     "el dominio es lo que la aplicación sabe hacer. Si conoce la interfaz, la red o la "
     "base de datos, cambiar cualquiera obliga a reescribirlo, y probarlo exige levantar "
-    "un navegador o una base: las pruebas se vuelven lentas y se dejan de correr")
+    "un navegador o una base: las pruebas se vuelven lentas y se dejan de correr"
+)
 
 
 def _capas_frontend(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> None:
     if not repo.existe("frontend/package.json"):
         return
-    dominio = [p for p in repo.versionados()
-               if p.startswith("frontend/src/dominio/")
-               and PurePosixPath(p).suffix.lower() in (".ts", ".tsx", ".js", ".jsx")]
+    dominio = [
+        p
+        for p in repo.versionados()
+        if p.startswith("frontend/src/dominio/")
+        and PurePosixPath(p).suffix.lower() in (".ts", ".tsx", ".js", ".jsx")
+    ]
     if not dominio:
         datos = dict(
             archivo="frontend/src/dominio/",
             mensaje=f"el frontend no tiene `src/dominio/` ({contexto})",
             manifestacion=_MANIFESTACION_CAPAS,
-            arreglo=("separar en `src/dominio/` (puro), `src/puertos/`, `src/adaptadores/` "
-                     "y `src/interfaz/`, como la semilla desde el 2026-10-24"),
+            arreglo=(
+                "separar en `src/dominio/` (puro), `src/puertos/`, `src/adaptadores/` "
+                "y `src/interfaz/`, como la semilla desde el 2026-10-24"
+            ),
         )
         if nuevo:
             r.bloquea(COD_3, **datos)
@@ -328,7 +390,9 @@ def _capas_frontend(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> Non
 
     for ruta in dominio:
         _anotar_capas(repo, r, nuevo, ruta, _motivos_js(repo.texto(ruta) or ""))
-    r.comprobo(f"COD-3: {len(dominio)} archivo(s) de `frontend/src/dominio/` sin interfaz, red ni navegador")
+    r.comprobo(
+        f"COD-3: {len(dominio)} archivo(s) de `frontend/src/dominio/` sin interfaz, red ni navegador"
+    )
 
 
 def _motivos_js(crudo: str) -> list[tuple[int, str]]:
@@ -362,9 +426,11 @@ def _motivos_py(texto: str) -> list[tuple[int, str]]:
     try:
         arbol = ast.parse(texto)
     except (SyntaxError, ValueError):
-        return [(_linea_de(texto, m.start()), f"importa `{m.group(1) or m.group(2)}`")
-                for m in IMPORT_PY.finditer(texto)
-                if _importa_py_prohibido(m.group(1) or m.group(2), 0)]
+        return [
+            (_linea_de(texto, m.start()), f"importa `{m.group(1) or m.group(2)}`")
+            for m in IMPORT_PY.finditer(texto)
+            if _importa_py_prohibido(m.group(1) or m.group(2), 0)
+        ]
     motivos: list[tuple[int, str]] = []
     for nodo in ast.walk(arbol):
         if isinstance(nodo, ast.Import):
@@ -381,12 +447,16 @@ def _motivos_py(texto: str) -> list[tuple[int, str]]:
 
 
 def _capas_backend(repo: Repo, r: Resultado, nuevo: bool) -> None:
-    dominio = [p for p in repo.versionados() if p.startswith("backend/app/dominio/") and p.endswith(".py")]
+    dominio = [
+        p for p in repo.versionados() if p.startswith("backend/app/dominio/") and p.endswith(".py")
+    ]
     if not dominio:
         return
     for ruta in dominio:
         _anotar_capas(repo, r, nuevo, ruta, _motivos_py(repo.texto(ruta) or ""))
-    r.comprobo(f"COD-3: {len(dominio)} archivo(s) de `backend/app/dominio/` sin framework ni base de datos")
+    r.comprobo(
+        f"COD-3: {len(dominio)} archivo(s) de `backend/app/dominio/` sin framework ni base de datos"
+    )
 
 
 def _dominios_hermanos(versionados: list[str]) -> dict[str, list[str]]:
@@ -402,7 +472,7 @@ def _dominios_hermanos(versionados: list[str]) -> dict[str, list[str]]:
         if "dominio" not in partes[:-1]:
             continue
         i = partes.index("dominio")
-        raiz = "/".join(partes[:i + 1])
+        raiz = "/".join(partes[: i + 1])
         if raiz in DOMINIOS_PROPIOS or any(p in NO_ES_DOMINIO for p in partes[:i]):
             continue
         hermanos.setdefault(raiz, []).append(ruta)
@@ -419,30 +489,38 @@ def _capas_hermanos(repo: Repo, r: Resultado, nuevo: bool) -> None:
     hermanos = _dominios_hermanos(repo.versionados())
     if not hermanos:
         # N/A y no una comprobación (hasta el 2026-11-21 contaba como hecha).
-        r.no_corresponde("COD-3: ningún otro `dominio/` versionado fuera de `backend/app/` y "
-                         "`frontend/src/`")
+        r.no_corresponde(
+            "COD-3: ningún otro `dominio/` versionado fuera de `backend/app/` y `frontend/src/`"
+        )
         return
     for raiz, rutas in sorted(hermanos.items()):
         for ruta in rutas:
             texto = repo.texto(ruta) or ""
             es_py = PurePosixPath(ruta).suffix.lower() in EXT_PY
             _anotar_capas(repo, r, nuevo, ruta, _motivos_py(texto) if es_py else _motivos_js(texto))
-        r.comprobo(f"COD-3: {len(rutas)} archivo(s) de `{raiz}/` sin interfaz, red ni base de datos")
+        r.comprobo(
+            f"COD-3: {len(rutas)} archivo(s) de `{raiz}/` sin interfaz, red ni base de datos"
+        )
 
 
-def _anotar_capas(repo: Repo, r: Resultado, nuevo: bool, ruta: str, motivos: list[tuple[int, str]]) -> None:
+def _anotar_capas(
+    repo: Repo, r: Resultado, nuevo: bool, ruta: str, motivos: list[tuple[int, str]]
+) -> None:
     lineas = repo.lineas(ruta)
     for linea, motivo in motivos:
-        if (razon := suprimido(lineas, linea - 1, COD_3)):
+        if razon := suprimido(lineas, linea - 1, COD_3):
             r.supresiones.append(f"{ruta}:{linea} {motivo} — {razon}")
             continue
         datos = dict(
-            archivo=ruta, linea=linea,
+            archivo=ruta,
+            linea=linea,
             mensaje=f"el dominio {motivo}",
             manifestacion=_MANIFESTACION_CAPAS,
-            arreglo=("declarar lo que el dominio necesita como un puerto (`puertos/`) y "
-                     "darle la implementación desde un adaptador; el dominio recibe datos, "
-                     "no los va a buscar"),
+            arreglo=(
+                "declarar lo que el dominio necesita como un puerto (`puertos/`) y "
+                "darle la implementación desde un adaptador; el dominio recibe datos, "
+                "no los va a buscar"
+            ),
         )
         if nuevo:
             r.bloquea(COD_3, **datos)
@@ -474,30 +552,45 @@ PRUEBA = re.compile(r"(^|/)tests?/.*\.py$|\.(test|spec)\.tsx?$")
 
 def _casos_probados(repo: Repo, r: Resultado, excluidos: tuple[str, ...] = ()) -> None:
     versionados = [v for v in repo.versionados() if not (excluidos and v.startswith(excluidos))]
-    casos = [(v, m.group(1)) for v in versionados
-             if (m := CASO_PY.match(v) or CASO_TS.match(v)) and not PRUEBA.search(v)]
+    casos = [
+        (v, m.group(1))
+        for v in versionados
+        if (m := CASO_PY.match(v) or CASO_TS.match(v)) and not PRUEBA.search(v)
+    ]
     if not casos:
         # N/A y no una comprobación (hasta el 2026-11-21 contaba como hecha).
-        r.no_corresponde("COD-4: no hay casos de uso en `app/aplicacion/casos/` ni en "
-                         "`frontend/src/aplicacion/`")
+        r.no_corresponde(
+            "COD-4: no hay casos de uso en `app/aplicacion/casos/` ni en `frontend/src/aplicacion/`"
+        )
         return
     pruebas = "\n".join(repo.texto(v) or "" for v in versionados if PRUEBA.search(v))
-    sin_prueba = [(v, nombre) for v, nombre in casos
-                  if not re.search(rf"\b{re.escape(nombre)}\b", pruebas)]
+    sin_prueba = [
+        (v, nombre) for v, nombre in casos if not re.search(rf"\b{re.escape(nombre)}\b", pruebas)
+    ]
     for ruta, nombre in sin_prueba:
-        r.avisa(COD_4, archivo=ruta,
-                mensaje=f"ninguna prueba versionada nombra el caso de uso `{nombre}`",
-                manifestacion=("la regla de negocio del caso de uso (quién puede, sobre qué "
-                               "ámbito, qué se confirma) cambia sin que nada se ponga rojo; "
-                               "el primer aviso es un usuario que ve o escribe lo que no debía"),
-                arreglo=("una prueba de la capa `aplicacion` contra dobles en memoria de sus "
-                         "puertos, sin MagicMock: el molde es "
-                         "`backend/tests/aplicacion/test_rechazar_tramite.py` de la semilla"))
-    r.comprobo(f"COD-4: {len(casos)} caso(s) de uso, {len(casos) - len(sin_prueba)} "
-               "nombrado(s) por alguna prueba versionada")
+        r.avisa(
+            COD_4,
+            archivo=ruta,
+            mensaje=f"ninguna prueba versionada nombra el caso de uso `{nombre}`",
+            manifestacion=(
+                "la regla de negocio del caso de uso (quién puede, sobre qué "
+                "ámbito, qué se confirma) cambia sin que nada se ponga rojo; "
+                "el primer aviso es un usuario que ve o escribe lo que no debía"
+            ),
+            arreglo=(
+                "una prueba de la capa `aplicacion` contra dobles en memoria de sus "
+                "puertos, sin MagicMock: el molde es "
+                "`backend/tests/aplicacion/test_rechazar_tramite.py` de la semilla"
+            ),
+        )
+    r.comprobo(
+        f"COD-4: {len(casos)} caso(s) de uso, {len(casos) - len(sin_prueba)} "
+        "nombrado(s) por alguna prueba versionada"
+    )
 
 
 # ── Entrada ───────────────────────────────────────────────────────────────────
+
 
 def comprobar(repo: Repo, r: Resultado) -> None:
     # Este juez mide lo VERSIONADO. Con el índice ilegible mediría cero archivos y
@@ -505,10 +598,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     if sin_indice(repo, r):
         return
     alcance = alcance_semilla(
-        repo, r,
+        repo,
+        r,
         f"no hay `{MARCADOR}`: el repositorio no declara seguir un estándar de la "
         "flota. Lo que existía antes de la fábrica no se juzga con sus reglas "
-        "nuevas (FILOSOFIA.md, §3).")
+        "nuevas (FILOSOFIA.md, §3).",
+    )
     if alcance is None:
         return
     marcador, adopcion = alcance
@@ -520,7 +615,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         r.supresiones.append(
             f"{MARCADOR} declara no adoptar `{CAPA}` — {adopcion.cita(MARCADOR)}: COD-1..3 "
             f"bajan de BLOQUEA a AVISA en un repositorio sembrado el {siembra.fecha}. Es "
-            "legítimo sólo si el repositorio NO se sembró con la semilla.")
+            "legítimo sólo si el repositorio NO se sembró con la semilla."
+        )
 
     # Lo que no es código de la aplicación: la maqueta validada (sin supresión) y lo que
     # `.semilla` declara `ajeno:` (cada carpeta, una supresión publicada). Ver comun_semilla.

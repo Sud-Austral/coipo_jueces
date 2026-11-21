@@ -85,9 +85,11 @@ class PruebaCompose(CasoConRepo):
         self.assertRegla("G8-7", "BLOQUEA", "`version:`")
 
     def test_dos_servicios_con_puerto_bloquean(self):
-        self._base(COMPOSE_BUENO.replace(
-            "    env_file: .env\n",
-            '    env_file: .env\n    ports:\n      - "9000:8000"\n'))
+        self._base(
+            COMPOSE_BUENO.replace(
+                "    env_file: .env\n", '    env_file: .env\n    ports:\n      - "9000:8000"\n'
+            )
+        )
         self.assertRegla("G8-7", "BLOQUEA", "publican puerto")
 
     def test_ningun_puerto_bloquea(self):
@@ -96,14 +98,17 @@ class PruebaCompose(CasoConRepo):
         self.assertRegla("G8-7", "BLOQUEA", "ningún servicio publica un puerto")
 
     def test_base_de_datos_en_el_compose_bloquea(self):
-        self._base(COMPOSE_BUENO + """
+        self._base(
+            COMPOSE_BUENO
+            + """
   db:
     image: postgres:17-alpine
     restart: unless-stopped
     mem_limit: 1g
     healthcheck:
       test: ["CMD", "true"]
-""")
+"""
+        )
         self.assertRegla("DK-3", "BLOQUEA", "motor de base de datos")
 
     def test_compose_ausente_no_se_declara_limpio(self):
@@ -121,8 +126,7 @@ class PruebaCompose(CasoConRepo):
         """
         # Hasta el 2026-10-25 el ejemplo era un escalar en bloque (`command: |`),
         # que desde ese día se entiende; una etiqueta (`!reset`) sigue sin entenderse.
-        self.repo.escribe("docker-compose.yml",
-                          "services:\n  backend:\n    ports: !reset []\n")
+        self.repo.escribe("docker-compose.yml", "services:\n  backend:\n    ports: !reset []\n")
         r = self.repo.juzga()
         self.assertEqual([], r.bloqueantes)
         self.assertTrue(any("no se pudo verificar" in n for n in r.no_evaluado))
@@ -137,9 +141,11 @@ services:
       - "8080:8000"
 """)
         r = self.repo.juzga()
-        for codigo, fragmento in (("G8-7", "no tiene healthcheck"),
-                                  ("OPS-1", "no declara `mem_limit`"),
-                                  ("G8-7", "no declara `restart:`")):
+        for codigo, fragmento in (
+            ("G8-7", "no tiene healthcheck"),
+            ("OPS-1", "no declara `mem_limit`"),
+            ("G8-7", "no declara `restart:`"),
+        ):
             with self.subTest(fragmento=fragmento):
                 self.assertRegla(codigo, "AVISA", fragmento, r)
 
@@ -183,11 +189,16 @@ class PruebaContextoDeBuild(CasoConRepo):
     def test_sin_dockerignore_y_sin_contexto_raiz_avisa(self):
         """La rama AVISA de DK-4: hoy nada viaja de más, pero el primer `context: .`
         que alguien añada lo hará sin avisar."""
-        self.repo.escribe("docker-compose.yml", COMPOSE_BUENO.replace(
-            "      context: .\n      dockerfile: backend/Dockerfile\n",
-            "      context: ./backend\n").replace(
-            "      context: .\n      dockerfile: frontend/Dockerfile\n",
-            "      context: ./frontend\n"))
+        self.repo.escribe(
+            "docker-compose.yml",
+            COMPOSE_BUENO.replace(
+                "      context: .\n      dockerfile: backend/Dockerfile\n",
+                "      context: ./backend\n",
+            ).replace(
+                "      context: .\n      dockerfile: frontend/Dockerfile\n",
+                "      context: ./frontend\n",
+            ),
+        )
         self.repo.escribe("frontend/nginx.conf", NGINX_BUENO)
         r = self.repo.juzga()
         self.assertRegla("DK-4", "AVISA", "no hay `.dockerignore` en la raíz", r)
@@ -195,7 +206,9 @@ class PruebaContextoDeBuild(CasoConRepo):
 
     def test_sin_builds_no_se_exige_dockerignore(self):
         """Un encuadre operativo que solo usa `image:` no tiene contexto que proteger."""
-        self.repo.escribe("docker-compose.yml", """\
+        self.repo.escribe(
+            "docker-compose.yml",
+            """\
 services:
   app:
     image: nginx:1.27-alpine
@@ -203,7 +216,8 @@ services:
       - "8125:8000"
     mem_limit: 128m
     restart: unless-stopped
-""")
+""",
+        )
         self.assertSinBloqueos()
 
 
@@ -237,8 +251,11 @@ class PruebaNginxInterno(CasoConRepo):
     def test_nombre_literal_con_resolver_sigue_avisando(self):
         """`resolver` sólo actúa sobre un upstream en variable: con un nombre literal
         nginx lo resuelve una vez al arrancar, haya o no `resolver` en el bloque."""
-        self._con_nginx(NGINX_LITERAL.replace(
-            "    listen 8000;\n", "    listen 8000;\n    resolver 127.0.0.11 valid=10s;\n"))
+        self._con_nginx(
+            NGINX_LITERAL.replace(
+                "    listen 8000;\n", "    listen 8000;\n    resolver 127.0.0.11 valid=10s;\n"
+            )
+        )
         self.assertRegla("NG-1", "AVISA", "`backend`")
 
     def test_proxy_pass_a_ip_no_bloquea(self):
@@ -258,10 +275,13 @@ server {
         self.assertSinRegla("NG-1")
 
     def test_se_puede_suprimir_con_motivo(self):
-        self._con_nginx(NGINX_LITERAL.replace(
-            "        proxy_pass http://backend:8000/api/;",
-            "        # coipo-jueces:ignorar(NG-1) upstream fijo por decisión de red\n"
-            "        proxy_pass http://backend:8000/api/;"))
+        self._con_nginx(
+            NGINX_LITERAL.replace(
+                "        proxy_pass http://backend:8000/api/;",
+                "        # coipo-jueces:ignorar(NG-1) upstream fijo por decisión de red\n"
+                "        proxy_pass http://backend:8000/api/;",
+            )
+        )
         r = self.repo.juzga()
         self.assertSinRegla("NG-1", r)
         self.assertEqual(1, len(r.supresiones))
@@ -278,8 +298,10 @@ class PruebaDelPropioJuez(unittest.TestCase):
             repo.escribe("docker-compose.yml", COMPOSE_BUENO)
             repo.escribe(".dockerignore", ".git\n.env\n")
             repo.escribe("frontend/nginx.conf", NGINX_LITERAL)
-            self.assertTrue([h for h in repo.juzga().hallazgos if h.regla == "NG-1"],
-                            "el juez dejó pasar un proxy_pass literal sin resolver")
+            self.assertTrue(
+                [h for h in repo.juzga().hallazgos if h.regla == "NG-1"],
+                "el juez dejó pasar un proxy_pass literal sin resolver",
+            )
         finally:
             repo.cierra()
 

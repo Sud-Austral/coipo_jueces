@@ -54,8 +54,11 @@ class PruebaVeredicto(unittest.TestCase):
             repo.escribe("README.md", "# no soy una app\n")
             r = repo.juzga()
             self.assertEqual([], r.hallazgos)
-            self.assertEqual("SIN_EVALUAR", r.veredicto,
-                             "cero hallazgos sin comprobar nada se leería como conforme")
+            self.assertEqual(
+                "SIN_EVALUAR",
+                r.veredicto,
+                "cero hallazgos sin comprobar nada se leería como conforme",
+            )
             self.assertTrue(r.no_evaluado)
         finally:
             repo.cierra()
@@ -78,9 +81,19 @@ class PruebaCodigoDeSalida(unittest.TestCase):
 
     def _correr(self, perfil: str) -> int:
         return subprocess.run(
-            [sys.executable, str(RAIZ / "jueces" / "correr.py"),
-             "--repo", str(self.repo.dir), "--modo", "bloqueante", "--perfil", perfil],
-            capture_output=True, encoding="utf-8", errors="replace",
+            [
+                sys.executable,
+                str(RAIZ / "jueces" / "correr.py"),
+                "--repo",
+                str(self.repo.dir),
+                "--modo",
+                "bloqueante",
+                "--perfil",
+                perfil,
+            ],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
         ).returncode
 
     def test_perfil_aplicacion_con_jueces_sin_evaluar_falla(self):

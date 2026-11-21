@@ -152,12 +152,26 @@ class Resultado:
     def anota(self, *args: Any, **kwargs: Any) -> None:
         self.hallazgos.append(Hallazgo(*args, **kwargs))
 
-    def bloquea(self, regla: str, archivo: str, mensaje: str, manifestacion: str,
-                linea: int | None = None, arreglo: str = "") -> None:
+    def bloquea(
+        self,
+        regla: str,
+        archivo: str,
+        mensaje: str,
+        manifestacion: str,
+        linea: int | None = None,
+        arreglo: str = "",
+    ) -> None:
         self.anota(regla, Severidad.BLOQUEA, archivo, mensaje, manifestacion, linea, arreglo)
 
-    def avisa(self, regla: str, archivo: str, mensaje: str, manifestacion: str,
-              linea: int | None = None, arreglo: str = "") -> None:
+    def avisa(
+        self,
+        regla: str,
+        archivo: str,
+        mensaje: str,
+        manifestacion: str,
+        linea: int | None = None,
+        arreglo: str = "",
+    ) -> None:
         self.anota(regla, Severidad.AVISA, archivo, mensaje, manifestacion, linea, arreglo)
 
     def comprobo(self, que: str) -> None:
@@ -235,8 +249,10 @@ class Repo:
                     # en un nombre de archivo hace estallar el hilo lector
                     # de subprocess. Paso con COIPO_ENTREGA_PLANTA: el juez
                     # moria antes de mirar nada.
-                    capture_output=True, check=True,
-                    encoding="utf-8", errors="replace",
+                    capture_output=True,
+                    check=True,
+                    encoding="utf-8",
+                    errors="replace",
                 )
                 self._versionados = [r for r in (salida.stdout or "").split("\0") if r]
             except subprocess.CalledProcessError as e:
@@ -250,8 +266,9 @@ class Repo:
                 # lo cumplía: vacío y fallido eran indistinguibles, y j13 salía
                 # NO_APLICA y j16 OK sobre un `.git` roto. Cero de cero.
                 error = (e.stderr or "").strip().splitlines()
-                self._fallo_git = (f"`git ls-files` salió {e.returncode}"
-                                   + (f": {error[0][:160]}" if error else ""))
+                self._fallo_git = f"`git ls-files` salió {e.returncode}" + (
+                    f": {error[0][:160]}" if error else ""
+                )
                 self._versionados = []
             except (FileNotFoundError, OSError) as e:
                 self._fallo_git = f"`git ls-files` no se pudo ejecutar ({type(e).__name__}: {e})"
@@ -302,17 +319,24 @@ class Repo:
         return next((c for c in COMPOSE if self.existe(c)), None)
 
 
-
 # Los patrones de `.gitignore` o `.dockerignore` que dejan fuera el `.env` de la RAÍZ.
 # En los dos formatos `*` casa también la cadena vacía (`.env*` y `*.env` casan `.env`),
 # la barra inicial ancla a la raíz y `**/` casa a cualquier profundidad, la raíz
 # incluida. `.env.*` NO está: exige un punto después de `env`. Una barra final sólo
 # casa directorios. Hasta el 2026-11-21 había tres listas distintas en j01, j08 y j09.
-PATRONES_ENV = frozenset({
-    ".env", "/.env", "**/.env",
-    ".env*", "/.env*", "**/.env*",
-    "*.env", "/*.env", "**/*.env",
-})
+PATRONES_ENV = frozenset(
+    {
+        ".env",
+        "/.env",
+        "**/.env",
+        ".env*",
+        "/.env*",
+        "**/.env*",
+        "*.env",
+        "/*.env",
+        "**/*.env",
+    }
+)
 
 
 def ignora_env(lineas: Iterable[str]) -> bool:
@@ -339,8 +363,7 @@ def ignora_env(lineas: Iterable[str]) -> bool:
 MARCADOR_SEMILLA = ".semilla"
 
 
-def alcance_semilla(repo: Repo, r: Resultado,
-                    sin_marcador: str) -> tuple[str, Adopcion] | None:
+def alcance_semilla(repo: Repo, r: Resultado, sin_marcador: str) -> tuple[str, Adopcion] | None:
     """(texto de `.semilla`, su `adopta:`), o None si no hay que dictaminar.
 
     Sin `.semilla` anota `sin_marcador` como N/A; con `adopta:` vacía, el motivo en
@@ -376,7 +399,8 @@ def sin_indice(repo: Repo, r: Resultado) -> bool:
         return False
     r.no_evaluado.append(
         f"{motivo}. Sin la lista de archivos versionados este juez no puede afirmar "
-        "nada: cero archivos leídos no es «nada que juzgar»")
+        "nada: cero archivos leídos no es «nada que juzgar»"
+    )
     return True
 
 
@@ -442,19 +466,28 @@ def _anotacion_github(h: Hallazgo, juez: str, modo: str) -> str:
 
 def _informar_estado(resultado: Resultado, en_github: bool) -> None:
     """El veredicto, lo que no aplica, lo no evaluado y las supresiones."""
-    marca = {"OK": _VERDE, "HALLAZGOS": _AMARILLO,
-             "SIN_EVALUAR": _AMARILLO, "NO_APLICA": _GRIS}[resultado.veredicto]
-    print(f"{marca}  veredicto: {resultado.veredicto}"
-          f"  ({len(resultado.comprobado)} comprobacion/es realizadas){_FIN}")
+    marca = {"OK": _VERDE, "HALLAZGOS": _AMARILLO, "SIN_EVALUAR": _AMARILLO, "NO_APLICA": _GRIS}[
+        resultado.veredicto
+    ]
+    print(
+        f"{marca}  veredicto: {resultado.veredicto}"
+        f"  ({len(resultado.comprobado)} comprobacion/es realizadas){_FIN}"
+    )
     if resultado.veredicto == "SIN_EVALUAR":
-        print(f"{_AMARILLO}  este juez NO comprobo nada. Cero hallazgos aqui NO significa "
-              f"que este bien.{_FIN}")
+        print(
+            f"{_AMARILLO}  este juez NO comprobo nada. Cero hallazgos aqui NO significa "
+            f"que este bien.{_FIN}"
+        )
         if en_github:
-            print(f"::warning::[{resultado.juez}] no comprobo nada: "
-                  f"cero hallazgos no equivale a conforme")
+            print(
+                f"::warning::[{resultado.juez}] no comprobo nada: "
+                f"cero hallazgos no equivale a conforme"
+            )
 
-    for etiqueta, notas in (("no aplica", resultado.no_aplica),
-                            ("no evaluado", resultado.no_evaluado)):
+    for etiqueta, notas in (
+        ("no aplica", resultado.no_aplica),
+        ("no evaluado", resultado.no_evaluado),
+    ):
         for nota in notas:
             print(f"{_GRIS}  {etiqueta}: {nota}{_FIN}")
             if en_github:
@@ -466,16 +499,21 @@ def _informar_estado(resultado: Resultado, en_github: bool) -> None:
         n = len(resultado.supresiones)
         print(f"{_AMARILLO}  {n} supresión(es) activa(s){_FIN}")
         if en_github:
-            print(f"::warning::[{resultado.juez}] {n} supresión(es) activa(s). "
-                  f"Cada una exige una fila en DEUDA.md.")
+            print(
+                f"::warning::[{resultado.juez}] {n} supresión(es) activa(s). "
+                f"Cada una exige una fila en DEUDA.md."
+            )
 
 
 def _informar_hallazgo(h: Hallazgo, juez: str, modo: str, en_github: bool) -> None:
     color = _ROJO if h.severidad is Severidad.BLOQUEA else _AMARILLO
     # La severidad REAL también en advisory. Hasta el 2026-11-21 todo salía
     # `[AVISA]` en ese modo, y quien medía la distancia no veía qué lo detendría.
-    nota = " (no detiene en advisory)" if (
-        modo != "bloqueante" and h.severidad is Severidad.BLOQUEA) else ""
+    nota = (
+        " (no detiene en advisory)"
+        if (modo != "bloqueante" and h.severidad is Severidad.BLOQUEA)
+        else ""
+    )
     print(f"{color}  [{h.severidad.value}] {h.regla}  {h.ubicacion()}{nota}{_FIN}")
     print(f"           {h.mensaje}")
     print(f"           {_GRIS}en producción: {h.manifestacion}{_FIN}")
@@ -501,8 +539,7 @@ def informar(resultado: Resultado, *, modo: str, en_github: bool) -> None:
     print(f"\n  {len(resultado.hallazgos)} hallazgo(s), {b} de severidad BLOQUEA")
 
 
-def ejecutar(juez: str, descripcion: str,
-             comprobar: Callable[[Repo, Resultado], None]) -> None:
+def ejecutar(juez: str, descripcion: str, comprobar: Callable[[Repo, Resultado], None]) -> None:
     """Punto de entrada común de todos los jueces.
 
     El código de salida es 1 SOLO en modo bloqueante y con hallazgos
@@ -513,10 +550,13 @@ def ejecutar(juez: str, descripcion: str,
     p = argparse.ArgumentParser(description=descripcion)
     p.add_argument("--repo", default=".", help="raíz del repositorio a juzgar")
     p.add_argument("--modo", choices=("advisory", "bloqueante"), default="advisory")
-    p.add_argument("--json", dest="json_salida", default=None,
-                   help="escribir los hallazgos como JSON en esta ruta")
-    p.add_argument("--github", action="store_true",
-                   help="emitir anotaciones de GitHub Actions")
+    p.add_argument(
+        "--json",
+        dest="json_salida",
+        default=None,
+        help="escribir los hallazgos como JSON en esta ruta",
+    )
+    p.add_argument("--github", action="store_true", help="emitir anotaciones de GitHub Actions")
     args = p.parse_args()
 
     en_github = args.github or os.environ.get("GITHUB_ACTIONS") == "true"
@@ -537,7 +577,9 @@ def ejecutar(juez: str, descripcion: str,
                     "comprobado": resultado.comprobado,
                     "hallazgos": [asdict(h) for h in resultado.hallazgos],
                 },
-                ensure_ascii=False, indent=2, default=str,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
             ),
             encoding="utf-8",
         )

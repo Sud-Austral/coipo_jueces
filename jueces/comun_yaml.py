@@ -106,7 +106,7 @@ def _partir_clave(texto: str) -> tuple[str, str] | None:
         inicio = cierre + 1
     for i in range(inicio, len(texto)):
         if texto[i] == ":" and (i + 1 == len(texto) or texto[i + 1] in " \t"):
-            return texto[:i].strip().strip("\"'"), texto[i + 1:]
+            return texto[:i].strip().strip("\"'"), texto[i + 1 :]
     return None
 
 
@@ -190,7 +190,9 @@ class _Lector:
                 break
             partes = _partir_clave(cuerpo)
             if partes is None:
-                raise YamlNoSoportado(f"línea {j + 1}: no es 'clave: valor' ni '- item': {cuerpo[:60]}")
+                raise YamlNoSoportado(
+                    f"línea {j + 1}: no es 'clave: valor' ni '- item': {cuerpo[:60]}"
+                )
             clave, resto = partes
             valor, i = self._valor(resto, j, ind, en_mapa=True)
             if clave == "<<":
@@ -216,10 +218,12 @@ class _Lector:
             if s > ind:
                 raise YamlNoSoportado(f"línea {j + 1}: indentación inconsistente")
             crudo = self.lineas[j]
-            tras_guion = crudo[s + 1:]
+            tras_guion = crudo[s + 1 :]
             columna = s + 1 + len(tras_guion) - len(tras_guion.lstrip(" "))
             resto = cuerpo[1:].strip()
-            if resto and (_ES_ITEM.match(resto) or (resto[0] not in "[{&*!|>" and _partir_clave(resto))):
+            if resto and (
+                _ES_ITEM.match(resto) or (resto[0] not in "[{&*!|>" and _partir_clave(resto))
+            ):
                 # `- clave: v` (mapa de una o VARIAS claves) o `- - x`: se reescribe la
                 # línea como si el ítem empezara en su columna y se lee como bloque.
                 self.lineas[j] = " " * columna + crudo[columna:]
@@ -235,10 +239,12 @@ class _Lector:
         siguiente línea por leer."""
         resto = resto.strip()
         ancla = None
-        if (m := _ANCLA.match(resto)):
+        if m := _ANCLA.match(resto):
             ancla, resto = m.group(1), m.group(2).strip()
         if resto.startswith("!"):
-            raise YamlNoSoportado(f"línea {i + 1}: etiquetas YAML (`{resto.split()[0]}`) no soportadas")
+            raise YamlNoSoportado(
+                f"línea {i + 1}: etiquetas YAML (`{resto.split()[0]}`) no soportadas"
+            )
         if resto.startswith("*"):
             valor, sig = self._alias(resto, i), i + 1
         elif _ENCABEZADO_BLOQUE.match(resto):
@@ -247,7 +253,12 @@ class _Lector:
             j = self._sig(i + 1)
             if j is not None and self._sangria(j) > ind:
                 valor, sig = self._bloque(j, self._sangria(j))
-            elif j is not None and en_mapa and self._sangria(j) == ind and _ES_ITEM.match(self._cuerpo(j)):
+            elif (
+                j is not None
+                and en_mapa
+                and self._sangria(j) == ind
+                and _ES_ITEM.match(self._cuerpo(j))
+            ):
                 valor, sig = self._secuencia(j, ind)  # `clave:` y la lista a su misma altura
             else:
                 valor, sig = None, i + 1
@@ -295,8 +306,7 @@ class _Lector:
             return texto, j
         return texto + ("\n" * (1 + finales) if mordida == "+" else "\n"), j
 
-    def _lineas_del_bloque(self, j: int, ind: int,
-                           sangria: int | None) -> tuple[list[str], int]:
+    def _lineas_del_bloque(self, j: int, ind: int, sangria: int | None) -> tuple[list[str], int]:
         """Las líneas de un escalar en bloque, sin su sangría, y la primera que no es suya."""
         cuerpo: list[str] = []
         while j < len(self.lineas):

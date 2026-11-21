@@ -27,8 +27,10 @@ import j13_interfaz as j13  # noqa: E402
 import j16_codigo as j16  # noqa: E402
 
 CSS = ":root { --primary: #007111; }\n.btn { background: var(--primary); }\n"
-CON_MAQUETA = ("version: 2026-11-12\nfabrica: 2026-11-12\n"
-               "maqueta: https://ejemplo.invalid/maqueta@0123abcd\nadopta: semilla\n")
+CON_MAQUETA = (
+    "version: 2026-11-12\nfabrica: 2026-11-12\n"
+    "maqueta: https://ejemplo.invalid/maqueta@0123abcd\nadopta: semilla\n"
+)
 SIN_MAQUETA = "version: 2026-11-12\nfabrica: 2026-11-12\nadopta: semilla\n"
 
 
@@ -93,8 +95,11 @@ class PruebaAjeno(CasoConRepo):
         self.repo.escribe("frontend/package.json", "{}\n")
         self.repo.escribe("frontend/src/libs/grafico.js", "var a = 1;\n")
         r = self.repo.juzga()
-        sobre_ajeno = [h for h in r.hallazgos
-                       if "vendor_visor" in f"{h.archivo} {h.mensaje}" or "libs/" in f"{h.archivo} {h.mensaje}"]
+        sobre_ajeno = [
+            h
+            for h in r.hallazgos
+            if "vendor_visor" in f"{h.archivo} {h.mensaje}" or "libs/" in f"{h.archivo} {h.mensaje}"
+        ]
         self.assertEqual([], [h.mensaje for h in sobre_ajeno])
         self.assertEqual(2, len([s for s in r.supresiones if "ajeno:" in s]))
 

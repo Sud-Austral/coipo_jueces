@@ -71,8 +71,11 @@ def _constantes(arbol: ast.Module) -> dict[str, str]:
     """Constantes de módulo con valor de texto: `REGLA = "G8-4"`."""
     salida: dict[str, str] = {}
     for nodo in arbol.body:
-        if isinstance(nodo, ast.Assign) and isinstance(nodo.value, ast.Constant) \
-                and isinstance(nodo.value.value, str):
+        if (
+            isinstance(nodo, ast.Assign)
+            and isinstance(nodo.value, ast.Constant)
+            and isinstance(nodo.value.value, str)
+        ):
             for destino in nodo.targets:
                 if isinstance(destino, ast.Name):
                     salida[destino.id] = nodo.value.value
@@ -107,15 +110,29 @@ def emisiones_de(texto: str, juez: str) -> list[Emision]:
     salida: list[Emision] = []
     for nodo in ast.walk(arbol):
         if isinstance(nodo, ast.Attribute) and nodo.attr in OCULTOS and id(nodo) not in llamados:
-            salida.append(Emision(juez, nodo.lineno, nodo.attr, None,
-                                  f"`.{nodo.attr}` usado sin llamarlo (un alias): el código y "
-                                  "la severidad quedan fuera del alcance de esta prueba"))
+            salida.append(
+                Emision(
+                    juez,
+                    nodo.lineno,
+                    nodo.attr,
+                    None,
+                    f"`.{nodo.attr}` usado sin llamarlo (un alias): el código y "
+                    "la severidad quedan fuera del alcance de esta prueba",
+                )
+            )
         if not isinstance(nodo, ast.Call):
             continue
         nombre = _nombre(nodo.func)
         if nombre == "anota" and isinstance(nodo.func, ast.Attribute):
-            salida.append(Emision(juez, nodo.lineno, nombre, None,
-                                  "`.anota(` directo: se emite con `bloquea()` o `avisa()`"))
+            salida.append(
+                Emision(
+                    juez,
+                    nodo.lineno,
+                    nombre,
+                    None,
+                    "`.anota(` directo: se emite con `bloquea()` o `avisa()`",
+                )
+            )
         elif nombre in EMISORES and isinstance(nodo.func, ast.Attribute):
             salida.append(_emision(juez, nodo, nombre, _argumento(nodo, 0), constantes))
         elif nombre == "suprimido":
@@ -127,15 +144,26 @@ def emisiones_de(texto: str, juez: str) -> list[Emision]:
     return salida
 
 
-def _emision(juez: str, nodo: ast.Call, llamada: str, arg: ast.AST | None,
-             constantes: dict[str, str]) -> Emision:
+def _emision(
+    juez: str, nodo: ast.Call, llamada: str, arg: ast.AST | None, constantes: dict[str, str]
+) -> Emision:
     codigo = _literal(arg, constantes)
     if codigo is None:
-        return Emision(juez, nodo.lineno, llamada, None,
-                       "el código no es un literal ni una constante de módulo con uno")
+        return Emision(
+            juez,
+            nodo.lineno,
+            llamada,
+            None,
+            "el código no es un literal ni una constante de módulo con uno",
+        )
     if not FORMA.match(codigo):
-        return Emision(juez, nodo.lineno, llamada, codigo,
-                       f"`{codigo}` no tiene forma de código (`{FORMA.pattern}`)")
+        return Emision(
+            juez,
+            nodo.lineno,
+            llamada,
+            codigo,
+            f"`{codigo}` no tiene forma de código (`{FORMA.pattern}`)",
+        )
     return Emision(juez, nodo.lineno, llamada, codigo)
 
 
@@ -161,44 +189,57 @@ def codigos_documentados() -> set[str]:
 
 class PruebaTrazabilidad(unittest.TestCase):
     def test_existe_el_catalogo(self):
-        self.assertTrue(REGLAS.exists(), "falta REGLAS.md: sin él no hay forma de "
-                                         "saber qué documento respalda cada regla")
+        self.assertTrue(
+            REGLAS.exists(),
+            "falta REGLAS.md: sin él no hay forma de saber qué documento respalda cada regla",
+        )
 
     def test_toda_emision_es_un_codigo_literal(self):
         """Sin alias, sin `.anota(` directo y con un literal con forma de código."""
         problemas = [f"{e.juez}:{e.linea} {e.problema}" for e in emisiones() if e.problema]
-        self.assertEqual([], problemas,
-                         "estas emisiones esconden su código o su severidad a esta prueba")
+        self.assertEqual(
+            [], problemas, "estas emisiones esconden su código o su severidad a esta prueba"
+        )
 
     def test_todo_codigo_emitido_esta_documentado(self):
         documentados = codigos_documentados()
-        huerfanos = sorted(f"{e.juez}:{e.linea} {e.codigo}" for e in emisiones()
-                           if e.codigo and e.codigo not in documentados)
+        huerfanos = sorted(
+            f"{e.juez}:{e.linea} {e.codigo}"
+            for e in emisiones()
+            if e.codigo and e.codigo not in documentados
+        )
         self.assertTrue(codigos_emitidos(), "ningún juez emite códigos: el extractor está roto")
         self.assertEqual(
-            [], huerfanos,
+            [],
+            huerfanos,
             f"estos códigos bloquean, avisan o se suprimen sin figurar en REGLAS.md, así "
-            f"que nadie puede saber qué documento los respalda: {huerfanos}")
+            f"que nadie puede saber qué documento los respalda: {huerfanos}",
+        )
 
     def test_todo_codigo_documentado_se_emite(self):
         emitidos, documentados = codigos_emitidos(), codigos_documentados()
         fantasmas = sorted(documentados - set(emitidos))
         self.assertEqual(
-            [], fantasmas,
+            [],
+            fantasmas,
             f"REGLAS.md anuncia estas reglas y ningún juez las comprueba. El "
-            f"catálogo dice que el gate cubre algo que no mira: {fantasmas}")
+            f"catálogo dice que el gate cubre algo que no mira: {fantasmas}",
+        )
 
     def test_cada_codigo_nombra_su_juez_correctamente(self):
         """La columna «Juez» de REGLAS.md no puede mentir sobre quién comprueba qué."""
         texto = REGLAS.read_text(encoding="utf-8")
         for codigo, jueces in sorted(codigos_emitidos().items()):
-            fila = next((linea for linea in texto.splitlines()
-                         if linea.startswith(f"| `{codigo}`")), None)
+            fila = next(
+                (linea for linea in texto.splitlines() if linea.startswith(f"| `{codigo}`")), None
+            )
             self.assertIsNotNone(fila, f"{codigo} sin fila en REGLAS.md")
             for corto in {j.split("_")[0] for j in jueces}:
-                self.assertIn(f"`{corto}`", fila,
-                              f"{codigo} lo emite {corto}, pero su fila en REGLAS.md "
-                              f"no lo nombra: {fila}")
+                self.assertIn(
+                    f"`{corto}`",
+                    fila,
+                    f"{codigo} lo emite {corto}, pero su fila en REGLAS.md no lo nombra: {fila}",
+                )
 
 
 class PruebaDelExtractor(unittest.TestCase):
@@ -211,9 +252,11 @@ class PruebaDelExtractor(unittest.TestCase):
         self.assertTrue(self._problemas('def f(r):\n    r.avisa("DOCKER-hc", "", "m", "p")\n'))
 
     def test_un_alias_es_un_problema(self):
-        fuente = ("def f(r, x):\n"
-                  "    anota = r.bloquea if x else r.avisa\n"
-                  '    anota("G8-8", "", "m", "p")\n')
+        fuente = (
+            "def f(r, x):\n"
+            "    anota = r.bloquea if x else r.avisa\n"
+            '    anota("G8-8", "", "m", "p")\n'
+        )
         self.assertEqual(2, len(self._problemas(fuente)), self._problemas(fuente))
 
     def test_un_codigo_en_una_variable_es_un_problema(self):
@@ -223,10 +266,12 @@ class PruebaDelExtractor(unittest.TestCase):
         self.assertTrue(self._problemas('def f(r):\n    r.anota("G8-1", 1, "", "m", "p")\n'))
 
     def test_un_literal_y_una_constante_valen(self):
-        fuente = ('REGLA = "G8-4"\n'
-                  "def f(r):\n"
-                  '    r.bloquea(REGLA, "", "m", "p")\n'
-                  '    r.avisa(regla="SEM-1", archivo="", mensaje="m", manifestacion="p")\n')
+        fuente = (
+            'REGLA = "G8-4"\n'
+            "def f(r):\n"
+            '    r.bloquea(REGLA, "", "m", "p")\n'
+            '    r.avisa(regla="SEM-1", archivo="", mensaje="m", manifestacion="p")\n'
+        )
         emitidas = emisiones_de(fuente, "jXX")
         self.assertEqual([], [e.problema for e in emitidas if e.problema])
         self.assertEqual({"G8-4", "SEM-1"}, {e.codigo for e in emitidas})
@@ -250,10 +295,9 @@ def codigos_sin_fuente_escrita() -> set[str]:
     i = texto.find(SECCION_SIN_FUENTE)
     if i < 0:
         return set()
-    resto = texto[i + len(SECCION_SIN_FUENTE):]
+    resto = texto[i + len(SECCION_SIN_FUENTE) :]
     fin = resto.find("\n## ")
-    return {m.group("codigo")
-            for m in EN_TABLA.finditer(resto if fin < 0 else resto[:fin])}
+    return {m.group("codigo") for m in EN_TABLA.finditer(resto if fin < 0 else resto[:fin])}
 
 
 class PruebaSeveridad(unittest.TestCase):
@@ -273,19 +317,23 @@ class PruebaSeveridad(unittest.TestCase):
             f"REGLAS.md. O se renombró la sección y esta prueba dejó de mirar "
             f"nada —cero de cero leído como conformidad—, o ya no quedan reglas "
             f"sin fuente y hay que borrar esta prueba a propósito, no dejarla "
-            f"pasando en vacío")
+            f"pasando en vacío",
+        )
 
     def test_ninguna_regla_sin_fuente_escrita_bloquea(self):
         severidades = severidades_emitidas()
-        infractoras = sorted(c for c in codigos_sin_fuente_escrita()
-                             if "bloquea" in severidades.get(c, set()))
+        infractoras = sorted(
+            c for c in codigos_sin_fuente_escrita() if "bloquea" in severidades.get(c, set())
+        )
         self.assertEqual(
-            [], infractoras,
+            [],
+            infractoras,
             f"REGLAS.md las lista como «sin fuente escrita» y promete que no "
             f"bloquean, pero llaman a bloquea(): {infractoras}. O se les escribe "
             f"la fuente y suben a la tabla de reglas vigentes, o pasan a avisa(). "
             f"Bloquear un despliegue citando un documento que no existe es "
-            f"exactamente lo que este catálogo existe para impedir")
+            f"exactamente lo que este catálogo existe para impedir",
+        )
 
 
 if __name__ == "__main__":

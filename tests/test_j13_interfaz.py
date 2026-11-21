@@ -66,11 +66,10 @@ class ConSemilla(CasoConRepo):
 
 
 class PruebaFoco(ConSemilla):
-
     def test_outline_cero_sin_sustituto_bloquea(self):
-        self.repo.escribe("src/estilos.css",
-                          ".campo:focus { outline: 0; }\n"
-                          ".campo { transition: border .2s; }\n")
+        self.repo.escribe(
+            "src/estilos.css", ".campo:focus { outline: 0; }\n.campo { transition: border .2s; }\n"
+        )
         self.assertBloquea("quita el contorno del foco")
         # El código es UI-9 desde el 2026-10-25: «un componente sin `:focus-visible`
         # no es navegable con teclado» es el texto de UI-9 en ESTANDAR_UI.md. UI-10
@@ -83,28 +82,33 @@ class PruebaFoco(ConSemilla):
         """Un `outline: none` dentro de `/* */` no quita nada (auditoría del
         2026-10-25): `comprobar_foco` era la única de las tres reglas que leía los
         comentarios."""
-        self.repo.escribe("src/estilos.css",
-                          "/* antes: .campo:focus { outline: none; } */\n"
-                          ".campo { transition: border .2s; }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            "/* antes: .campo:focus { outline: none; } */\n.campo { transition: border .2s; }\n",
+        )
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"],
-                         [h.mensaje for h in r.hallazgos])
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-9"], [h.mensaje for h in r.hallazgos]
+        )
 
     def test_la_supresion_en_un_comentario_css_sigue_valiendo(self):
         """Quitar los comentarios para juzgar no puede borrar el marcador, que en
         CSS sólo cabe dentro de `/* */`."""
-        self.repo.escribe("src/estilos.css",
-                          "/* coipo-jueces:ignorar(UI-9) widget de terceros con foco propio */\n"
-                          ".campo:focus { outline: 0; }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            "/* coipo-jueces:ignorar(UI-9) widget de terceros con foco propio */\n"
+            ".campo:focus { outline: 0; }\n",
+        )
         r = self.repo.juzga()
         self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"])
         self.assertEqual(1, len(r.supresiones), r.supresiones)
 
     def test_focus_visible_comentado_no_es_sustituto(self):
         """La otra dirección: un `:focus-visible` comentado no reemplaza nada."""
-        self.repo.escribe("src/estilos.css",
-                          "/* .campo:focus-visible { outline: 2px solid; } */\n"
-                          ".campo:focus { outline: 0; }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            "/* .campo:focus-visible { outline: 2px solid; } */\n.campo:focus { outline: 0; }\n",
+        )
         self.assertBloquea("quita el contorno del foco")
 
     def test_outline_cero_con_focus_visible_en_el_mismo_archivo_no_bloquea(self):
@@ -114,38 +118,46 @@ class PruebaFoco(ConSemilla):
         suprimir al juez."""
         self.repo.escribe("src/estilos.css", CSS_SANO + ".x:focus { outline: 0; }\n")
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"],
-                         f"no debía avisar de foco: {[h.mensaje for h in r.hallazgos]}")
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-9"],
+            f"no debía avisar de foco: {[h.mensaje for h in r.hallazgos]}",
+        )
 
     def test_outline_offset_no_se_confunde_con_outline_cero(self):
         """`outline-offset: 0` es legítimo y frecuente. Confundirlo con
         `outline: 0` marcaría CSS correcto."""
-        self.repo.escribe("src/estilos.css",
-                          ".x { outline-offset: 0; }\n.x { transition: all .2s; }\n")
+        self.repo.escribe(
+            "src/estilos.css", ".x { outline-offset: 0; }\n.x { transition: all .2s; }\n"
+        )
         r = self.repo.juzga()
         self.assertFalse([h for h in r.hallazgos if h.regla == "UI-9"])
 
 
 class PruebaTemaOscuro(ConSemilla):
-
     def test_token_de_texto_sin_redefinir_bloquea(self):
-        self.repo.escribe("src/estilos.css",
-                          ":root { --verde: #064928; }\n"
-                          "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
-                          ".t { color: var(--verde); }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --verde: #064928; }\n"
+            "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
+            ".t { color: var(--verde); }\n",
+        )
         self.assertBloquea("NO se redefinen en el tema oscuro")
 
     def test_token_usado_solo_de_fondo_no_bloquea(self):
         """Un color que sólo se usa como fondo puede ser legítimo en los dos
         temas: la superficie del banner institucional es el caso real. Sólo se
         exige redefinir lo que se usa como texto, borde o foco."""
-        self.repo.escribe("src/estilos.css",
-                          ":root { --marca: #064928; }\n"
-                          "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
-                          ".banner { background: var(--marca); }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --marca: #064928; }\n"
+            "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
+            ".banner { background: var(--marca); }\n",
+        )
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"],
-                         "un token usado sólo de fondo no exige redefinición")
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-3"],
+            "un token usado sólo de fondo no exige redefinición",
+        )
 
     def test_sin_tema_oscuro_bloquea(self):
         """UI-3: todo token de texto, borde o foco «se redefine en los dos temas».
@@ -153,8 +165,9 @@ class PruebaTemaOscuro(ConSemilla):
         Hasta el 2026-11-21 esto salía como «no evaluado» y el juez daba OK —cero de
         cero— en un repositorio que declara adoptar `interfaz`. Ahora es un hallazgo
         con la severidad de UI-3, y nombra los tokens que se quedan claros."""
-        self.repo.escribe("src/estilos.css",
-                          ":root { --verde: #064928; }\n.t { color: var(--verde); }\n")
+        self.repo.escribe(
+            "src/estilos.css", ":root { --verde: #064928; }\n.t { color: var(--verde); }\n"
+        )
         r = self.repo.juzga()
         h = self.assertRegla("UI-3", "BLOQUEA", "tema oscuro", r)
         self.assertIn("--verde", h.mensaje)
@@ -167,9 +180,11 @@ class PruebaTemaOscuro(ConSemilla):
         self.assertRegla("UI-3", "BLOQUEA", "tema oscuro")
 
     def test_sin_tema_oscuro_se_suprime_con_motivo(self):
-        self.repo.escribe("src/estilos.css",
-                          "/* coipo-jueces:ignorar(UI-3) quiosco de pantalla fija, sin tema */\n"
-                          ":root { --verde: #064928; }\n.t { color: var(--verde); }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            "/* coipo-jueces:ignorar(UI-3) quiosco de pantalla fija, sin tema */\n"
+            ":root { --verde: #064928; }\n.t { color: var(--verde); }\n",
+        )
         r = self.repo.juzga()
         self.assertSinRegla("UI-3", r)
         self.assertEqual(1, len(r.supresiones), r.supresiones)
@@ -182,37 +197,41 @@ class PruebaTemaOscuro(ConSemilla):
         dice es peor que no tenerlo."""
         self.repo.escribe(
             "src/estilos.css",
-            ":root{--verde:#064928}[data-theme='oscuro']{--fondo:#1a1f1c}"
-            ".t{color:var(--verde)}\n")
+            ":root{--verde:#064928}[data-theme='oscuro']{--fondo:#1a1f1c}.t{color:var(--verde)}\n",
+        )
         self.assertBloquea("NO se redefinen en el tema oscuro")
 
     def test_prefers_color_scheme_cuenta_como_tema_oscuro(self):
         """Las dos vías son válidas: el selector explícito para quien eligió, y
         la consulta de medio para quien no."""
-        self.repo.escribe("src/estilos.css",
-                          ":root { --verde: #064928; }\n"
-                          "@media (prefers-color-scheme: dark) {\n"
-                          "  :root { --verde: #4fb37a; }\n}\n"
-                          ".t { color: var(--verde); }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --verde: #064928; }\n"
+            "@media (prefers-color-scheme: dark) {\n"
+            "  :root { --verde: #4fb37a; }\n}\n"
+            ".t { color: var(--verde); }\n",
+        )
         r = self.repo.juzga()
         self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"])
 
 
 class PruebaMovimientoReducido(ConSemilla):
-
     def test_sin_bloque_bloquea(self):
-        self.repo.escribe("src/estilos.css",
-                          ".a { transition: all .2s; }\n.b { animation: x 1s; }\n")
+        self.repo.escribe(
+            "src/estilos.css", ".a { transition: all .2s; }\n.b { animation: x 1s; }\n"
+        )
         self.assertBloquea("ninguna hoja tiene un bloque `prefers-reduced-motion`")
 
     def test_bloque_selectivo_bloquea_con_la_cuenta(self):
         """El caso real de coipo_prensa2: apaga una transición y deja ocho vivas."""
-        self.repo.escribe("src/estilos.css",
-                          ".a { transition: all .2s; }\n"
-                          ".b { transition: color .2s; }\n"
-                          ".c { transition: opacity .2s; }\n"
-                          "@media (prefers-reduced-motion: reduce) {\n"
-                          "  .a { transition: none; }\n}\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ".a { transition: all .2s; }\n"
+            ".b { transition: color .2s; }\n"
+            ".c { transition: opacity .2s; }\n"
+            "@media (prefers-reduced-motion: reduce) {\n"
+            "  .a { transition: none; }\n}\n",
+        )
         # «1 de 3», no «1 de 4»: hasta el 2026-10-25 la cuenta incluía la propia
         # declaración del bloque, y esta prueba pasaba con el número equivocado.
         self.assertBloquea("apaga 1 de 3 declaración(es)")
@@ -222,21 +241,26 @@ class PruebaMovimientoReducido(ConSemilla):
 
         Salía «N de 2N» y BLOQUEABA, porque las N declaraciones del bloque se
         contaban también como movimiento propio del archivo."""
-        self.repo.escribe("src/estilos.css",
-                          ".a { transition: all .2s; }\n"
-                          ".b { animation: giro 1s; }\n"
-                          "@media (prefers-reduced-motion: reduce) {\n"
-                          "  .a { transition: none; }\n"
-                          "  .b { animation: none; }\n}\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ".a { transition: all .2s; }\n"
+            ".b { animation: giro 1s; }\n"
+            "@media (prefers-reduced-motion: reduce) {\n"
+            "  .a { transition: none; }\n"
+            "  .b { animation: none; }\n}\n",
+        )
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
-                         [h.mensaje for h in r.hallazgos])
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-15"], [h.mensaje for h in r.hallazgos]
+        )
 
     def test_bloque_universal_no_bloquea(self):
         self.repo.escribe("src/estilos.css", CSS_SANO)
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
-                         f"el selector universal cubre todo: {[h.mensaje for h in r.hallazgos]}")
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-15"],
+            f"el selector universal cubre todo: {[h.mensaje for h in r.hallazgos]}",
+        )
 
     def test_sin_movimiento_no_exige_el_bloque(self):
         """Un CSS sin una sola transición no necesita apagar nada."""
@@ -246,12 +270,12 @@ class PruebaMovimientoReducido(ConSemilla):
 
 
 class PruebaAlcance(ConSemilla):
-
     def test_backend_sin_css_es_no_aplica(self):
         self.repo.escribe("backend/app/main.py", "app = 1\n")
         r = self.repo.juzga()
-        self.assertEqual("NO_APLICA", r.veredicto,
-                         "un repositorio sin interfaz no tiene interfaz que juzgar")
+        self.assertEqual(
+            "NO_APLICA", r.veredicto, "un repositorio sin interfaz no tiene interfaz que juzgar"
+        )
 
     def test_css_de_dependencias_y_build_no_se_juzga(self):
         """`node_modules/` y `dist/` no son código del proyecto. Si se juzgaran,
@@ -290,11 +314,13 @@ class PruebaDeclaracion(CasoConRepo):
         se aprende de un gate que avisa de lo que nadie va a arreglar es a
         ignorarlo.
         """
-        self.repo.escribe("src/estilos.css",
-                          ":root { --v: #064928; }\n"
-                          "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
-                          ".t { color: var(--v); transition: all .2s; }\n"
-                          ".t:focus { outline: 0; }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --v: #064928; }\n"
+            "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
+            ".t { color: var(--v); transition: all .2s; }\n"
+            ".t:focus { outline: 0; }\n",
+        )
         r = self.repo.juzga()
         self.assertEqual("NO_APLICA", r.veredicto)
         self.assertFalse(r.hallazgos, f"no debía juzgar nada: {[h.regla for h in r.hallazgos]}")
@@ -306,11 +332,13 @@ class PruebaDeclaracion(CasoConRepo):
         la segunda, `NO_APLICA` podría estar tapando que el juez no mira nada.
         """
         self.repo.escribe(".semilla", SEMILLA)
-        self.repo.escribe("src/estilos.css",
-                          ":root { --v: #064928; }\n"
-                          "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
-                          ".t { color: var(--v); transition: all .2s; }\n"
-                          ".t:focus { outline: 0; }\n")
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --v: #064928; }\n"
+            "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
+            ".t { color: var(--v); transition: all .2s; }\n"
+            ".t:focus { outline: 0; }\n",
+        )
         r = self.repo.juzga()
         self.assertEqual("HALLAZGOS", r.veredicto)
         self.assertTrue(r.hallazgos, "con la declaración puesta, el mismo CSS sí se juzga")
@@ -332,9 +360,11 @@ class PruebaAdopcionInterfaz(CasoConRepo):
 
     MODULO = j13
 
-    CSS_MALO = (":root { --v: #064928; }\n"
-                "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
-                ".t { color: var(--v); transition: all .2s; }\n")
+    CSS_MALO = (
+        ":root { --v: #064928; }\n"
+        "[data-theme='oscuro'] { --f: #1a1f1c; }\n"
+        ".t { color: var(--v); transition: all .2s; }\n"
+    )
 
     def test_adopta_interfaz_enciende_j13(self):
         """El caso que motiva toda la clave: adoptar la interfaz SIN declararse

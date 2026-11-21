@@ -110,14 +110,17 @@ CORRELACION = re.compile(r"\bcorr-(?:maestro-)?\d{10,}-[0-9a-f]{6,}\b")
 PENDIENTE = re.compile(r"\[(?:PENDIENTE|VERIFICAR)\]")
 REGISTRADO = re.compile(r"^\s*registrado:", re.MULTILINE | re.IGNORECASE)
 
-PASO = ("`prompts/05-consultar-la-fabrica.md` de coipo_master_produccion (la skill "
-        "`construir-con-la-fabrica` de la semilla lleva allí)")
+PASO = (
+    "`prompts/05-consultar-la-fabrica.md` de coipo_master_produccion (la skill "
+    "`construir-con-la-fabrica` de la semilla lleva allí)"
+)
 
 _MANIFESTACION = (
     "la aplicación no deja rastro de haber consultado IGNUS, el grafo ni el instrumento "
     "antes de escribirse, y entonces no se distingue de una escrita de memoria: así salió "
     "la generación del 2026-10-20, con catorce o quince hallazgos de los jueces por "
-    "monitor, y nada lo detectó hasta la auditoría")
+    "monitor, y nada lo detectó hasta la auditoría"
+)
 
 
 def _anota(r: Resultado, nuevo: bool, **datos: object) -> None:
@@ -138,9 +141,11 @@ def _severidad(marcador: str, adopcion: Adopcion, r: Resultado) -> tuple[bool, s
     con j16; aquí queda lo propio: la supresión cuando FAB-8 baja a AVISA."""
     siembra = leer_siembra(marcador, VIGENCIA, CAPA)
     if siembra.vigente and not siembra.adopta:
-        razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`: FAB-8 baja de BLOQUEA "
-                 f"a AVISA en un repositorio sembrado el {siembra.fecha}. Es legítimo sólo si "
-                 "el repositorio NO se sembró con la semilla.")
+        razon = (
+            f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`: FAB-8 baja de BLOQUEA "
+            f"a AVISA en un repositorio sembrado el {siembra.fecha}. Es legítimo sólo si "
+            "el repositorio NO se sembró con la semilla."
+        )
         r.supresiones.append(f"{MARCADOR} declara no adoptar `{CAPA}` — {razon}")
     return siembra.nuevo, siembra.contexto(CAPA, MARCADOR)
 
@@ -152,10 +157,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     if repo.tiene_git() and sin_indice(repo, r):
         return
     alcance = alcance_semilla(
-        repo, r,
+        repo,
+        r,
         f"no hay `{MARCADOR}`: el repositorio no declara haberse construido con la "
         "fábrica. Lo que existía antes de ella no se juzga con sus reglas nuevas "
-        "(FILOSOFIA.md, §3).")
+        "(FILOSOFIA.md, §3).",
+    )
     if alcance is None:
         return
     marcador, adopcion = alcance
@@ -164,11 +171,15 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
     ruta = repo.ruta(CONSTRUCCION)
     if not ruta.is_file():
-        _anota(r, nuevo, archivo=CONSTRUCCION,
-               mensaje=f"no existe `{CONSTRUCCION}` ({contexto})",
-               manifestacion=_MANIFESTACION,
-               arreglo=f"ejecutar {PASO} y dejar el archivo con la metodología, los "
-                       "objetivos aplicados y el `correlation_id` de cada consulta")
+        _anota(
+            r,
+            nuevo,
+            archivo=CONSTRUCCION,
+            mensaje=f"no existe `{CONSTRUCCION}` ({contexto})",
+            manifestacion=_MANIFESTACION,
+            arreglo=f"ejecutar {PASO} y dejar el archivo con la metodología, los "
+            "objetivos aplicados y el `correlation_id` de cada consulta",
+        )
         r.comprobo(f"FAB-8: buscado `{CONSTRUCCION}` ({contexto})")
         return
     r.comprobo(f"FAB-8: buscado `{CONSTRUCCION}` ({contexto})")
@@ -179,72 +190,107 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
     _mirado(repo, r, marcador, texto)
 
-    r.comprobo(f"FAB-8: `{CONSTRUCCION}` leído — {len(ids)} metodología(s) citada(s), "
-               f"{len(correlaciones)} `correlation_id` con forma válida")
+    r.comprobo(
+        f"FAB-8: `{CONSTRUCCION}` leído — {len(ids)} metodología(s) citada(s), "
+        f"{len(correlaciones)} `correlation_id` con forma válida"
+    )
     if ids or correlaciones:
         r.no_evaluado.append(
             "que la metodología y los `correlation_id` de `docs/CONSTRUCCION.md` existan "
             "DE VERDAD en IGNUS: este juez no tiene red ni `MCP_API_KEY` en el CI y sólo "
             "mira la forma. Lo comprueba `python flota/herramientas_de_fabrica.py "
-            "--construccion <repo>` en la fábrica, con la clave en el entorno.")
+            "--construccion <repo>` en la fábrica, con la clave en el entorno."
+        )
 
 
 def _no_versionado(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> None:
     if repo.tiene_git():
         versionados = repo.versionados()
         if versionados and CONSTRUCCION not in versionados:
-            _anota(r, nuevo, archivo=CONSTRUCCION,
-                   mensaje=f"`{CONSTRUCCION}` existe en el disco pero no está versionado ({contexto})",
-                   manifestacion=("el rastro se queda en el equipo de quien construyó: el CI, "
-                                  "el despliegue y la persona que herede la aplicación no lo ven"),
-                   arreglo=f"`git add {CONSTRUCCION}` y comprobar que `.gitignore` no lo excluye")
+            _anota(
+                r,
+                nuevo,
+                archivo=CONSTRUCCION,
+                mensaje=f"`{CONSTRUCCION}` existe en el disco pero no está versionado ({contexto})",
+                manifestacion=(
+                    "el rastro se queda en el equipo de quien construyó: el CI, "
+                    "el despliegue y la persona que herede la aplicación no lo ven"
+                ),
+                arreglo=f"`git add {CONSTRUCCION}` y comprobar que `.gitignore` no lo excluye",
+            )
 
 
 def _forma(r: Resultado, nuevo: bool, contexto: str, texto: str) -> tuple[list[str], list[str]]:
     """La forma de `CONSTRUCCION.md`: sin pendientes, con sus campos, una metodología,
     algún `correlation_id` y `registrado:`. Devuelve (metodologías, correlation_id)."""
     for m in PENDIENTE.finditer(texto):
-        _anota(r, nuevo, archivo=CONSTRUCCION, linea=texto.count("\n", 0, m.start()) + 1,
-               mensaje=f"queda un `{m.group(0)}` de la plantilla de la semilla ({contexto})",
-               manifestacion=("la plantilla a medio rellenar se lee como hecha: el archivo "
-                              "existe y el paso de consultar la fábrica no se dio entero"),
-               arreglo=f"completar el campo con lo que de verdad se consultó ({PASO}); si no "
-                       "aplica, escribir «no aplica: <motivo>»")
+        _anota(
+            r,
+            nuevo,
+            archivo=CONSTRUCCION,
+            linea=texto.count("\n", 0, m.start()) + 1,
+            mensaje=f"queda un `{m.group(0)}` de la plantilla de la semilla ({contexto})",
+            manifestacion=(
+                "la plantilla a medio rellenar se lee como hecha: el archivo "
+                "existe y el paso de consultar la fábrica no se dio entero"
+            ),
+            arreglo=f"completar el campo con lo que de verdad se consultó ({PASO}); si no "
+            "aplica, escribir «no aplica: <motivo>»",
+        )
 
     for campo in CAMPOS:
         if not re.search(rf"^\s*{campo}:", texto, flags=re.MULTILINE | re.IGNORECASE):
-            _anota(r, nuevo, archivo=CONSTRUCCION,
-                   mensaje=f"falta el campo `{campo}:` ({contexto})",
-                   manifestacion=_MANIFESTACION,
-                   arreglo=f"escribir `{campo}:` como en la plantilla de "
-                           "`semilla/ESQUELETO/docs/CONSTRUCCION.md`")
+            _anota(
+                r,
+                nuevo,
+                archivo=CONSTRUCCION,
+                mensaje=f"falta el campo `{campo}:` ({contexto})",
+                manifestacion=_MANIFESTACION,
+                arreglo=f"escribir `{campo}:` como en la plantilla de "
+                "`semilla/ESQUELETO/docs/CONSTRUCCION.md`",
+            )
 
     ids = list(dict.fromkeys(METODOLOGIA.findall(texto)))
     if not ids:
-        _anota(r, nuevo, archivo=CONSTRUCCION,
-               mensaje=f"no cita ninguna metodología de IGNUS (`smb-metodologia-…`) ({contexto})",
-               manifestacion=_MANIFESTACION,
-               arreglo=("`metodologia:` con el `sombrero_id` de «Construir una aplicación "
-                        "COIPO con la fábrica» (empieza por "
-                        "`smb-metodologia-construir-una-aplicacion-coipo`), leída con "
-                        "`ver_metodologia`"))
+        _anota(
+            r,
+            nuevo,
+            archivo=CONSTRUCCION,
+            mensaje=f"no cita ninguna metodología de IGNUS (`smb-metodologia-…`) ({contexto})",
+            manifestacion=_MANIFESTACION,
+            arreglo=(
+                "`metodologia:` con el `sombrero_id` de «Construir una aplicación "
+                "COIPO con la fábrica» (empieza por "
+                "`smb-metodologia-construir-una-aplicacion-coipo`), leída con "
+                "`ver_metodologia`"
+            ),
+        )
 
     correlaciones = list(dict.fromkeys(CORRELACION.findall(texto)))
     if not correlaciones:
-        _anota(r, nuevo, archivo=CONSTRUCCION,
-               mensaje=f"ningún `correlation_id` con forma válida: no hay rastro de haber "
-                       f"consultado IGNUS ({contexto})",
-               manifestacion=_MANIFESTACION,
-               arreglo=("copiar en `consultas:` el `correlation_id` de CADA respuesta de "
-                        "IGNUS (`corr-<dígitos>-<hex>`), con la herramienta y la fecha"))
+        _anota(
+            r,
+            nuevo,
+            archivo=CONSTRUCCION,
+            mensaje=f"ningún `correlation_id` con forma válida: no hay rastro de haber "
+            f"consultado IGNUS ({contexto})",
+            manifestacion=_MANIFESTACION,
+            arreglo=(
+                "copiar en `consultas:` el `correlation_id` de CADA respuesta de "
+                "IGNUS (`corr-<dígitos>-<hex>`), con la herramienta y la fecha"
+            ),
+        )
 
     if not REGISTRADO.search(texto):
-        r.avisa(FAB_8, CONSTRUCCION,
-                "no dice qué se registró en IGNUS al cerrar (`registrado:`)",
-                "lo aprendido construyendo se queda en la sesión que lo aprendió: la "
-                "siguiente aplicación tropieza con lo mismo",
-                arreglo="`registrado:` con el `objetivo_id` creado en IGNUS y su "
-                        "`correlation_id`, o «no aplica: <motivo>»")
+        r.avisa(
+            FAB_8,
+            CONSTRUCCION,
+            "no dice qué se registró en IGNUS al cerrar (`registrado:`)",
+            "lo aprendido construyendo se queda en la sesión que lo aprendió: la "
+            "siguiente aplicación tropieza con lo mismo",
+            arreglo="`registrado:` con el `objetivo_id` creado en IGNUS y su "
+            "`correlation_id`, o «no aplica: <motivo>»",
+        )
     return ids, correlaciones
 
 
@@ -262,7 +308,9 @@ FAB_9 = "FAB-9"
 # 0 a 1 bloqueante, y una regla que cambia el veredicto de lo que ya existe es mayor
 # nueva (docs/VERSIONADO.md, enmienda del 2026-10-25). Medido sobre 84 repositorios.
 VIGENCIA_MIRADO = "2026-11-13"
-MIRADO = re.compile(r"^[ \t]*(?:-[ \t]*)?mirado[ \t]*:[ \t]*(?P<valor>[^\r\n]*)", re.MULTILINE | re.IGNORECASE)
+MIRADO = re.compile(
+    r"^[ \t]*(?:-[ \t]*)?mirado[ \t]*:[ \t]*(?P<valor>[^\r\n]*)", re.MULTILINE | re.IGNORECASE
+)
 
 
 def _mirado(repo: Repo, r: Resultado, marcador: str, texto: str) -> None:
@@ -272,27 +320,37 @@ def _mirado(repo: Repo, r: Resultado, marcador: str, texto: str) -> None:
         return
     siembra = leer_siembra(marcador, VIGENCIA_MIRADO, CAPA)
     nuevo = siembra.nuevo
-    contexto = (f"sembrado el {siembra.fecha}, con la regla vigente desde el {VIGENCIA_MIRADO}"
-                if nuevo else f"regla del {VIGENCIA_MIRADO}, anterior a esta aplicación o "
-                              "sin `semilla` adoptada: sólo aviso")
+    contexto = (
+        f"sembrado el {siembra.fecha}, con la regla vigente desde el {VIGENCIA_MIRADO}"
+        if nuevo
+        else f"regla del {VIGENCIA_MIRADO}, anterior a esta aplicación o "
+        "sin `semilla` adoptada: sólo aviso"
+    )
     m = MIRADO.search(texto)
-    valor = (m.group("valor").strip() if m else "")
+    valor = m.group("valor").strip() if m else ""
     if not (m and len(valor) >= 12 and not PENDIENTE.search(valor)):
         _sin_mirado(r, nuevo, contexto, texto, m)
     r.comprobo(f"FAB-9: buscado `mirado:` en `{CONSTRUCCION}` ({contexto})")
 
 
-def _sin_mirado(r: Resultado, nuevo: bool, contexto: str, texto: str,
-                m: re.Match[str] | None) -> None:
+def _sin_mirado(
+    r: Resultado, nuevo: bool, contexto: str, texto: str, m: re.Match[str] | None
+) -> None:
     datos = dict(
         archivo=CONSTRUCCION,
         linea=texto.count("\n", 0, m.start()) + 1 if m else None,
-        mensaje=(f"no dice qué se MIRÓ de la interfaz antes de desplegar (`mirado:` "
-                 f"{'vacío o pendiente' if m else 'ausente'}) ({contexto})"),
-        manifestacion=("la interfaz llega a producción sin que nadie la haya visto: así salió "
-                       "coipo_catastro_equipo, sin parecerse a la maqueta que validó el cliente"),
-        arreglo=("`npm run build` y `npm run capturas` (o `npm run comparar:maqueta` si hay "
-                 "maqueta), mirar los PNG y escribir `mirado: <fecha>, <comando>, <qué se vio>`"),
+        mensaje=(
+            f"no dice qué se MIRÓ de la interfaz antes de desplegar (`mirado:` "
+            f"{'vacío o pendiente' if m else 'ausente'}) ({contexto})"
+        ),
+        manifestacion=(
+            "la interfaz llega a producción sin que nadie la haya visto: así salió "
+            "coipo_catastro_equipo, sin parecerse a la maqueta que validó el cliente"
+        ),
+        arreglo=(
+            "`npm run build` y `npm run capturas` (o `npm run comparar:maqueta` si hay "
+            "maqueta), mirar los PNG y escribir `mirado: <fecha>, <comando>, <qué se vio>`"
+        ),
     )
     if nuevo:
         r.bloquea(FAB_9, **datos)  # type: ignore[arg-type]
@@ -301,5 +359,6 @@ def _sin_mirado(r: Resultado, nuevo: bool, contexto: str, texto: str,
 
 
 if __name__ == "__main__":
-    ejecutar("j14", "construir con la fábrica: docs/CONSTRUCCION.md completo y con rastro",
-             comprobar)
+    ejecutar(
+        "j14", "construir con la fábrica: docs/CONSTRUCCION.md completo y con rastro", comprobar
+    )

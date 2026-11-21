@@ -45,7 +45,7 @@ def claves_duplicadas(texto: str) -> list[tuple[int, str]]:
         if m.group(1) in mapa:
             problemas.append((n, m.group(1)))
         mapa.add(m.group(1))
-        if _BLOQUE.match(cuerpo[m.end():].strip()):
+        if _BLOQUE.match(cuerpo[m.end() :].strip()):
             bloque_desde = sangria
     return problemas
 
@@ -71,7 +71,6 @@ def _mapa_de(pila: list[tuple[int, set[str]]], sangria: int) -> set[str]:
 
 
 class PruebaWorkflowsSinClavesDuplicadas(unittest.TestCase):
-
     def test_hay_workflows(self):
         self.assertTrue(WORKFLOWS, "no hay workflows que comprobar")
 
@@ -87,23 +86,30 @@ class PruebaWorkflowsSinClavesDuplicadas(unittest.TestCase):
         for p in WORKFLOWS:
             with self.subTest(workflow=p.name):
                 t = p.read_text(encoding="utf-8")
-                vacias = [n for n, linea in enumerate(t.splitlines(), 1)
-                          if re.search(r"\$\{\{\s*\}\}", linea)]
+                vacias = [
+                    n
+                    for n, linea in enumerate(t.splitlines(), 1)
+                    if re.search(r"\$\{\{\s*\}\}", linea)
+                ]
                 self.assertEqual([], vacias)
 
     def test_el_detector_detecta_el_caso_de_v2_0_3(self):
         """Una prueba que nunca falla no prueba nada."""
-        roto = ("jobs:\n  x:\n    steps:\n      - name: a\n        env:\n"
-                "          A: 1\n        env:\n          B: 2\n        run: |\n"
-                "          echo 'env: dentro de un bloque no cuenta'\n")
+        roto = (
+            "jobs:\n  x:\n    steps:\n      - name: a\n        env:\n"
+            "          A: 1\n        env:\n          B: 2\n        run: |\n"
+            "          echo 'env: dentro de un bloque no cuenta'\n"
+        )
         self.assertEqual([(7, "env")], claves_duplicadas(roto))
 
     def test_el_detector_no_confunde_pasos_ni_bloques(self):
-        sano = ("on:\n  push:\n  pull_request:\n"
-                "jobs:\n  x:\n    steps:\n"
-                "      - name: a\n        run: |\n          name: repetido\n          name: y otra vez\n"
-                "      - name: b\n        with:\n          ref: x\n"
-                "      - name: c\n        with:\n          ref: y\n")
+        sano = (
+            "on:\n  push:\n  pull_request:\n"
+            "jobs:\n  x:\n    steps:\n"
+            "      - name: a\n        run: |\n          name: repetido\n          name: y otra vez\n"
+            "      - name: b\n        with:\n          ref: x\n"
+            "      - name: c\n        with:\n          ref: y\n"
+        )
         self.assertEqual([], claves_duplicadas(sano))
 
 

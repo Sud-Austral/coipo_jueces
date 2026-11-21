@@ -46,7 +46,6 @@ CSS_MALO = (
 
 
 class PruebaAdoptaCruzado(unittest.TestCase):
-
     def setUp(self):
         if not hay_git():
             self.fail("falta `git` en el PATH: esta prueba lo necesita de verdad")
@@ -60,34 +59,55 @@ class PruebaAdoptaCruzado(unittest.TestCase):
     def _correr(self) -> dict:
         salida = Path(self.repo.dir) / "gate.json"
         proc = subprocess.run(
-            [sys.executable, str(RAIZ / "jueces" / "correr.py"),
-             "--repo", str(self.repo.dir), "--modo", "advisory",
-             "--perfil", "aplicacion", "--json", str(salida)],
-            capture_output=True, encoding="utf-8", errors="replace",
+            [
+                sys.executable,
+                str(RAIZ / "jueces" / "correr.py"),
+                "--repo",
+                str(self.repo.dir),
+                "--modo",
+                "advisory",
+                "--perfil",
+                "aplicacion",
+                "--json",
+                str(salida),
+            ],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if not salida.exists():
-            self.fail("correr.py no escribio el JSON.\n"
-                      f"stdout:\n{proc.stdout[-2000:]}\n"
-                      f"stderr:\n{proc.stderr[-2000:]}")
+            self.fail(
+                "correr.py no escribio el JSON.\n"
+                f"stdout:\n{proc.stdout[-2000:]}\n"
+                f"stderr:\n{proc.stderr[-2000:]}"
+            )
         return json.loads(salida.read_text(encoding="utf-8"))
 
     def _veredicto(self, datos: dict, juez: str) -> str:
         for r in datos.get("resultados", []):
             if r.get("juez", "").startswith(juez):
                 return r.get("veredicto", "")
-        self.fail(f"{juez} no aparece en el resumen: "
-                  f"{[r.get('juez') for r in datos.get('resultados', [])]}")
+        self.fail(
+            f"{juez} no aparece en el resumen: "
+            f"{[r.get('juez') for r in datos.get('resultados', [])]}"
+        )
 
     def test_adopta_interfaz_calla_a_j12_y_enciende_a_j13(self):
         """El caso completo, que es la razón de existir de la clave."""
-        self.repo.escribe(".semilla",
-                          "version: 2026-09-07\ngerencia: 1_banner_SECOM\n"
-                          "adopta: interfaz\n")
+        self.repo.escribe(
+            ".semilla", "version: 2026-09-07\ngerencia: 1_banner_SECOM\nadopta: interfaz\n"
+        )
         datos = self._correr()
-        self.assertEqual("NO_APLICA", self._veredicto(datos, "j12"),
-                         "j12 no debe juzgar piezas de una app que no se sembro")
-        self.assertEqual("HALLAZGOS", self._veredicto(datos, "j13"),
-                         "j13 SI debe juzgar: el repositorio declara la interfaz")
+        self.assertEqual(
+            "NO_APLICA",
+            self._veredicto(datos, "j12"),
+            "j12 no debe juzgar piezas de una app que no se sembro",
+        )
+        self.assertEqual(
+            "HALLAZGOS",
+            self._veredicto(datos, "j13"),
+            "j13 SI debe juzgar: el repositorio declara la interfaz",
+        )
 
     def test_sin_adopta_los_dos_actuan(self):
         """La otra dirección, que es lo que hace que la prueba de arriba valga.
@@ -96,11 +116,11 @@ class PruebaAdoptaCruzado(unittest.TestCase):
         nada nunca. Con el marcador y sin la clave se adopta todo, así que los
         dos jueces tienen que actuar sobre el mismo repositorio.
         """
-        self.repo.escribe(".semilla",
-                          "version: 2026-09-07\ngerencia: 1_banner_SECOM\n")
+        self.repo.escribe(".semilla", "version: 2026-09-07\ngerencia: 1_banner_SECOM\n")
         datos = self._correr()
-        self.assertIn(self._veredicto(datos, "j12"), ("OK", "HALLAZGOS"),
-                      "sin la clave, j12 tiene que mirar")
+        self.assertIn(
+            self._veredicto(datos, "j12"), ("OK", "HALLAZGOS"), "sin la clave, j12 tiene que mirar"
+        )
         self.assertEqual("HALLAZGOS", self._veredicto(datos, "j13"))
 
     def test_sin_marcador_ninguno_de_los_dos_juzga(self):

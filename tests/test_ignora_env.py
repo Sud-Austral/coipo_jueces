@@ -24,8 +24,18 @@ from comun import ignora_env  # noqa: E402
 
 class PruebaIgnoraEnv(unittest.TestCase):
     def test_las_formas_que_dejan_fuera_el_env_de_la_raiz(self):
-        for patron in (".env", "/.env", "**/.env", ".env*", "/.env*", "**/.env*",
-                       "*.env", "/*.env", "**/*.env", "  .env  "):
+        for patron in (
+            ".env",
+            "/.env",
+            "**/.env",
+            ".env*",
+            "/.env*",
+            "**/.env*",
+            "*.env",
+            "/*.env",
+            "**/*.env",
+            "  .env  ",
+        ):
             with self.subTest(patron=patron):
                 self.assertTrue(ignora_env([patron]))
 
@@ -67,8 +77,10 @@ class PruebaJ08(CasoConRepo):
 class PruebaJ01(CasoConRepo):
     MODULO = j01
 
-    COMPOSE = ("services:\n  app:\n    build:\n      context: .\n    ports:\n"
-               '      - "${APP_PORT:-8080}:8000"\n    restart: unless-stopped\n')
+    COMPOSE = (
+        "services:\n  app:\n    build:\n      context: .\n    ports:\n"
+        '      - "${APP_PORT:-8080}:8000"\n    restart: unless-stopped\n'
+    )
 
     def test_env_punto_asterisco_no_excluye_el_env_del_contexto(self):
         self.repo.escribe("docker-compose.yml", self.COMPOSE)

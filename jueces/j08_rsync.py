@@ -84,14 +84,20 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
         # Dos llamadas explícitas y no un alias (`anota = r.bloquea if ... else
         # r.avisa`): `test_reglas_citadas` lee el código y la severidad de cada
         # llamada en el AST, y un alias se los escondía (2026-11-21).
-        manifestacion = ("nada impide que el `.env` de desarrollo, un volcado de base de "
-                         "datos o un directorio de datos acaben versionados de un `git add -A`")
+        manifestacion = (
+            "nada impide que el `.env` de desarrollo, un volcado de base de "
+            "datos o un directorio de datos acaben versionados de un `git add -A`"
+        )
         arreglo = "crear `.gitignore` con al menos `/.env` y `/data/`"
         if desplegable:
-            r.bloquea("G8-8", "", "no hay `.gitignore`",
-                      manifestacion + ". Y este repositorio tiene compose, así que en el "
-                      "servidor va a existir un `.env` con credenciales de producción",
-                      arreglo=arreglo)
+            r.bloquea(
+                "G8-8",
+                "",
+                "no hay `.gitignore`",
+                manifestacion + ". Y este repositorio tiene compose, así que en el "
+                "servidor va a existir un `.env` con credenciales de producción",
+                arreglo=arreglo,
+            )
         else:
             r.avisa("G8-8", "", "no hay `.gitignore`", manifestacion, arreglo=arreglo)
         return
@@ -105,7 +111,9 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
     # correcto (2026-11-21).
     if not ignora_env(lineas):
         r.bloquea(
-            "G8-8", ".gitignore", "`.env` no está ignorado",
+            "G8-8",
+            ".gitignore",
+            "`.env` no está ignorado",
             "el `.env` real lo crea el bootstrap del servidor y nunca se commitea; "
             "sin esta línea, el primer `git add -A` de alguien con prisa publica las "
             "credenciales de producción en el historial, de donde ya no salen",
@@ -116,7 +124,7 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
     for n, patron in entradas:
         if patron.rstrip("/") != "data" or patron.startswith("/"):
             continue
-        if (motivo := suprimido(lineas, n - 1, "G8-8")):
+        if motivo := suprimido(lineas, n - 1, "G8-8"):
             r.supresiones.append(f".gitignore:{n} `{patron}` sin anclar — {motivo}")
             continue
         anidados = sorted(
@@ -124,10 +132,11 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
             for p in repo.raiz.glob("*/**/data")
             if p.is_dir() and ".git" not in p.parts
         )[:3]
-        evidencia = (f" En este repositorio ya existe {', '.join(anidados)}."
-                     if anidados else "")
+        evidencia = f" En este repositorio ya existe {', '.join(anidados)}." if anidados else ""
         r.bloquea(
-            "G8-8", ".gitignore", f"`{patron}` no está anclado con barra inicial",
+            "G8-8",
+            ".gitignore",
+            f"`{patron}` no está anclado con barra inicial",
             "git ignora CUALQUIER carpeta llamada `data` a cualquier profundidad, "
             "incluida `frontend/src/data/`, que es donde suele vivir un catálogo "
             "generado que sí hay que versionar. El archivo desaparece del "
@@ -144,7 +153,8 @@ def comprobar_lo_que_viaja(repo: Repo, r: Resultado) -> None:
     if not versionados:
         r.no_evaluado.append(
             "`git ls-files` no devolvió nada: sin la lista de archivos versionados "
-            "no se puede saber qué llega al servidor.")
+            "no se puede saber qué llega al servidor."
+        )
         return
 
     r.comprobo(f"archivos versionados frente al rsync anclado ({len(versionados)})")
@@ -158,47 +168,55 @@ def comprobar_lo_que_viaja(repo: Repo, r: Resultado) -> None:
                 # En la raiz el rsync SI lo excluye, asi que no llega al
                 # servidor. El problema es otro y es peor: esta en git.
                 r.bloquea(
-                    "G8-8", ruta, "`.env` está versionado",
+                    "G8-8",
+                    ruta,
+                    "`.env` está versionado",
                     "figure o no en el `.gitignore`, git no ignora lo que ya está "
                     "trackeado: el archivo sigue en el repositorio y en todo su "
                     "historial, accesible para cualquiera que tenga acceso de "
                     "lectura, y borrarlo en un commit nuevo no lo saca del pasado",
                     arreglo="`git rm --cached .env`, rotar TODO lo que contenía "
-                            "—porque hay que darlo por comprometido— y solo después "
-                            "purgar el historial",
+                    "—porque hay que darlo por comprometido— y solo después "
+                    "purgar el historial",
                 )
             else:
                 r.bloquea(
-                    "G8-10", ruta, f"`{ruta}` es un `.env` en un subdirectorio",
+                    "G8-10",
+                    ruta,
+                    f"`{ruta}` es un `.env` en un subdirectorio",
                     "el rsync excluye `/.env` ANCLADO a la raíz, así que este "
                     "archivo NO está excluido y llega al servidor en cada "
                     "despliegue. Antes de agosto de 2026 no llegaba, de modo que "
                     "un repositorio escrito antes de ese cambio lo da por local",
                     arreglo="sacarlo de git (`git rm --cached`), añadirlo al "
-                            "`.gitignore`, y si tenía valores reales, rotarlos "
-                            "(Guía 8, punto 10)",
+                    "`.gitignore`, y si tenía valores reales, rotarlos "
+                    "(Guía 8, punto 10)",
                 )
 
         elif ENV_VARIANTE.search(ruta):
             r.avisa(
-                "G8-10", ruta, f"`{ruta}` viaja al servidor en cada despliegue",
+                "G8-10",
+                ruta,
+                f"`{ruta}` viaja al servidor en cada despliegue",
                 "el rsync solo excluye `/.env` de la raíz. Un `.env.production` de "
                 "Vite suele llevar configuración de build y no secretos, pero "
                 "cualquier token que tenga queda en el disco del servidor y en el "
                 "repositorio",
                 arreglo="comprobar que no lleva ningún valor real. Si lo lleva, "
-                        "sacarlo de git y rotarlo",
+                "sacarlo de git y rotarlo",
             )
 
         elif EN_DATA_RAIZ.match(ruta):
             r.avisa(
-                "G8-10", ruta, f"`{ruta}` está versionado dentro del `data/` de la raíz",
+                "G8-10",
+                ruta,
+                f"`{ruta}` está versionado dentro del `data/` de la raíz",
                 "el rsync excluye `/data/` en los dos sentidos, así que este archivo "
                 "NUNCA llega al servidor. Si la aplicación lo necesita en tiempo de "
                 "ejecución, en producción no está y el fallo aparece lejos de aquí",
                 arreglo="si hace falta en runtime, moverlo fuera de `data/` o "
-                        "copiarlo en el bootstrap del servidor. Si es un insumo que "
-                        "solo se usa en desarrollo, dejarlo donde está y anotarlo",
+                "copiarlo en el bootstrap del servidor. Si es un insumo que "
+                "solo se usa en desarrollo, dejarlo donde está y anotarlo",
             )
 
 
@@ -210,5 +228,6 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
 
 if __name__ == "__main__":
-    ejecutar("j08", "`.gitignore` anclado y qué llega al servidor "
-                    "(Guía 8, puntos 8 y 10)", comprobar)
+    ejecutar(
+        "j08", "`.gitignore` anclado y qué llega al servidor (Guía 8, puntos 8 y 10)", comprobar
+    )

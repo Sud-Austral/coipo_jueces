@@ -206,7 +206,7 @@ def _lock() -> dict[str, str]:
         return {}
     salida: dict[str, str] = {}
     for linea in LOCK.read_text(encoding="utf-8").splitlines():
-        if (m := ENTRADA.match(linea.strip())):
+        if m := ENTRADA.match(linea.strip()):
             salida[m.group("ruta")] = m.group("huella")
     return salida
 
@@ -266,11 +266,11 @@ class _LectorDeHistorial:
         self.salida: dict[str, dict[str, datetime.date]] = {}
 
     def leer(self, n: int, linea: str) -> None:
-        if (m := FORMATO.match(linea)):
+        if m := FORMATO.match(linea):
             self.formato = m.group(1)
         elif CABECERA_DE_BLOQUE.match(linea):
             self._bloque(n, linea)
-        elif (m := ENTRADA.match(linea)):
+        elif m := ENTRADA.match(linea):
             self._entrada(n, m)
 
     def _bloque(self, n: int, linea: str) -> None:
@@ -300,8 +300,10 @@ class _LectorDeHistorial:
         if self.formato is None:
             raise ValueError("falta la línea `# formato: 1`: no es un historial")
         if self.formato != FORMATO_HISTORIAL:
-            raise ValueError(f"`formato: {self.formato}` no es uno que este juez sepa leer "
-                             f"(lee el {FORMATO_HISTORIAL})")
+            raise ValueError(
+                f"`formato: {self.formato}` no es uno que este juez sepa leer "
+                f"(lee el {FORMATO_HISTORIAL})"
+            )
         self._cerrar_bloque()
         return self.salida
 
@@ -326,7 +328,8 @@ ACTUALIZAR = (
     "`semilla/README.md`; con la fábrica al lado, desde esta aplicación sirve "
     "`--destino .` con `python ../coipo_master_produccion/semilla/sembrar.py`). "
     "Reescribe SÓLO las piezas selladas y deja intacto lo que la aplicación adaptó; "
-    "exige el árbol de trabajo limpio, para que el diff se pueda revisar.")
+    "exige el árbol de trabajo limpio, para que el diff se pueda revisar."
+)
 
 
 def _atrasada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
@@ -335,7 +338,8 @@ def _atrasada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
     AVISA siempre, sin plazo (FILOSOFIA.md §3 y la decisión del 2026-10-24): es la
     fábrica de su fecha, y la aplicación se pone al día cuando quiera."""
     r.avisa(
-        "SEM-1", ruta,
+        "SEM-1",
+        ruta,
         f"pieza CONGELADA atrasada: es la versión de la semilla publicada hasta el "
         f"{hasta}. No está editada: la semilla la mejoró después",
         "la aplicación sigue funcionando con el Dockerfile, el nginx o el archivo que "
@@ -348,60 +352,67 @@ def _atrasada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
 def _retirada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
     """Una pieza que el lock vigente ya no nombra, tal como la publicó una semilla anterior."""
     r.avisa(
-        "SEM-1", ruta,
+        "SEM-1",
+        ruta,
         f"pieza CONGELADA atrasada: es la versión de la semilla publicada hasta el "
         f"{hasta}, y el lock de hoy ya no la sella (la semilla la partió en otras, o "
         "dejó de congelarla)",
         f"la aplicación conserva esta pieza como era en la semilla vigente hasta el "
         f"{hasta}; lo que la semilla cambió después en su lugar no le llega",
         arreglo="ya no es una pieza sellada, así que `sembrar.py --actualizar` no la "
-                "toca y este aviso no se cierra solo. Mira qué hizo la semilla con ella "
-                f"(`git log -- semilla/CONGELADO/{ruta}` en coipo_master_produccion). "
-                "Si la partió en otras —`db/0000_plataforma.sql` pasó a "
-                "`db/0000_0N_*.sql` el 2026-10-24—, `--actualizar` trae las nuevas SIN "
-                "borrar ésta y quedarían las dos: con una base ya desplegada, decide "
-                "antes cuál se aplica. Si dejó de congelarla porque cada aplicación la "
-                "amplía —`.dockerignore`, desde el 2026-09-09—, es tuya: adáptala o "
-                "tráela de la semilla de hoy, y el aviso desaparece.",
+        "toca y este aviso no se cierra solo. Mira qué hizo la semilla con ella "
+        f"(`git log -- semilla/CONGELADO/{ruta}` en coipo_master_produccion). "
+        "Si la partió en otras —`db/0000_plataforma.sql` pasó a "
+        "`db/0000_0N_*.sql` el 2026-10-24—, `--actualizar` trae las nuevas SIN "
+        "borrar ésta y quedarían las dos: con una base ya desplegada, decide "
+        "antes cuál se aplica. Si dejó de congelarla porque cada aplicación la "
+        "amplía —`.dockerignore`, desde el 2026-09-09—, es tuya: adáptala o "
+        "tráela de la semilla de hoy, y el aviso desaparece.",
     )
 
 
 def _editada(r: Resultado, ruta: str) -> None:
     r.bloquea(
-        "SEM-1", ruta, "es una pieza CONGELADA de la semilla y está editada",
+        "SEM-1",
+        ruta,
+        "es una pieza CONGELADA de la semilla y está editada",
         "este archivo es idéntico en toda la flota a propósito: cierra un fallo "
         "que ya ocurrió y la corrección tiene que llegar a todas las "
         "aplicaciones a la vez. Una copia editada deja de recibir las "
         "correcciones y nadie se entera — es exactamente cómo `DOCKER.md` acabó "
         "en 10 repositorios con 3 contenidos distintos",
         arreglo="si el cambio sólo sirve para esta aplicación, sácalo a un "
-                "archivo propio que NO esté en el lock. Si el cambio es bueno "
-                "para toda la flota, hazlo en `semilla/CONGELADO/` de "
-                "coipo_master_produccion, vuelve a sellar, y llega a todas. "
-                "Si de verdad hace falta la excepción aquí, suprímela con "
-                "`coipo-jueces:ignorar(SEM-1) <motivo>` en la primera línea: "
-                "se cuenta y se publica.",
+        "archivo propio que NO esté en el lock. Si el cambio es bueno "
+        "para toda la flota, hazlo en `semilla/CONGELADO/` de "
+        "coipo_master_produccion, vuelve a sellar, y llega a todas. "
+        "Si de verdad hace falta la excepción aquí, suprímela con "
+        "`coipo-jueces:ignorar(SEM-1) <motivo>` en la primera línea: "
+        "se cuenta y se publica.",
     )
 
 
 def _leer_historial(r: Resultado) -> dict[str, dict[str, datetime.date]]:
     """El historial, o `{}` con la razón anotada en `no_evaluado`. Nunca más indulgente."""
     nombre = _ruta_historial().name
-    regenerar = ("Lo escribe `python semilla/sellar.py --escribir <ruta>/semilla.lock` "
-                 "en coipo_master_produccion.")
+    regenerar = (
+        "Lo escribe `python semilla/sellar.py --escribir <ruta>/semilla.lock` "
+        "en coipo_master_produccion."
+    )
     try:
         historial = _historial()
     except ValueError as e:
         r.no_evaluado.append(
             f"{nombre} existe pero no se pudo leer: {e}. Se IGNORA entero, así que una "
             "pieza de una semilla anterior se juzgará como EDITADA, nunca con más "
-            "indulgencia. " + regenerar)
+            "indulgencia. " + regenerar
+        )
         return {}
     if historial is None:
         r.no_evaluado.append(
             f"no hay {nombre} junto al lock: este juez no puede distinguir una pieza "
             "ATRASADA de una EDITADA y juzga las dos como editadas, como antes del "
-            "2026-10-24. " + regenerar)
+            "2026-10-24. " + regenerar
+        )
         return {}
     return historial
 
@@ -411,22 +422,28 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # de aquí: toda aplicación web tiene uno. Sin declaración, no hay nada que comparar.
     # El alcance (sin `.semilla`, `adopta:` vacía) lo resuelve `alcance_semilla`.
     alcance = alcance_semilla(
-        repo, r,
+        repo,
+        r,
         f"no hay `{MARCADOR}` en la raíz: este repositorio no se sembró con la "
         "semilla de la flota, así que sus archivos son suyos aunque se llamen "
         "igual. Si SÍ se sembró y alguien borró el marcador, restaurarlo es lo "
-        "que vuelve a encender esta comprobación.")
+        "que vuelve a encender esta comprobación.",
+    )
     if alcance is None:
         return
     texto_marcador, adopcion = alcance
     # El marcador puede declarar que adopta OTRA capa y no ésta: N/A, citando la
     # línea, y contado como supresión (`no_adopta` en comun.py).
     if not adopcion.adopta(CAPA):
-        no_adopta(r, adopcion, CAPA,
-                  "así que las piezas congeladas de este repositorio NO se comparan contra "
-                  "el lock. Es legítimo en una aplicación que adopta un estándar de la "
-                  "flota sin haberse sembrado con la semilla; deja de serlo si el "
-                  "repositorio SÍ se sembró.")
+        no_adopta(
+            r,
+            adopcion,
+            CAPA,
+            "así que las piezas congeladas de este repositorio NO se comparan contra "
+            "el lock. Es legítimo en una aplicación que adopta un estándar de la "
+            "flota sin haberse sembrado con la semilla; deja de serlo si el "
+            "repositorio SÍ se sembró.",
+        )
         return
 
     esperado = _lock()
@@ -436,7 +453,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         r.no_evaluado.append(
             f"no se pudo leer {LOCK.name}: sin él este juez no sabe qué archivos "
             "están congelados. Se regenera con `python semilla/sellar.py "
-            "--escribir <ruta>/semilla.lock` en coipo_master_produccion.")
+            "--escribir <ruta>/semilla.lock` en coipo_master_produccion."
+        )
         return
 
     m = VERSION.search(texto_marcador)
@@ -447,11 +465,13 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         r.no_evaluado.append(
             f"hay `{MARCADOR}` (version {version}) pero no está ninguno de los "
             f"{len(esperado)} archivos congelados. O el marcador quedó de un "
-            f"borrado, o la siembra no llegó a copiarse: las dos hay que mirarlas.")
+            f"borrado, o la siembra no llegó a copiarse: las dos hay que mirarlas."
+        )
         return
 
-    r.comprobo(f"piezas congeladas de la semilla {version} "
-               f"({len(presentes)} de {len(esperado)} presentes)")
+    r.comprobo(
+        f"piezas congeladas de la semilla {version} ({len(presentes)} de {len(esperado)} presentes)"
+    )
 
     # Se lee ANTES del bucle y no cuando aparece la primera diferencia, para que
     # un archivo roto o ausente se anote siempre y no sólo cuando hace falta.
@@ -464,8 +484,13 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     _paquetes_sistema(repo, r)
 
 
-def _juzgar_presentes(repo: Repo, r: Resultado, presentes: list[str], esperado: dict[str, str],
-                      historial: dict[str, dict[str, datetime.date]]) -> None:
+def _juzgar_presentes(
+    repo: Repo,
+    r: Resultado,
+    presentes: list[str],
+    esperado: dict[str, str],
+    historial: dict[str, dict[str, datetime.date]],
+) -> None:
     """Cada pieza del lock que la aplicación tiene: vigente, suprimida, atrasada o editada."""
     for ruta in sorted(presentes):
         actual = _huella(repo.ruta(ruta))
@@ -475,7 +500,7 @@ def _juzgar_presentes(repo: Repo, r: Resultado, presentes: list[str], esperado: 
         if actual == esperado[ruta]:
             continue
 
-        if (motivo := suprimido(repo.lineas(ruta), 0, "SEM-1")):
+        if motivo := suprimido(repo.lineas(ruta), 0, "SEM-1"):
             r.supresiones.append(f"{ruta} pieza congelada editada — {motivo}")
             continue
 
@@ -486,8 +511,12 @@ def _juzgar_presentes(repo: Repo, r: Resultado, presentes: list[str], esperado: 
         _editada(r, ruta)
 
 
-def _juzgar_retiradas(repo: Repo, r: Resultado, esperado: dict[str, str],
-                      historial: dict[str, dict[str, datetime.date]]) -> None:
+def _juzgar_retiradas(
+    repo: Repo,
+    r: Resultado,
+    esperado: dict[str, str],
+    historial: dict[str, dict[str, datetime.date]],
+) -> None:
     """Las piezas que la semilla RETIRÓ del lock y siguen en el historial. Sólo se mira
     si coinciden con lo que se publicó: si no coinciden, ya no son piezas congeladas y
     no hay regla que mire hacia atrás (FILOSOFIA.md, §4)."""
@@ -497,7 +526,7 @@ def _juzgar_retiradas(repo: Repo, r: Resultado, esperado: dict[str, str],
         actual = _huella(repo.ruta(ruta))
         if actual is None or (hasta := historial[ruta].get(actual)) is None:
             continue
-        if (motivo := suprimido(repo.lineas(ruta), 0, "SEM-1")):
+        if motivo := suprimido(repo.lineas(ruta), 0, "SEM-1"):
             r.supresiones.append(f"{ruta} pieza retirada de la semilla — {motivo}")
             continue
         _retirada(r, ruta, hasta)
@@ -518,28 +547,39 @@ def _pruebas_ausentes(repo: Repo, r: Resultado, esperado: dict[str, str]) -> Non
     if not repo.existe("backend/app"):
         return  # sin backend no hay pruebas del backend que exigir
     marcador = repo.lineas(MARCADOR)
-    ausentes = sorted(ruta for ruta in esperado
-                      if ruta.startswith(PRUEBAS_SELLADAS) and not repo.existe(ruta))
+    ausentes = sorted(
+        ruta for ruta in esperado if ruta.startswith(PRUEBAS_SELLADAS) and not repo.existe(ruta)
+    )
     for ruta in ausentes:
         # Un archivo que no está no admite marcador: la supresión va en `.semilla`,
         # nombrando la pieza en la misma línea que el marcador.
-        motivo = next((m for i, linea in enumerate(marcador)
-                       if ruta in linea and (m := suprimido(marcador, i, "SEM-3"))), None)
+        motivo = next(
+            (
+                m
+                for i, linea in enumerate(marcador)
+                if ruta in linea and (m := suprimido(marcador, i, "SEM-3"))
+            ),
+            None,
+        )
         if motivo:
             r.supresiones.append(f"{ruta} prueba sellada ausente — {motivo}")
             continue
         r.avisa(
-            "SEM-3", ruta, f"falta una pieza sellada de `{PRUEBAS_SELLADAS}` (las pruebas "
-                           "de la semilla y su arnés)",
+            "SEM-3",
+            ruta,
+            f"falta una pieza sellada de `{PRUEBAS_SELLADAS}` (las pruebas "
+            "de la semilla y su arnés)",
             "la guarda que esta prueba aplica en cada aplicación de la flota deja de "
             "correr aquí, y nada se pone rojo: el CI pasa porque hay una prueba menos, no "
             "porque el código cumpla",
             arreglo="traerla de la semilla —" + ACTUALIZAR + " Si de verdad no aplica, "
-                    f"`# coipo-jueces:ignorar(SEM-3) {ruta}: <motivo>` en `.semilla`: se "
-                    "cuenta y se publica.",
+            f"`# coipo-jueces:ignorar(SEM-3) {ruta}: <motivo>` en `.semilla`: se "
+            "cuenta y se publica.",
         )
-    r.comprobo(f"SEM-3: {sum(1 for p in esperado if p.startswith(PRUEBAS_SELLADAS))} "
-               f"prueba(s) sellada(s) de `{PRUEBAS_SELLADAS}`, {len(ausentes)} ausente(s)")
+    r.comprobo(
+        f"SEM-3: {sum(1 for p in esperado if p.startswith(PRUEBAS_SELLADAS))} "
+        f"prueba(s) sellada(s) de `{PRUEBAS_SELLADAS}`, {len(ausentes)} ausente(s)"
+    )
 
 
 PAQUETES = "backend/paquetes-sistema.txt"
@@ -547,7 +587,8 @@ _COMPILADOR = re.compile(r"^(gcc|g\+\+|make|build-essential|.+-dev)$")
 _MANIFESTACION_PAQ = (
     "un paquete de sistema sin motivo no lo retira nadie y la imagen crece en cada "
     "aplicación; un compilador en la imagen de producción es superficie de ataque y "
-    "builds de minutos")
+    "builds de minutos"
+)
 
 
 def _paquetes_sistema(repo: Repo, r: Resultado) -> None:
@@ -566,26 +607,35 @@ def _paquetes_sistema(repo: Repo, r: Resultado) -> None:
         datos, _, motivo = linea.partition("#")
         for paquete in datos.split():
             if _COMPILADOR.match(paquete):
-                r.avisa("SEM-2", PAQUETES,
-                        f"línea {n}: `{paquete}` es para compilar, no para ejecutar",
-                        _MANIFESTACION_PAQ,
-                        arreglo="usar la versión de la dependencia que trae rueda "
-                                "precompilada; si de verdad hay que compilar, en una "
-                                "etapa de build aparte, llevada a la semilla")
-        if datos.strip() and len(motivo.strip()) < 12:
-            r.avisa("SEM-2", PAQUETES,
-                    f"línea {n}: `{datos.strip()}` sin motivo (o de menos de 12 caracteres)",
+                r.avisa(
+                    "SEM-2",
+                    PAQUETES,
+                    f"línea {n}: `{paquete}` es para compilar, no para ejecutar",
                     _MANIFESTACION_PAQ,
-                    arreglo="escribir en la misma línea qué dependencia lo exige: "
-                            "`libexpat1  # rasterio 1.5.2 la carga al importar`")
+                    arreglo="usar la versión de la dependencia que trae rueda "
+                    "precompilada; si de verdad hay que compilar, en una "
+                    "etapa de build aparte, llevada a la semilla",
+                )
+        if datos.strip() and len(motivo.strip()) < 12:
+            r.avisa(
+                "SEM-2",
+                PAQUETES,
+                f"línea {n}: `{datos.strip()}` sin motivo (o de menos de 12 caracteres)",
+                _MANIFESTACION_PAQ,
+                arreglo="escribir en la misma línea qué dependencia lo exige: "
+                "`libexpat1  # rasterio 1.5.2 la carga al importar`",
+            )
 
 
 PROCEDENCIA = "maqueta/PROCEDENCIA.md"
 CARA = "frontend/src/maqueta/"
-_FILA_HASH = re.compile(r"^\|\s*`(?P<ruta>[^`]+)`\s*\|\s*`(?P<sha>[0-9a-f]{64})`\s*\|", re.MULTILINE)
+_FILA_HASH = re.compile(
+    r"^\|\s*`(?P<ruta>[^`]+)`\s*\|\s*`(?P<sha>[0-9a-f]{64})`\s*\|", re.MULTILINE
+)
 _MANIFESTACION_MAQ = (
     "la aplicación deja de verse como la maqueta que validó el cliente, y nadie lo nota "
-    "hasta que el cliente la abre: es lo que pasó con coipo_catastro_equipo")
+    "hasta que el cliente la abre: es lo que pasó con coipo_catastro_equipo"
+)
 
 
 def _maqueta(repo: Repo, r: Resultado) -> None:
@@ -600,13 +650,19 @@ def _maqueta(repo: Repo, r: Resultado) -> None:
     if maqueta is None:
         return
     procedencia = repo.texto(PROCEDENCIA)
-    arreglo = ("deshacer la edición y poner lo propio en una hoja aparte, importada "
-               "después (prompts/06-portar-una-maqueta.md); si el cliente validó otra "
-               "versión, `sembrar.py --maqueta <origen> --commit <sha> --solo-maqueta`")
+    arreglo = (
+        "deshacer la edición y poner lo propio en una hoja aparte, importada "
+        "después (prompts/06-portar-una-maqueta.md); si el cliente validó otra "
+        "versión, `sembrar.py --maqueta <origen> --commit <sha> --solo-maqueta`"
+    )
     if procedencia is None:
-        r.avisa("MAQ-1", PROCEDENCIA,
-                f"`{MARCADOR}` declara la maqueta {maqueta[1]} y falta su procedencia",
-                _MANIFESTACION_MAQ, arreglo=arreglo)
+        r.avisa(
+            "MAQ-1",
+            PROCEDENCIA,
+            f"`{MARCADOR}` declara la maqueta {maqueta[1]} y falta su procedencia",
+            _MANIFESTACION_MAQ,
+            arreglo=arreglo,
+        )
         return
     filas = list(_FILA_HASH.finditer(procedencia))
     r.comprobo(f"MAQ-1: {len(filas)} archivo(s) de la cara de la maqueta contra su sha256")
@@ -615,18 +671,27 @@ def _maqueta(repo: Repo, r: Resultado) -> None:
     for f in filas:
         ruta = CARA + f.group("ruta")
         if not repo.existe(ruta):
-            r.avisa("MAQ-1", ruta, "falta un archivo de la cara validada de la maqueta",
-                    _MANIFESTACION_MAQ, arreglo=arreglo)
+            r.avisa(
+                "MAQ-1",
+                ruta,
+                "falta un archivo de la cara validada de la maqueta",
+                _MANIFESTACION_MAQ,
+                arreglo=arreglo,
+            )
             continue
         # Con `\r\n` pasado a `\n`, como SEM-1 y como `siembra/maqueta.py`: git cambia los
         # finales de línea al hacer checkout, y eso no es editar la cara.
         actual = hashlib.sha256(repo.ruta(ruta).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
         if actual != f.group("sha"):
-            r.avisa("MAQ-1", ruta, "el archivo de la maqueta validada no coincide con su "
-                    f"sha256 de {PROCEDENCIA}: alguien editó la cara que aprobó el cliente",
-                    _MANIFESTACION_MAQ, arreglo=arreglo)
+            r.avisa(
+                "MAQ-1",
+                ruta,
+                "el archivo de la maqueta validada no coincide con su "
+                f"sha256 de {PROCEDENCIA}: alguien editó la cara que aprobó el cliente",
+                _MANIFESTACION_MAQ,
+                arreglo=arreglo,
+            )
 
 
 if __name__ == "__main__":
-    ejecutar("j12", "las piezas congeladas de la semilla no se editan por aplicación",
-             comprobar)
+    ejecutar("j12", "las piezas congeladas de la semilla no se editan por aplicación", comprobar)

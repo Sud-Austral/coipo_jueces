@@ -35,7 +35,7 @@ def main_con(origenes: str, extra: str = "") -> str:
         "    CORSMiddleware,\n"
         f"    allow_origins={origenes},\n"
         f"{extra}"
-        "    allow_methods=[\"GET\"],\n"
+        '    allow_methods=["GET"],\n'
         ")\n"
     )
 
@@ -59,13 +59,11 @@ class PruebaCors(CasoConRepo):
         si tiene una fuga de datos autenticados o una molestia de configuración,
         y va a tratar los dos igual: ignorándolos.
         """
-        self.repo.escribe("backend/main.py",
-                          main_con('["*"]', "    allow_credentials=False,\n"))
+        self.repo.escribe("backend/main.py", main_con('["*"]', "    allow_credentials=False,\n"))
         sin = [h.manifestacion for h in self.repo.juzga().bloqueantes]
 
         otro = CasoConRepo.__new__(type(self))
-        self.repo.escribe("backend/main.py",
-                          main_con('["*"]', "    allow_credentials=True,\n"))
+        self.repo.escribe("backend/main.py", main_con('["*"]', "    allow_credentials=True,\n"))
         con = [h.manifestacion for h in self.repo.juzga().bloqueantes]
         del otro
 
@@ -93,8 +91,7 @@ class PruebaCors(CasoConRepo):
         self.assertRegla("G8-5", "BLOQUEA", "está cableado en el código")
 
     def test_sin_cors_es_no_aplica_y_no_un_hallazgo(self):
-        self.repo.escribe("backend/main.py",
-                          "from fastapi import FastAPI\napp = FastAPI()\n")
+        self.repo.escribe("backend/main.py", "from fastapi import FastAPI\napp = FastAPI()\n")
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos, [h.mensaje for h in r.hallazgos])
         self.assertEqual("NO_APLICA", r.veredicto)
@@ -109,10 +106,14 @@ class PruebaCors(CasoConRepo):
     def test_marcador_de_supresion_con_motivo(self):
         # El marcador va en la línea de ARRIBA: un comentario a la derecha de
         # `allow_origins=[...]` se comería la coma que separa los argumentos.
-        self.repo.escribe("backend/main.py", main_con('["*"]').replace(
-            "    allow_origins=",
-            "    # coipo-jueces:ignorar(G8-5) API pública de solo lectura, sin datos\n"
-            "    allow_origins="))
+        self.repo.escribe(
+            "backend/main.py",
+            main_con('["*"]').replace(
+                "    allow_origins=",
+                "    # coipo-jueces:ignorar(G8-5) API pública de solo lectura, sin datos\n"
+                "    allow_origins=",
+            ),
+        )
         r = self.repo.juzga()
         self.assertEqual([], r.bloqueantes)
         self.assertEqual(1, len(r.supresiones), r.supresiones)

@@ -89,6 +89,7 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check --quiet ruff==0.17.4
           python3 -m ruff check .
+          python3 -m ruff format --check .
 
       - name: actionlint sobre el reusable
         # La validación que de verdad cuenta es la de GitHub al LLAMAR al reusable (el

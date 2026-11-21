@@ -35,8 +35,9 @@ HEX_FALSO = "3f1b8c2e9a47d05e6b83f2c1a09d47be15c3082fa6d94e7b1c250af38d69e4a7"
 
 
 def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=cwd, check=True,
-                   capture_output=True, encoding="utf-8", errors="replace")
+    subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, encoding="utf-8", errors="replace"
+    )
 
 
 class RepoSintetico:
@@ -82,8 +83,13 @@ class PruebaHeuristica(unittest.TestCase):
         self.assertTrue(j09.parece_secreto("RUT_HMAC_SECRETS", valor, en_env=True))
 
     def test_placeholder_no_es_secreto(self):
-        for v in ("change_this_password", "<generar: openssl rand -hex 32>",
-                  "tu_clave_aqui", "xxxxxxxxxxxx", "REEMPLAZAR"):
+        for v in (
+            "change_this_password",
+            "<generar: openssl rand -hex 32>",
+            "tu_clave_aqui",
+            "xxxxxxxxxxxx",
+            "REEMPLAZAR",
+        ):
             with self.subTest(v=v):
                 self.assertFalse(j09.parece_secreto("JWT_SECRET", v, en_env=True))
 
@@ -94,9 +100,11 @@ class PruebaHeuristica(unittest.TestCase):
         comentario al lado que lo dice. Un juez que no entiende eso convierte
         buena práctica en incidente.
         """
-        for v in ("t0-gate-jwt-secret-jamas-usar-en-produccion",
-                  "dev-secret-no-usar-en-produccion",
-                  "local-nunca-en-produccion"):
+        for v in (
+            "t0-gate-jwt-secret-jamas-usar-en-produccion",
+            "dev-secret-no-usar-en-produccion",
+            "local-nunca-en-produccion",
+        ):
             with self.subTest(v=v):
                 self.assertFalse(j09.parece_secreto("SESSION_SECRET", v, en_env=True))
 
@@ -114,8 +122,12 @@ class PruebaHeuristica(unittest.TestCase):
         self.assertFalse(j09.parece_secreto("JWT_SECRET", "${JWT_SECRET:?falta}", en_env=True))
 
     def test_sufijo_inocente_desactiva_la_clave(self):
-        for clave in ("JWT_ALGORITHM", "RUT_KEY_VERSION", "SMTP_PASSWORD_FILE",
-                      "SESSION_MAX_AGE_SECONDS"):
+        for clave in (
+            "JWT_ALGORITHM",
+            "RUT_KEY_VERSION",
+            "SMTP_PASSWORD_FILE",
+            "SESSION_MAX_AGE_SECONDS",
+        ):
             with self.subTest(clave=clave):
                 self.assertFalse(j09.parece_secreto(clave, HEX_FALSO[:40], en_env=True))
 
@@ -167,15 +179,17 @@ class PruebaDsn(unittest.TestCase):
             self._hallazgos(
                 'URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}'
                 '@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"'
-            ), [])
+            ),
+            [],
+        )
 
     def test_ejemplo_de_documentacion_no_bloquea(self):
         self.assertEqual(
-            self._hallazgos("# postgresql+psycopg2://coipo:coipo@localhost:5432/dev"), [])
+            self._hallazgos("# postgresql+psycopg2://coipo:coipo@localhost:5432/dev"), []
+        )
 
     def test_usuario_igual_a_clave_no_bloquea(self):
-        self.assertEqual(
-            self._hallazgos('URL = "postgresql://demo:demo@servidor:5432/app"'), [])
+        self.assertEqual(self._hallazgos('URL = "postgresql://demo:demo@servidor:5432/app"'), [])
 
 
 class PruebaArchivosDeEntorno(AsercionesDeJuez):
@@ -262,8 +276,7 @@ class PruebaFixturesDePrueba(AsercionesDeJuez):
         self.addCleanup(self.repo.cierra)
 
     def test_credencial_falsa_en_un_test_no_bloquea(self):
-        self.repo.escribe("tests/test_login.py",
-                          'def test_x():\n    password = "Zk28vQr91xTn"\n')
+        self.repo.escribe("tests/test_login.py", 'def test_x():\n    password = "Zk28vQr91xTn"\n')
         self.assertEqual(self.repo.juzga().bloqueantes, [])
 
     def test_clave_privada_en_un_test_si_bloquea(self):
@@ -279,7 +292,8 @@ class PruebaFixturesDePrueba(AsercionesDeJuez):
         self.repo.escribe(
             "tests/fixtures/id_rsa",
             # coipo-jueces:ignorar(G8-4) encabezado sintético para probar el detector
-            "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n")
+            "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n",
+        )
         self.assertRegla("G8-4", "BLOQUEA", "bloque de clave privada versionado")
 
 
@@ -321,7 +335,7 @@ class PruebaDelPropioJuez(unittest.TestCase):
     """Tests del test: sin esto, un juez roto pasa por el motivo equivocado."""
 
     def test_un_repo_sin_git_no_se_declara_limpio(self):
-        """"No pude mirar" y "miré y está bien" no son lo mismo.
+        """ "No pude mirar" y "miré y está bien" no son lo mismo.
 
         Confundirlos es exactamente cómo un control se apaga sin que nadie se
         entere: el job sale verde durante meses porque nunca llegó a evaluar.
@@ -345,8 +359,9 @@ class PruebaDelPropioJuez(unittest.TestCase):
         repo = RepoSintetico()
         try:
             repo.escribe(".env", f"JWT_SECRET={HEX_FALSO}\n")
-            self.assertTrue(repo.juzga().bloqueantes,
-                            "el juez dejó pasar un .env versionado con un secreto")
+            self.assertTrue(
+                repo.juzga().bloqueantes, "el juez dejó pasar un .env versionado con un secreto"
+            )
         finally:
             repo.cierra()
 
@@ -377,14 +392,18 @@ class PruebaAccessKey(unittest.TestCase):
 
     def test_access_key_comentada_con_nombre_de_usuario_no_bloquea(self):
         """El caso exacto de n8n y prensa2: una línea comentada del ejemplo."""
-        self.repo.escribe(".env.example",
-                          "# MINIO_ENDPOINT=http://minio.ejemplo.invalid:9000\n"
-                          "# MINIO_ACCESS_KEY=app-prueba-2026\n")
+        self.repo.escribe(
+            ".env.example",
+            "# MINIO_ENDPOINT=http://minio.ejemplo.invalid:9000\n"
+            "# MINIO_ACCESS_KEY=app-prueba-2026\n",
+        )
         self.assertEqual([], self._bloqueos())
 
     def test_access_key_sin_comentar_con_nombre_de_usuario_no_bloquea(self):
-        self.repo.escribe(".env.example", "MINIO_ACCESS_KEY=app-prueba-2026\n"
-                                          "AWS_ACCESS_KEY_ID=AKIAPRUEBAINVENTADA1\n")
+        self.repo.escribe(
+            ".env.example",
+            "MINIO_ACCESS_KEY=app-prueba-2026\nAWS_ACCESS_KEY_ID=AKIAPRUEBAINVENTADA1\n",
+        )
         self.assertEqual([], self._bloqueos())
 
     def test_access_key_con_pinta_de_generada_si_bloquea(self):
@@ -395,8 +414,9 @@ class PruebaAccessKey(unittest.TestCase):
     def test_la_secret_key_sigue_siendo_secreto(self):
         """La otra mitad del par sí es la contraseña, y en un `.env` basta un valor
         no-placeholder para bloquear, aunque esté escrito a mano."""
-        self.repo.escribe(".env.example", "MINIO_SECRET_KEY=Kp7rTq2wLm9x\n"
-                                          "AWS_SECRET_ACCESS_KEY=Zt4nWq8rYv2s\n")
+        self.repo.escribe(
+            ".env.example", "MINIO_SECRET_KEY=Kp7rTq2wLm9x\nAWS_SECRET_ACCESS_KEY=Zt4nWq8rYv2s\n"
+        )
         self.assertEqual(2, len(self._bloqueos()), self._bloqueos())
 
     def test_un_secreto_comentado_sigue_bloqueando(self):

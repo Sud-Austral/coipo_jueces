@@ -35,12 +35,10 @@ RAIZ = Path(__file__).resolve().parents[1]
 VERIFICAR = RAIZ / ".github" / "workflows" / "verificar.yml"
 
 # `ref_jueces:` … `default: <algo>` dentro de su bloque.
-DEFECTO = re.compile(
-    r"ref_jueces:.*?^\s*default:\s*(?P<valor>\S+)", re.DOTALL | re.MULTILINE)
+DEFECTO = re.compile(r"ref_jueces:.*?^\s*default:\s*(?P<valor>\S+)", re.DOTALL | re.MULTILINE)
 
 
 class PruebaRefPorDefecto(unittest.TestCase):
-
     def setUp(self):
         self.texto = VERIFICAR.read_text(encoding="utf-8")
 
@@ -52,8 +50,9 @@ class PruebaRefPorDefecto(unittest.TestCase):
     def test_el_default_es_una_mayor(self):
         """No un SHA ni una rama: `vN`. Un SHA fijo dejaría a toda la flota
         congelada en un commit sin que nadie lo decidiera."""
-        self.assertRegex(self._defecto(), r"^v\d+$",
-                         "el default de ref_jueces tiene que ser una mayor `vN`")
+        self.assertRegex(
+            self._defecto(), r"^v\d+$", "el default de ref_jueces tiene que ser una mayor `vN`"
+        )
 
     def _mayores_publicadas(self) -> list[int]:
         """Las mayores `vN` que existen como tag, de mayor a menor.
@@ -66,12 +65,17 @@ class PruebaRefPorDefecto(unittest.TestCase):
         """
         try:
             salida = subprocess.run(
-                ["git", "tag", "-l", "v[0-9]*"], cwd=RAIZ,
-                capture_output=True, text=True, check=True).stdout
+                ["git", "tag", "-l", "v[0-9]*"],
+                cwd=RAIZ,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
         except (OSError, subprocess.CalledProcessError):  # pragma: no cover
             return []
-        return sorted((int(x[1:]) for x in salida.split()
-                       if re.fullmatch(r"v\d+", x)), reverse=True)
+        return sorted(
+            (int(x[1:]) for x in salida.split() if re.fullmatch(r"v\d+", x)), reverse=True
+        )
 
     def test_hay_tags_con_los_que_comprobar(self):
         """En CI, no haber tags NO es una excusa: es el fallo.
@@ -93,12 +97,16 @@ class PruebaRefPorDefecto(unittest.TestCase):
         vigente, y la prueba de abajo usa esa misma fuente si no hay tags.
         """
         if os.environ.get("GITHUB_ACTIONS"):
-            self.assertTrue(self._mayores_publicadas(),
-                            "el checkout de CI no trae tags, así que la comprobación "
-                            "del default se queda sin tags. Añade `fetch-depth: 0`.")
-        self.assertIsNotNone(self._mayor_declarada(),
-                             "docs/VERSIONADO.md no dice «Hoy la mayor vigente es `vN`»: "
-                             "sin tags ni esa línea, nada comprueba el default")
+            self.assertTrue(
+                self._mayores_publicadas(),
+                "el checkout de CI no trae tags, así que la comprobación "
+                "del default se queda sin tags. Añade `fetch-depth: 0`.",
+            )
+        self.assertIsNotNone(
+            self._mayor_declarada(),
+            "docs/VERSIONADO.md no dice «Hoy la mayor vigente es `vN`»: "
+            "sin tags ni esa línea, nada comprueba el default",
+        )
 
     def _mayor_declarada(self) -> int | None:
         """La mayor que `docs/VERSIONADO.md` declara vigente, o None."""
@@ -129,10 +137,12 @@ class PruebaRefPorDefecto(unittest.TestCase):
 
         declarada = int(self._defecto()[1:])
         self.assertGreaterEqual(
-            declarada, mayores[0],
+            declarada,
+            mayores[0],
             f"el default de `ref_jueces` es v{declarada} y ya existe "
             f"v{mayores[0]}: quien use el tag nuevo ejecutaría este YAML con los "
-            "jueces de la mayor vieja, sin ningún error")
+            "jueces de la mayor vieja, sin ningún error",
+        )
 
     def test_los_ejemplos_de_enganche_usan_la_mayor_vigente(self):
         """Los `@vN` de copiar-y-pegar tienen que ser el default, no otro.
@@ -149,10 +159,12 @@ class PruebaRefPorDefecto(unittest.TestCase):
             texto = ruta.read_text(encoding="utf-8")
             for cita in re.findall(r"verificar\.yml@(v\d+)", texto):
                 self.assertEqual(
-                    esperado, cita,
+                    esperado,
+                    cita,
                     f"{ruta.name} ofrece `@{cita}` como ejemplo de enganche y la "
                     f"mayor vigente es `{esperado}`: quien lo copie se engancha "
-                    "al motor equivocado")
+                    "al motor equivocado",
+                )
 
     def test_el_paso_falla_si_no_hay_referencia(self):
         """Y si por lo que sea la referencia queda vacía, el paso tiene que
@@ -178,14 +190,17 @@ class PruebaSalidasYCheckout(unittest.TestCase):
 
     def setUp(self):
         import sys
+
         sys.path.insert(0, str(RAIZ / "jueces"))
         from comun_yaml import carga_yaml
+
         self.yaml = carga_yaml(VERIFICAR.read_text(encoding="utf-8"))
         # Las cadenas de `fh.write("estado=...\nbloqueantes=...")` tal como están en el
         # fuente: el `\n` es una barra y una ene, y separa claves.
         cadenas = re.findall(r'fh\.write\(f?"([^"]*)"', CORRER.read_text(encoding="utf-8"))
-        self.escritas = sorted({clave for c in cadenas
-                                for clave in re.findall(r"(?:^|\\n)(\w+)=", c)})
+        self.escritas = sorted(
+            {clave for c in cadenas for clave in re.findall(r"(?:^|\\n)(\w+)=", c)}
+        )
 
     def test_correr_escribe_lo_que_esta_prueba_espera(self):
         self.assertEqual(["avisos", "bloqueantes", "estado", "supresiones"], self.escritas)
@@ -196,17 +211,23 @@ class PruebaSalidasYCheckout(unittest.TestCase):
         for clave in self.escritas:
             with self.subTest(clave=clave):
                 self.assertEqual(f"${{{{ steps.correr.outputs.{clave} }}}}", del_job.get(clave))
-                self.assertEqual(f"${{{{ jobs.verificar.outputs.{clave} }}}}",
-                                 (del_reusable.get(clave) or {}).get("value"))
+                self.assertEqual(
+                    f"${{{{ jobs.verificar.outputs.{clave} }}}}",
+                    (del_reusable.get(clave) or {}).get("value"),
+                )
 
     def test_ningun_checkout_persiste_la_credencial(self):
-        checkouts = [s for s in self.yaml["jobs"]["verificar"]["steps"]
-                     if str(s.get("uses", "")).startswith("actions/checkout@")]
+        checkouts = [
+            s
+            for s in self.yaml["jobs"]["verificar"]["steps"]
+            if str(s.get("uses", "")).startswith("actions/checkout@")
+        ]
         self.assertEqual(2, len(checkouts))
         for paso in checkouts:
             with self.subTest(paso=paso.get("name")):
-                self.assertIn(str((paso.get("with") or {}).get("persist-credentials")).lower(),
-                              {"false"})
+                self.assertIn(
+                    str((paso.get("with") or {}).get("persist-credentials")).lower(), {"false"}
+                )
 
 
 if __name__ == "__main__":

@@ -68,8 +68,7 @@ class PruebaSalud(CasoConRepo):
 
     def test_sin_endpoint_bloquea(self):
         """Sin `/health` el despliegue falla siempre, o nadie sabe si funcionó."""
-        self.repo.escribe("backend/app/main.py",
-                          "from fastapi import FastAPI\napp = FastAPI()\n")
+        self.repo.escribe("backend/app/main.py", "from fastapi import FastAPI\napp = FastAPI()\n")
         self.assertRegla("G8-9", "BLOQUEA", "no se encontró ningún endpoint `/health`")
 
     def test_execute_con_string_crudo_bloquea(self):
@@ -78,8 +77,9 @@ class PruebaSalud(CasoConRepo):
         La versión anterior de `fastapi-postgresql-conexion.md` traía el ejemplo
         sin `text()`, así que quien copió de ahí lo tiene roto y no lo sabe.
         """
-        self.repo.escribe("backend/app/routers/salud.py",
-                          SALUD_CORRECTO.replace('text("SELECT 1")', '"SELECT 1"'))
+        self.repo.escribe(
+            "backend/app/routers/salud.py", SALUD_CORRECTO.replace('text("SELECT 1")', '"SELECT 1"')
+        )
         self.assertRegla("G8-9", "BLOQUEA", "`execute()` con un string crudo")
 
     def test_healthcheck_que_apunta_a_otra_ruta_avisa_dk5(self):
@@ -93,14 +93,13 @@ class PruebaSalud(CasoConRepo):
         la prueba pasaba igual.
         """
         self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO)
-        self.repo.escribe("docker-compose.yml",
-                          COMPOSE.replace("/health", "/api/estado"))
+        self.repo.escribe("docker-compose.yml", COMPOSE.replace("/health", "/api/estado"))
         r = self.repo.juzga()
         self.assertRegla("DK-5", "AVISA", "`/api/estado`", r)
         self.assertSinBloqueos(r)
 
 
-SALUD_CON = '''\
+SALUD_CON = """\
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 
@@ -114,7 +113,7 @@ privado = APIRouter(dependencies=[Depends(sesion_actual)])
 def salud({parametros}) -> dict:
     {cuerpo}
     return {{"status": "ok", "app": "prueba"}}
-'''
+"""
 
 
 class PruebaSinAutenticacion(CasoConRepo):
@@ -132,8 +131,10 @@ class PruebaSinAutenticacion(CasoConRepo):
         self.repo.escribe("docker-compose.yml", COMPOSE)
 
     def _salud(self, decorador='@router.get("/health")', parametros="", cuerpo="pass"):
-        self.repo.escribe("backend/app/routers/salud.py", SALUD_CON.format(
-            decorador=decorador, parametros=parametros, cuerpo=cuerpo))
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            SALUD_CON.format(decorador=decorador, parametros=parametros, cuerpo=cuerpo),
+        )
         return self.repo.juzga()
 
     def test_depends_como_valor_por_defecto_bloquea(self):
@@ -149,8 +150,9 @@ class PruebaSinAutenticacion(CasoConRepo):
         self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
 
     def test_dependencies_en_el_decorador_bloquea(self):
-        r = self._salud(decorador='@router.get("/health", '
-                                  'dependencies=[Depends(exigir_rol("administrador"))])')
+        r = self._salud(
+            decorador='@router.get("/health", dependencies=[Depends(exigir_rol("administrador"))])'
+        )
         self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
 
     def test_dependencies_en_el_router_bloquea(self):
@@ -181,7 +183,7 @@ class PruebaSinAutenticacion(CasoConRepo):
         self.assertSinRegla("G8-9", r)
 
 
-SALUD_COMO_LA_SEMILLA = '''\
+SALUD_COMO_LA_SEMILLA = """\
 from fastapi import APIRouter, Response
 
 APP_NOMBRE = "coipo_prueba"
@@ -196,7 +198,7 @@ def _identidad() -> dict:
 def salud(respuesta: Response) -> dict:
     cuerpo = {"status": "ok", **_identidad()}
     return cuerpo
-'''
+"""
 
 
 class PruebaIdentidadEnSalud(CasoConRepo):
@@ -214,8 +216,10 @@ class PruebaIdentidadEnSalud(CasoConRepo):
         self.repo.escribe("docker-compose.yml", COMPOSE)
 
     def test_sin_app_avisa(self):
-        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
-            '{"status": "ok", "app": "prueba"}', '{"status": "ok"}'))
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            SALUD_CORRECTO.replace('{"status": "ok", "app": "prueba"}', '{"status": "ok"}'),
+        )
         r = self.repo.juzga()
         self.assertRegla("SEM-4", "AVISA", "`app`", r)
         self.assertSinBloqueos(r)
@@ -230,25 +234,34 @@ class PruebaIdentidadEnSalud(CasoConRepo):
         self.assertSinRegla("SEM-4")
 
     def test_un_modelo_con_campo_app_no_avisa(self):
-        self.repo.escribe("backend/app/routers/salud.py", (
-            "from fastapi import APIRouter\nfrom pydantic import BaseModel\n\n"
-            "router = APIRouter()\n\n\nclass Salud(BaseModel):\n    status: str\n    app: str\n\n\n"
-            '@router.get("/health")\ndef salud() -> Salud:\n'
-            '    return Salud(status="ok", app="coipo_prueba")\n'))
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            (
+                "from fastapi import APIRouter\nfrom pydantic import BaseModel\n\n"
+                "router = APIRouter()\n\n\nclass Salud(BaseModel):\n    status: str\n    app: str\n\n\n"
+                '@router.get("/health")\ndef salud() -> Salud:\n'
+                '    return Salud(status="ok", app="coipo_prueba")\n'
+            ),
+        )
         self.assertSinRegla("SEM-4")
 
     def test_se_puede_suprimir_con_motivo(self):
-        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
-            '{"status": "ok", "app": "prueba"}', '{"status": "ok"}').replace(
-            "def salud(", "# coipo-jueces:ignorar(SEM-4) el balanceador ya distingue la app\ndef salud("))
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            SALUD_CORRECTO.replace('{"status": "ok", "app": "prueba"}', '{"status": "ok"}').replace(
+                "def salud(",
+                "# coipo-jueces:ignorar(SEM-4) el balanceador ya distingue la app\ndef salud(",
+            ),
+        )
         r = self.repo.juzga()
         self.assertSinRegla("SEM-4", r)
         self.assertEqual(1, len(r.supresiones), r.supresiones)
 
     def test_el_nginx_sin_app_avisa(self):
         self.repo.escribe("docker-compose.yml", COMPOSE_SOLO_APP)
-        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
-            '\'{"status":"ok","app":"prueba"}\'', "'ok'"))
+        self.repo.escribe(
+            "frontend/nginx.conf", NGINX_SALUD.replace('\'{"status":"ok","app":"prueba"}\'', "'ok'")
+        )
         self.assertRegla("SEM-4", "AVISA", "`app`")
 
     def test_el_nginx_con_app_no_avisa(self):
@@ -330,8 +343,10 @@ class PruebaSaludEnNginx(CasoConRepo):
         self.assertTrue(any("nginx" in c for c in r.comprobado), r.comprobado)
 
     def test_location_comentada_no_cuenta(self):
-        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
-            "    location = /health {", "    # location = /health {"))
+        self.repo.escribe(
+            "frontend/nginx.conf",
+            NGINX_SALUD.replace("    location = /health {", "    # location = /health {"),
+        )
         self.assertRegla("G8-9", "BLOQUEA", "no se encontró ningún endpoint `/health`")
 
     def test_el_vhost_del_host_no_cuenta(self):
@@ -343,20 +358,27 @@ class PruebaSaludEnNginx(CasoConRepo):
         """`curl -sf` falla con cualquier código >= 400 y no sigue redirecciones."""
         for codigo in ("302 /login", "503"):
             with self.subTest(codigo=codigo):
-                self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
-                    "return 200 '{\"status\":\"ok\",\"app\":\"prueba\"}';",
-                    f"return {codigo};"))
+                self.repo.escribe(
+                    "frontend/nginx.conf",
+                    NGINX_SALUD.replace(
+                        'return 200 \'{"status":"ok","app":"prueba"}\';', f"return {codigo};"
+                    ),
+                )
                 self.assertRegla("G8-9", "BLOQUEA", f"devuelve {codigo.split()[0]}")
 
     def test_location_con_autenticacion_bloquea(self):
-        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
-            "        access_log off;\n", "        auth_basic \"restringido\";\n"))
+        self.repo.escribe(
+            "frontend/nginx.conf",
+            NGINX_SALUD.replace("        access_log off;\n", '        auth_basic "restringido";\n'),
+        )
         self.assertRegla("G8-9", "BLOQUEA", "autenticación")
 
     def test_el_hallazgo_de_repositorio_se_puede_suprimir_en_el_compose(self):
-        self.repo.escribe("docker-compose.yml",
-                          "# coipo-jueces:ignorar(G8-9) colector sin http: lo vigila /health/detalle\n"
-                          + COMPOSE_SOLO_APP)
+        self.repo.escribe(
+            "docker-compose.yml",
+            "# coipo-jueces:ignorar(G8-9) colector sin http: lo vigila /health/detalle\n"
+            + COMPOSE_SOLO_APP,
+        )
         r = self.repo.juzga()
         self.assertSinBloqueos(r)
         self.assertEqual(1, len(r.supresiones), r.supresiones)
@@ -368,8 +390,7 @@ class PruebaTercerosConComposeYaml(CasoConRepo):
     MODULO = j11
 
     def test_compose_yaml_de_imagenes_ajenas_es_no_aplica(self):
-        self.repo.escribe("compose.yaml",
-                          "services:\n  n8n:\n    image: n8nio/n8n\n")
+        self.repo.escribe("compose.yaml", "services:\n  n8n:\n    image: n8nio/n8n\n")
         r = self.repo.juzga()
         self.assertEqual("NO_APLICA", r.veredicto, [h.mensaje for h in r.hallazgos])
 
@@ -392,13 +413,17 @@ class PruebaFalloDeDatos(CasoConRepo):
         que no está en su mano es la forma más rápida de enseñar a suprimir al
         juez.
         """
-        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
-            '    db.execute(text("SELECT 1"))\n    return {"status": "ok", "app": "prueba"}\n',
-            '    try:\n'
-            '        db.execute(text("SELECT 1"))\n'
-            '    except Exception:\n'
-            '        return {"status": "error", "db": "error"}\n'
-            '    return {"status": "ok", "app": "prueba"}\n'))
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            SALUD_CORRECTO.replace(
+                '    db.execute(text("SELECT 1"))\n    return {"status": "ok", "app": "prueba"}\n',
+                "    try:\n"
+                '        db.execute(text("SELECT 1"))\n'
+                "    except Exception:\n"
+                '        return {"status": "error", "db": "error"}\n'
+                '    return {"status": "ok", "app": "prueba"}\n',
+            ),
+        )
         r = self.repo.juzga()
         self.assertEqual([], r.bloqueantes, [h.mensaje for h in r.bloqueantes])
         self.assertRegla("G8-11", "AVISA", "ninguna sonda automatizada lee el estado degradado", r)
@@ -410,12 +435,16 @@ class PruebaFalloDeDatos(CasoConRepo):
         verdad es que el smoke test lea el cuerpo. Si el hallazgo no lo dice,
         quien lo lea concluye que el juez no entiende su aplicación.
         """
-        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
-            '    db.execute(text("SELECT 1"))\n',
-            '    try:\n'
-            '        db.execute(text("SELECT 1"))\n'
-            '    except Exception:\n'
-            '        return {"status": "error"}\n'))
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            SALUD_CORRECTO.replace(
+                '    db.execute(text("SELECT 1"))\n',
+                "    try:\n"
+                '        db.execute(text("SELECT 1"))\n'
+                "    except Exception:\n"
+                '        return {"status": "error"}\n',
+            ),
+        )
         arreglos = [h.arreglo for h in self.repo.juzga().hallazgos]
         self.assertTrue(any("PLATAFORMA" in a for a in arreglos), arreglos)
 

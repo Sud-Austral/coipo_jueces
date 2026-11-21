@@ -27,8 +27,9 @@ def hay_git() -> bool:
 
 
 def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=cwd, check=True,
-                   capture_output=True, encoding="utf-8", errors="replace")
+    subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, encoding="utf-8", errors="replace"
+    )
 
 
 class RepoSintetico:
@@ -93,9 +94,10 @@ class AsercionesDeJuez(unittest.TestCase):
     def assertSinBloqueos(self, resultado=None) -> None:
         r = resultado or self.repo.juzga()
         self.assertEqual(
-            [], r.bloqueantes,
-            "no debería bloquear: " + "; ".join(
-                f"{h.ubicacion()} {h.mensaje}" for h in r.bloqueantes),
+            [],
+            r.bloqueantes,
+            "no debería bloquear: "
+            + "; ".join(f"{h.ubicacion()} {h.mensaje}" for h in r.bloqueantes),
         )
 
     def assertAvisa(self, fragmento: str, resultado=None) -> None:
@@ -106,8 +108,9 @@ class AsercionesDeJuez(unittest.TestCase):
             f"no avisó por «{fragmento}». Avisos: {avisos}",
         )
 
-    def assertRegla(self, codigo: str, severidad: str, fragmento: str = "",
-                    resultado=None) -> Hallazgo:
+    def assertRegla(
+        self, codigo: str, severidad: str, fragmento: str = "", resultado=None
+    ) -> Hallazgo:
         """Hay un hallazgo con ESE código y ESA severidad (y el fragmento, si se da).
 
         `assertBloquea`/`assertAvisa` miran sólo el mensaje: un hallazgo con el código
@@ -115,11 +118,15 @@ class AsercionesDeJuez(unittest.TestCase):
         G8-8— los pasa igual. Ésta mira lo que el gate cuenta y publica."""
         r = resultado or self.repo.juzga()
         esperada = Severidad(severidad)
-        hallados = [h for h in r.hallazgos
-                    if h.regla == codigo and h.severidad is esperada and fragmento in h.mensaje]
+        hallados = [
+            h
+            for h in r.hallazgos
+            if h.regla == codigo and h.severidad is esperada and fragmento in h.mensaje
+        ]
         self.assertTrue(
             hallados,
-            f"no hay {codigo} {esperada.value}" + (f" con «{fragmento}»" if fragmento else "")
+            f"no hay {codigo} {esperada.value}"
+            + (f" con «{fragmento}»" if fragmento else "")
             + f". Hallazgos: {[(h.regla, h.severidad.value, h.mensaje) for h in r.hallazgos]}",
         )
         return hallados[0]
@@ -128,8 +135,12 @@ class AsercionesDeJuez(unittest.TestCase):
         """Ningún hallazgo con ese código, de ninguna severidad."""
         r = resultado or self.repo.juzga()
         self.assertEqual(
-            [], [f"{h.severidad.value} {h.ubicacion()} {h.mensaje}" for h in r.hallazgos
-                 if h.regla == codigo],
+            [],
+            [
+                f"{h.severidad.value} {h.ubicacion()} {h.mensaje}"
+                for h in r.hallazgos
+                if h.regla == codigo
+            ],
             f"no debería haber {codigo}",
         )
 

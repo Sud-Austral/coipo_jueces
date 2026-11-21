@@ -91,8 +91,11 @@ URL_EN_HEALTHCHECK = re.compile(r"https?://[^\s'\"\)]+", re.IGNORECASE)
 
 
 def _archivos_python(repo: Repo) -> list[str]:
-    return [r for r in repo.versionados()
-            if r.endswith(".py") and "/tests/" not in r and not r.startswith("tests/")]
+    return [
+        r
+        for r in repo.versionados()
+        if r.endswith(".py") and "/tests/" not in r and not r.startswith("tests/")
+    ]
 
 
 def _modulos_con_salud(repo: Repo) -> list[tuple[str, str]]:
@@ -146,8 +149,11 @@ def _funcion_de_salud(arbol: ast.Module) -> ast.FunctionDef | ast.AsyncFunctionD
             if not isinstance(dec, ast.Call):
                 continue
             for arg in dec.args:
-                if (isinstance(arg, ast.Constant) and isinstance(arg.value, str)
-                        and arg.value.rstrip("/") == "/health"):
+                if (
+                    isinstance(arg, ast.Constant)
+                    and isinstance(arg.value, str)
+                    and arg.value.rstrip("/") == "/health"
+                ):
                     return nodo
     return None
 
@@ -163,9 +169,11 @@ def _funcion_de_salud(arbol: ast.Module) -> ast.FunctionDef | ast.AsyncFunctionD
 # vhost del HOST (`ops/nginx-host/`), que está delante y por el que el smoke test
 # no pasa.
 NGINX_INTERNO = re.compile(
-    r"(^|/)(nginx[^/]*\.conf|default\.conf|[^/]*\.conf\.template)$|(^|/)nginx/[^/]+\.conf$")
+    r"(^|/)(nginx[^/]*\.conf|default\.conf|[^/]*\.conf\.template)$|(^|/)nginx/[^/]+\.conf$"
+)
 NO_ES_NGINX_INTERNO = re.compile(
-    r"(^|/)(tests?|__tests__|spec|fixtures|nginx-host|node_modules|dist|build)(/|$)")
+    r"(^|/)(tests?|__tests__|spec|fixtures|nginx-host|node_modules|dist|build)(/|$)"
+)
 LOCATION_SALUD = re.compile(r"\blocation\s+(?:=\s*)?/health/?\s*\{")
 RETORNO = re.compile(r"\breturn\s+(\d{3})\b")
 AUTH_NGINX = re.compile(r"\b(?:auth_request\s|auth_basic\s+(?!off\b))")
@@ -179,8 +187,8 @@ def _cuerpo_entre_llaves(texto: str, llave: int) -> str:
         elif texto[i] == "}":
             profundidad -= 1
             if profundidad == 0:
-                return texto[llave + 1:i]
-    return texto[llave + 1:]
+                return texto[llave + 1 : i]
+    return texto[llave + 1 :]
 
 
 def _nginx_con_salud(repo: Repo) -> tuple[str, int, str] | None:
@@ -189,11 +197,16 @@ def _nginx_con_salud(repo: Repo) -> tuple[str, int, str] | None:
         if not NGINX_INTERNO.search(ruta) or NO_ES_NGINX_INTERNO.search(ruta):
             continue
         # Sin comentarios, respetando comillas: un `# location = /health {` no sirve nada.
-        limpio = "\n".join(_sin_comentario(linea)
-                           for linea in (repo.texto(ruta) or "").splitlines())
+        limpio = "\n".join(
+            _sin_comentario(linea) for linea in (repo.texto(ruta) or "").splitlines()
+        )
         m = LOCATION_SALUD.search(limpio)
         if m:
-            return ruta, limpio.count("\n", 0, m.start()) + 1, _cuerpo_entre_llaves(limpio, m.end() - 1)
+            return (
+                ruta,
+                limpio.count("\n", 0, m.start()) + 1,
+                _cuerpo_entre_llaves(limpio, m.end() - 1),
+            )
     return None
 
 
@@ -204,19 +217,30 @@ def _comprobar_nginx(ruta: str, linea: int, cuerpo: str, r: Resultado) -> None:
     if codigos and not re.search(r"[\"']app[\"']\s*:", cuerpo):
         _sin_identidad(r, ruta, linea)
     if AUTH_NGINX.search(cuerpo):
-        r.bloquea("G8-9", ruta, "el `location /health` del nginx exige autenticación",
-                  "el smoke test usa `curl -sf`: un 401 hace fallar el despliegue entero "
-                  "aunque la aplicación esté sana", linea=linea,
-                  arreglo="quitar `auth_basic`/`auth_request` de ese `location` (Guía 8, punto 9)")
+        r.bloquea(
+            "G8-9",
+            ruta,
+            "el `location /health` del nginx exige autenticación",
+            "el smoke test usa `curl -sf`: un 401 hace fallar el despliegue entero "
+            "aunque la aplicación esté sana",
+            linea=linea,
+            arreglo="quitar `auth_basic`/`auth_request` de ese `location` (Guía 8, punto 9)",
+        )
     elif any(not c.startswith("2") for c in codigos):
-        r.bloquea("G8-9", ruta, f"el `location /health` del nginx devuelve {', '.join(codigos)}",
-                  "`curl -sf` falla con cualquier código >= 400 y no sigue redirecciones: "
-                  "el smoke test no da por viva a la aplicación", linea=linea,
-                  arreglo="devolver 200 con un JSON simple (Guía 8, punto 9)")
+        r.bloquea(
+            "G8-9",
+            ruta,
+            f"el `location /health` del nginx devuelve {', '.join(codigos)}",
+            "`curl -sf` falla con cualquier código >= 400 y no sigue redirecciones: "
+            "el smoke test no da por viva a la aplicación",
+            linea=linea,
+            arreglo="devolver 200 con un JSON simple (Guía 8, punto 9)",
+        )
     elif not codigos:
         r.no_evaluado.append(
             f"{ruta}:{linea}: el `location /health` no responde con un `return` propio (¿proxy "
-            "a otro servicio?). Qué contesta no se verificó.")
+            "a otro servicio?). Qué contesta no se verificó."
+        )
 
 
 def _suprimido_en_compose(repo: Repo, regla: str) -> str | None:
@@ -225,7 +249,7 @@ def _suprimido_en_compose(repo: Repo, regla: str) -> str | None:
     ruta = repo.compose()
     lineas = repo.lineas(ruta) if ruta else []
     for i in range(len(lineas)):
-        if (motivo := suprimido(lineas, i, regla)):
+        if motivo := suprimido(lineas, i, regla):
             return f"{ruta}:{i + 1} — {motivo}"
     return None
 
@@ -242,21 +266,24 @@ def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
             # bloquea; en perfil `aplicacion` el gate sale 1 igual por SIN_EVALUAR.
             r.no_evaluado.append(
                 "sin compose en la raíz y sin ningún `/health` (ni en Python ni en el nginx "
-                "interno): el pipeline no despliega este repositorio, así que no se exige")
+                "interno): el pipeline no despliega este repositorio, así que no se exige"
+            )
             return
-        if (motivo := _suprimido_en_compose(repo, "G8-9")):
+        if motivo := _suprimido_en_compose(repo, "G8-9"):
             r.supresiones.append(f"no se encontró ningún endpoint `/health` — {motivo}")
             return
         r.bloquea(
-            "G8-9", "", "no se encontró ningún endpoint `/health`",
+            "G8-9",
+            "",
+            "no se encontró ningún endpoint `/health`",
             "el smoke test del despliegue hace `curl -sf http://127.0.0.1:$APP_PORT/health` "
             "y es lo ÚNICO que verifica que la aplicación quedó viva; sin ese endpoint el "
             "despliegue falla siempre, o peor, nadie sabe si funcionó",
             arreglo="exponer GET /health devolviendo 200 con un JSON simple, sin "
-                    "autenticación y sin redirecciones (Guía 8, punto 9), en el backend o en "
-                    "el nginx interno (`location = /health { return 200 ...; }`). Si de "
-                    "verdad no aplica, `coipo-jueces:ignorar(G8-9) <motivo>` en el compose: "
-                    "se cuenta y se publica",
+            "autenticación y sin redirecciones (Guía 8, punto 9), en el backend o en "
+            "el nginx interno (`location = /health { return 200 ...; }`). Si de "
+            "verdad no aplica, `coipo-jueces:ignorar(G8-9) <motivo>` en el compose: "
+            "se cuenta y se publica",
         )
         return
 
@@ -293,13 +320,17 @@ def _dependencias(llamada: ast.AST) -> str:
 
 def _router_de(dec: ast.AST, arbol: ast.Module) -> ast.AST | None:
     """El `APIRouter(...)`/`FastAPI(...)` asignado al objeto del decorador (`router.get`)."""
-    if not (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)
-            and isinstance(dec.func.value, ast.Name)):
+    if not (
+        isinstance(dec, ast.Call)
+        and isinstance(dec.func, ast.Attribute)
+        and isinstance(dec.func.value, ast.Name)
+    ):
         return None
     nombre = dec.func.value.id
     for nodo in arbol.body:
         if isinstance(nodo, ast.Assign) and any(
-                isinstance(t, ast.Name) and t.id == nombre for t in nodo.targets):
+            isinstance(t, ast.Name) and t.id == nombre for t in nodo.targets
+        ):
             return nodo.value
     return None
 
@@ -308,8 +339,11 @@ def _motivos_de_auth(fn, arbol: ast.Module) -> list[str]:
     """Qué exige autenticación en el handler de `/health`, o [] si nada."""
     motivos = []
     for arg, defecto in _parametros(fn):
-        textos = [arg.arg, ast.unparse(arg.annotation) if arg.annotation else "",
-                  ast.unparse(defecto) if defecto is not None else ""]
+        textos = [
+            arg.arg,
+            ast.unparse(arg.annotation) if arg.annotation else "",
+            ast.unparse(defecto) if defecto is not None else "",
+        ]
         if any(DEPENDENCIA_DE_AUTH.search(t) for t in textos):
             motivos.append(f"recibe `{arg.arg}`, que parece una dependencia de autenticación")
     for dec in fn.decorator_list:
@@ -327,8 +361,7 @@ def _redirige(fn) -> bool:
     return REDIRECCION in nombres
 
 
-def _comprobar_sin_auth(fn, arbol: ast.Module, ruta: str, lineas: list[str],
-                        r: Resultado) -> None:
+def _comprobar_sin_auth(fn, arbol: ast.Module, ruta: str, lineas: list[str], r: Resultado) -> None:
     """Guía 8, punto 9: sin autenticación y sin 3xx.
 
     `curl -sf` falla con cualquier código >= 400 y no sigue redirecciones, así
@@ -340,18 +373,21 @@ def _comprobar_sin_auth(fn, arbol: ast.Module, ruta: str, lineas: list[str],
         r.supresiones.append(f"{ruta}:{fn.lineno} /health con dependencia de auth o redirección")
     elif motivos:
         r.bloquea(
-            "G8-9", ruta,
+            "G8-9",
+            ruta,
             f"`/health` exige autenticación: {motivos[0]}",
             "el smoke test usa `curl -sf`, que falla con cualquier código >= 400 y no "
             "sigue redirecciones: un 401 o un 302 a login hacen fallar el despliegue "
             "entero aunque la aplicación esté perfectamente sana",
             linea=fn.lineno,
             arreglo="dejar /health sin ninguna dependencia de sesión, ni en sus parámetros "
-                    "ni en `dependencies=` del decorador o del router (Guía 8, punto 9)",
+            "ni en `dependencies=` del decorador o del router (Guía 8, punto 9)",
         )
     elif redirige:
         r.bloquea(
-            "G8-9", ruta, "`/health` redirige (`RedirectResponse`)",
+            "G8-9",
+            ruta,
+            "`/health` redirige (`RedirectResponse`)",
             "`curl -sf` no sigue redirecciones: el smoke test recibe un 3xx, el despliegue "
             "sale rojo y la aplicación está sana",
             linea=fn.lineno,
@@ -375,12 +411,13 @@ def _comprobar_sql_crudo(fn, ruta: str, texto: str, lineas: list[str], r: Result
     m = EJECUTA_CRUDO.search(segmento)
     if not m:
         return
-    n = fn.lineno + segmento[:m.start()].count("\n")
+    n = fn.lineno + segmento[: m.start()].count("\n")
     if suprimido(lineas, n - 1, "G8-9"):
         r.supresiones.append(f"{ruta}:{n} execute con string crudo")
         return
     r.bloquea(
-        "G8-9", ruta,
+        "G8-9",
+        ruta,
         "`execute()` con un string crudo dentro de `/health`",
         "SQLAlchemy 2.x lanza ArgumentError con un string crudo, así que el /health "
         "falla SIEMPRE — o peor, si está dentro de un try/except, «pasa» por el except "
@@ -408,14 +445,16 @@ def _hay_valvula_de_escape(repo: Repo) -> str | None:
             # Un `RUN python -c ...` que valida el dato de arranque: si el dato
             # es inválido se rompe el BUILD, y los contenedores viejos siguen
             # sirviendo. Es lo que hace COIPO_ENTREGA_PLANTA con su catálogo.
-            if re.search(r"^\s*RUN\s+(python|node|sh -c).*(valid|catalog|catálogo|seed|check)",
-                         texto, re.MULTILINE | re.IGNORECASE):
+            if re.search(
+                r"^\s*RUN\s+(python|node|sh -c).*(valid|catalog|catálogo|seed|check)",
+                texto,
+                re.MULTILINE | re.IGNORECASE,
+            ):
                 return f"validación en build ({ruta})"
     return None
 
 
-def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado,
-                           repo: Repo) -> None:
+def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado, repo: Repo) -> None:
     """Guía 8, punto 11: que el estado degradado NO sea invisible.
 
     OJO — ESTE JUEZ NO EXIGE 503, Y ES DELIBERADO.
@@ -478,7 +517,8 @@ def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado,
         # despliegue por algo que no está en su mano es exactamente el falso
         # positivo que enseña a la gente a suprimir al juez.
         r.avisa(
-            "G8-11", ruta,
+            "G8-11",
+            ruta,
             "el `except` de `/health` devuelve 200 y ninguna sonda automatizada "
             "lee el estado degradado",
             "el smoke test solo mira el código HTTP, así que el despliegue sale VERDE "
@@ -487,12 +527,12 @@ def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado,
             "se enteró durante días",
             linea=n,
             arreglo="tres vías en el repositorio (Guía 8, punto 11): fijar "
-                    "response.status_code = 503 si `app` no depende de service_healthy; "
-                    "exponer /ready o /health/detalle que ninguna sonda use como "
-                    "dependencia; o validar el dato en el Dockerfile con un RUN. "
-                    "La cuarta, y la única que cierra el hueco de verdad, es de "
-                    "PLATAFORMA: que el smoke test de infra-docker-base lea el cuerpo "
-                    "y no solo el código.",
+            "response.status_code = 503 si `app` no depende de service_healthy; "
+            "exponer /ready o /health/detalle que ninguna sonda use como "
+            "dependencia; o validar el dato en el Dockerfile con un RUN. "
+            "La cuarta, y la única que cierra el hueco de verdad, es de "
+            "PLATAFORMA: que el smoke test de infra-docker-base lea el cuerpo "
+            "y no solo el código.",
         )
 
 
@@ -515,37 +555,44 @@ def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado,
 def _declara_app(arbol: ast.Module) -> bool:
     for nodo in ast.walk(arbol):
         if isinstance(nodo, ast.Dict) and any(
-                isinstance(k, ast.Constant) and k.value == "app" for k in nodo.keys):
+            isinstance(k, ast.Constant) and k.value == "app" for k in nodo.keys
+        ):
             return True
         if isinstance(nodo, ast.Call) and any(k.arg == "app" for k in nodo.keywords):
             return True
-        if isinstance(nodo, ast.Subscript) and isinstance(nodo.ctx, ast.Store) \
-                and isinstance(nodo.slice, ast.Constant) and nodo.slice.value == "app":
+        if (
+            isinstance(nodo, ast.Subscript)
+            and isinstance(nodo.ctx, ast.Store)
+            and isinstance(nodo.slice, ast.Constant)
+            and nodo.slice.value == "app"
+        ):
             return True
         if isinstance(nodo, ast.ClassDef) and any(
-                isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name)
-                and s.target.id == "app" for s in nodo.body):
+            isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name) and s.target.id == "app"
+            for s in nodo.body
+        ):
             return True
     return False
 
 
 def _sin_identidad(r: Resultado, ruta: str, linea: int) -> None:
     r.avisa(
-        "SEM-4", ruta, "el cuerpo de `/health` no lleva la clave `app`",
+        "SEM-4",
+        ruta,
+        "el cuerpo de `/health` no lleva la clave `app`",
         "si otra aplicación ocupa el APP_PORT de ésta, el `curl -sf` del despliegue recibe "
         "SU `/health`, responde 200, y el despliegue se declara exitoso sobre el "
         "contenedor equivocado: sin `app` en el cuerpo nada lo distingue",
         linea=linea,
-        arreglo="devolver `\"app\": APP_NOMBRE`, con el nombre como literal versionado y no "
-                "leído del entorno, como `backend/app/adaptadores/entrada/http/rutas/salud.py` "
-                "de la semilla (`semilla/ESQUELETO/CLAUDE.md` §4)",
+        arreglo='devolver `"app": APP_NOMBRE`, con el nombre como literal versionado y no '
+        "leído del entorno, como `backend/app/adaptadores/entrada/http/rutas/salud.py` "
+        "de la semilla (`semilla/ESQUELETO/CLAUDE.md` §4)",
     )
 
 
-def _comprobar_identidad(fn, arbol: ast.Module, ruta: str, lineas: list[str],
-                         r: Resultado) -> None:
+def _comprobar_identidad(fn, arbol: ast.Module, ruta: str, lineas: list[str], r: Resultado) -> None:
     if not _declara_app(arbol):
-        if (motivo := suprimido(lineas, fn.lineno - 1, "SEM-4")):
+        if motivo := suprimido(lineas, fn.lineno - 1, "SEM-4"):
             r.supresiones.append(f"{ruta}:{fn.lineno} /health sin `app` — {motivo}")
         else:
             _sin_identidad(r, ruta, fn.lineno)
@@ -592,14 +639,15 @@ def comprobar_coherencia_healthcheck(repo: Repo, r: Resultado) -> None:
             camino = re.sub(r"^https?://[^/]+", "", url).split("?")[0].rstrip("/")
             if camino and camino != "/health":
                 r.avisa(
-                    "DK-5", ruta_compose,
+                    "DK-5",
+                    ruta_compose,
                     f"el healthcheck de `{nombre}` apunta a `{camino}`, no a `/health`",
                     "si el `test:` no mira donde el endpoint real, el contenedor queda "
                     "`unhealthy` para siempre sin que nada se rompa, y ese `unhealthy` "
                     "permanente esconderá un problema real el día que lo haya "
                     "(está pasando con coipo_cabania desde hace días)",
                     arreglo="apuntar el healthcheck al mismo /health que expone el backend, "
-                            "o documentar por qué son rutas distintas",
+                    "o documentar por qué son rutas distintas",
                 )
 
 
@@ -625,12 +673,17 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         r.no_corresponde(
             "software de terceros: el compose solo usa imagenes ajenas (sin `build:`) "
             "y no hay codigo Python propio. El servicio lo provee la imagen y su salud "
-            "la contrasta el healthcheck del compose, no un endpoint escrito aqui")
+            "la contrasta el healthcheck del compose, no un endpoint escrito aqui"
+        )
         return
 
     comprobar_endpoint(repo, r)
     comprobar_coherencia_healthcheck(repo, r)
 
+
 if __name__ == "__main__":
-    ejecutar("j11", "/health: que un fallo no se disfrace de app sana "
-                    "(Guía 8, puntos 9 y 11; DOCKER.md)", comprobar)
+    ejecutar(
+        "j11",
+        "/health: que un fallo no se disfrace de app sana (Guía 8, puntos 9 y 11; DOCKER.md)",
+        comprobar,
+    )

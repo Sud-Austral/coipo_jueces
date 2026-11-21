@@ -48,20 +48,19 @@ FORMAS_AMBAS = {
     "línea sin coma": "adopta: semilla interfaz\n",
     "flujo": "adopta: [semilla, interfaz]\n",
     "flujo con comillas": "adopta: [\"semilla\", 'interfaz']  # comentario\n",
-    "entre comillas": "adopta: \"semilla, interfaz\"\n",
+    "entre comillas": 'adopta: "semilla, interfaz"\n',
     "bloque": "adopta:\n  - semilla\n  - interfaz\n",
     "bloque sin sangría y con comentario": "adopta:\n# la capa de la semilla\n- semilla   # sembrada\n- 'interfaz'\n",
 }
 FORMAS_VACIAS = {
     "sin nada": "adopta:\n",
     "flujo vacío": "adopta: []\n",
-    "comillas vacías": "adopta: \"\"\n",
+    "comillas vacías": 'adopta: ""\n',
     "sólo coma": "adopta: ,\n",
 }
 
 
 class PruebaLectura(unittest.TestCase):
-
     def test_las_tres_formas_dan_las_mismas_capas(self):
         for nombre, adopta in FORMAS_AMBAS.items():
             with self.subTest(forma=nombre):
@@ -100,7 +99,6 @@ CSS_MALO = ":root { --v: #064928; }\n.t { color: var(--v); transition: all .2s; 
 
 
 class PruebaCuatroJueces(unittest.TestCase):
-
     def setUp(self):
         if not hay_git():
             self.fail("falta `git` en el PATH: esta prueba lo necesita de verdad")
@@ -119,8 +117,12 @@ class PruebaCuatroJueces(unittest.TestCase):
         return repo.juzga()
 
     def test_solo_interfaz_en_las_tres_formas_dice_lo_mismo_en_los_cuatro(self):
-        formas = {"línea": "adopta: interfaz\n", "flujo": "adopta: [interfaz]\n",
-                  "comillas": "adopta: \"interfaz\"\n", "bloque": "adopta:\n  - interfaz\n"}
+        formas = {
+            "línea": "adopta: interfaz\n",
+            "flujo": "adopta: [interfaz]\n",
+            "comillas": 'adopta: "interfaz"\n',
+            "bloque": "adopta:\n  - interfaz\n",
+        }
         for nombre, adopta in formas.items():
             with self.subTest(forma=nombre):
                 repo = self._repo(adopta)
@@ -147,8 +149,11 @@ class PruebaCuatroJueces(unittest.TestCase):
             for modulo in (j12, j13, j14, j16):
                 with self.subTest(forma=nombre, juez=modulo.__name__):
                     r = self._juzga(repo, modulo)
-                    self.assertEqual("SIN_EVALUAR", r.veredicto,
-                                     f"{[h.mensaje for h in r.hallazgos]} {r.no_aplica}")
+                    self.assertEqual(
+                        "SIN_EVALUAR",
+                        r.veredicto,
+                        f"{[h.mensaje for h in r.hallazgos]} {r.no_aplica}",
+                    )
                     self.assertTrue(any("VACÍA" in n for n in r.no_evaluado), r.no_evaluado)
                     self.assertFalse(r.supresiones, "vacía no declara nada que suprimir")
 

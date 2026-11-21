@@ -28,8 +28,10 @@ import j11_salud as j11  # noqa: E402
 import j14_construccion as j14  # noqa: E402
 import j16_codigo as j16  # noqa: E402
 
-COMPOSE = ("services:\n  backend:\n    build:\n      context: .\n  app:\n    build:\n"
-           '      context: .\n    ports:\n      - "${APP_PORT:-8080}:8000"\n')
+COMPOSE = (
+    "services:\n  backend:\n    build:\n      context: .\n  app:\n    build:\n"
+    '      context: .\n    ports:\n      - "${APP_PORT:-8080}:8000"\n'
+)
 
 
 class PruebaJ14(CasoConRepo):
@@ -52,10 +54,8 @@ class PruebaJ16(CasoConRepo):
         r = self.repo.juzga()
         for prefijo in ("COD-2", "COD-3: ningún", "COD-4"):
             with self.subTest(prefijo=prefijo):
-                self.assertFalse([c for c in r.comprobado if c.startswith(prefijo)],
-                                 r.comprobado)
-                self.assertTrue([n for n in r.no_aplica if n.startswith(prefijo)],
-                                r.no_aplica)
+                self.assertFalse([c for c in r.comprobado if c.startswith(prefijo)], r.comprobado)
+                self.assertTrue([n for n in r.no_aplica if n.startswith(prefijo)], r.no_aplica)
         self.assertEqual("OK", r.veredicto, "COD-1 sí midió: el juez sigue en OK")
 
 
@@ -67,22 +67,32 @@ class PruebaJ11(CasoConRepo):
         self.repo.escribe("docker-compose.yml", COMPOSE)
 
     def test_un_modulo_que_no_compila_no_deja_la_comprobacion(self):
-        self.repo.escribe("backend/app/salud.py",
-                          '@router.get("/health")\ndef salud(:\n    return {}\n')
+        self.repo.escribe(
+            "backend/app/salud.py", '@router.get("/health")\ndef salud(:\n    return {}\n'
+        )
         r = self.repo.juzga()
-        self.assertFalse([c for c in r.comprobado if c.startswith("endpoint /health")],
-                         r.comprobado)
+        self.assertFalse(
+            [c for c in r.comprobado if c.startswith("endpoint /health")], r.comprobado
+        )
         self.assertTrue(any("no se pudo parsear" in n for n in r.no_evaluado), r.no_evaluado)
 
     def test_busca_la_funcion_en_todos_los_modulos_que_nombran_health(self):
         """El primero que nombra `/health` es un middleware; la ruta está en otro."""
-        self.repo.escribe("backend/app/auth.py", (
-            'PUBLICAS = ["/health"]\n\n\n@app.middleware("http")\n'
-            "async def exigir_sesion(request, call_next):\n    return await call_next(request)\n"))
-        self.repo.escribe("backend/app/routers/salud.py", (
-            "from fastapi import APIRouter, Depends\n\nrouter = APIRouter()\n\n\n"
-            '@router.get("/health")\ndef salud(u = Depends(usuario_actual)) -> dict:\n'
-            '    return {"status": "ok", "app": "prueba"}\n'))
+        self.repo.escribe(
+            "backend/app/auth.py",
+            (
+                'PUBLICAS = ["/health"]\n\n\n@app.middleware("http")\n'
+                "async def exigir_sesion(request, call_next):\n    return await call_next(request)\n"
+            ),
+        )
+        self.repo.escribe(
+            "backend/app/routers/salud.py",
+            (
+                "from fastapi import APIRouter, Depends\n\nrouter = APIRouter()\n\n\n"
+                '@router.get("/health")\ndef salud(u = Depends(usuario_actual)) -> dict:\n'
+                '    return {"status": "ok", "app": "prueba"}\n'
+            ),
+        )
         r = self.repo.juzga()
         self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
         self.assertIn("endpoint /health (backend/app/routers/salud.py)", r.comprobado)

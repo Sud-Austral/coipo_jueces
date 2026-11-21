@@ -106,8 +106,7 @@ MARCADOR = ".semilla"
 CAPA = "interfaz"
 
 ES_CSS = re.compile(r"\.css$", re.IGNORECASE)
-ES_PRUEBA = re.compile(
-    r"(^|/)(tests?|__tests__|spec|fixtures|node_modules|dist|build)(/|$)")
+ES_PRUEBA = re.compile(r"(^|/)(tests?|__tests__|spec|fixtures|node_modules|dist|build)(/|$)")
 
 # `outline:0`, `outline:none`, `outline: 0px`. No casa `outline-offset`.
 SIN_CONTORNO = re.compile(r"\boutline\s*:\s*(?:0(?:px)?|none)\s*(?:!important)?\s*[;}]")
@@ -116,7 +115,8 @@ HAY_FOCO_VISIBLE = re.compile(r":focus-visible")
 # Una declaración de custom property cuyo valor parece un color.
 TOKEN_COLOR = re.compile(
     r"(--[a-zA-Z0-9_-]+)\s*:\s*"
-    r"(#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)|color-mix\([^)]*\))")
+    r"(#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)|color-mix\([^)]*\))"
+)
 
 # El bloque `:root` y los selectores de tema oscuro que la flota usa.
 #
@@ -128,12 +128,15 @@ TOKEN_COLOR = re.compile(
 BLOQUE_RAIZ = re.compile(r":root\s*\{([^}]*)\}")
 BLOQUE_OSCURO = re.compile(
     r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)"
-    r"[^{]*\{(.*?)\}", re.DOTALL)
+    r"[^{]*\{(.*?)\}",
+    re.DOTALL,
+)
 
 # Usos que exigen contraste: texto, borde y anillo de foco.
 USO_QUE_EXIGE_CONTRASTE = re.compile(
     r"(?:^|[;{])\s*(?:color|border(?:-[a-z]+)?|outline(?:-color)?|fill|stroke)"
-    r"\s*:[^;}]*var\(\s*(--[a-zA-Z0-9_-]+)")
+    r"\s*:[^;}]*var\(\s*(--[a-zA-Z0-9_-]+)"
+)
 
 # La REGLA `@media ... prefers-reduced-motion`, no la palabra suelta. Con la
 # palabra, un comentario de cabecera que la nombrara hacia que el juez tomara el
@@ -144,7 +147,8 @@ MOVIMIENTO_REDUCIDO = re.compile(r"@media[^{]*prefers-reduced-motion")
 # Solo el SELECTOR del tema oscuro. El cuerpo se saca por conteo de llaves con
 # `_bloques_oscuros`, porque `BLOQUE_OSCURO` corta en la PRIMERA `}`.
 SELECTOR_OSCURO = re.compile(
-    r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)")
+    r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)"
+)
 
 
 def _sin_comentarios(texto: str) -> str:
@@ -170,6 +174,8 @@ def _bloques_oscuros(texto: str) -> list[str]:
         if llave >= 0:
             cuerpos.append(_cuerpo_del_media(texto, llave))
     return cuerpos
+
+
 HAY_MOVIMIENTO = re.compile(r"\b(?:transition|animation)(?:-[a-z]+)?\s*:")
 
 
@@ -179,8 +185,7 @@ def _hojas(repo: Repo) -> list[str]:
     Por el índice de git y no por el disco: lo que importa es lo que llega al
     servidor. Un `.css` generado en `dist/` no se juzga.
     """
-    return [r for r in repo.versionados()
-            if ES_CSS.search(r) and not ES_PRUEBA.search(r)]
+    return [r for r in repo.versionados() if ES_CSS.search(r) and not ES_PRUEBA.search(r)]
 
 
 def comprobar_foco(repo: Repo, r: Resultado, hojas: list[str]) -> None:
@@ -209,11 +214,12 @@ def comprobar_foco(repo: Repo, r: Resultado, hojas: list[str]) -> None:
         for n, linea in enumerate(lineas):
             if not SIN_CONTORNO.search(linea):
                 continue
-            if (motivo := suprimido(originales, n, "UI-9")):
+            if motivo := suprimido(originales, n, "UI-9"):
                 r.supresiones.append(f"{ruta}:{n + 1} outline suprimido — {motivo}")
                 continue
             r.bloquea(
-                "UI-9", ruta,
+                "UI-9",
+                ruta,
                 "quita el contorno del foco y este archivo no declara ningún "
                 "`:focus-visible` que lo sustituya",
                 "quien navega con teclado deja de ver dónde está: el foco existe "
@@ -222,8 +228,8 @@ def comprobar_foco(repo: Repo, r: Resultado, hojas: list[str]) -> None:
                 "más frecuente y más barato de arreglar",
                 linea=n + 1,
                 arreglo="declarar un `:focus-visible` con el token del estándar "
-                        "—`outline: var(--foco-ancho) solid var(--foco-color)`— "
-                        "en vez de apagar el contorno sin reemplazo",
+                "—`outline: var(--foco-ancho) solid var(--foco-color)`— "
+                "en vez de apagar el contorno sin reemplazo",
             )
             break  # uno por archivo: el defecto es del archivo, no de la línea
 
@@ -267,27 +273,31 @@ def _sin_tema_oscuro(repo: Repo, r: Resultado, textos: list[tuple[str, str]]) ->
         ruta, linea = (textos[0][0] if textos else ""), None
         cerca = range(0, 3)  # sin un `:root` que señalar, en la cabecera de la hoja
     originales = (repo.texto(ruta) or "").splitlines()
-    if (motivo := next((m for i in cerca if (m := suprimido(originales, i, "UI-3"))), None)):
+    if motivo := next((m for i in cerca if (m := suprimido(originales, i, "UI-3"))), None):
         r.supresiones.append(f"{ruta}:{linea or 1} sin tema oscuro — {motivo}")
         return
     muestra = ", ".join(f"`{t}`" for t in huerfanos[:5])
     cola = f" y {len(huerfanos) - 5} más" if len(huerfanos) > 5 else ""
     r.bloquea(
-        "UI-3", ruta,
+        "UI-3",
+        ruta,
         "ninguna hoja declara el tema oscuro (`[data-theme=oscuro]` ni "
         "`prefers-color-scheme: dark`)"
-        + (f": {len(huerfanos)} token(es) de color de texto, borde o foco se quedan con "
-           f"su valor claro: {muestra}{cola}" if huerfanos
-           else ": el estándar pide los dos temas"),
+        + (
+            f": {len(huerfanos)} token(es) de color de texto, borde o foco se quedan con "
+            f"su valor claro: {muestra}{cola}"
+            if huerfanos
+            else ": el estándar pide los dos temas"
+        ),
         "con el sistema en oscuro la aplicación no cambia: sus colores se quedan en el "
         "valor claro, y si el HTML declara `color-scheme: light dark` —como el de la "
         "semilla— los controles nativos del navegador sí pasan a oscuro y quedan "
         "mezclados con superficies claras. El botón de tema, si lo hay, no hace nada",
         linea=linea,
         arreglo="un bloque `[data-theme='oscuro']` (y `@media (prefers-color-scheme: dark)` "
-                "para quien no eligió) que redefina cada token de texto, borde y foco con un "
-                "paso que alcance 4,5:1 en texto y 3:1 en borde y foco (UI-3), como "
-                "`frontend/src/estilos/interfaz.css` de la semilla",
+        "para quien no eligió) que redefina cada token de texto, borde y foco con un "
+        "paso que alcance 4,5:1 en texto y 3:1 en borde y foco (UI-3), como "
+        "`frontend/src/estilos/interfaz.css` de la semilla",
     )
 
 
@@ -313,14 +323,15 @@ def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]
 
         n = next((i for i, linea in enumerate(texto.splitlines()) if huerfanos[0] in linea), 0)
         # Con comentarios: ahí van las supresiones, en las mismas líneas.
-        if (motivo := suprimido((repo.texto(ruta) or "").splitlines(), n, "UI-3")):
+        if motivo := suprimido((repo.texto(ruta) or "").splitlines(), n, "UI-3"):
             r.supresiones.append(f"{ruta}:{n + 1} tokens sin redefinir — {motivo}")
             continue
 
         muestra = ", ".join(f"`{t}`" for t in huerfanos[:5])
         cola = f" y {len(huerfanos) - 5} más" if len(huerfanos) > 5 else ""
         r.bloquea(
-            "UI-3", ruta,
+            "UI-3",
+            ruta,
             f"{len(huerfanos)} token(es) de color se usan como texto, borde o "
             f"foco y NO se redefinen en el tema oscuro: {muestra}{cola}",
             "el token no desaparece: se queda con su valor claro sobre una "
@@ -330,9 +341,9 @@ def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]
             "quien lo escribió, porque casi nadie desarrolla en oscuro",
             linea=n + 1,
             arreglo="redefinir cada uno en el bloque del tema oscuro con un paso "
-                    "derivado que alcance 4,5:1 en texto y 3:1 en borde y foco; "
-                    "no corregir el color medido del banner, que sobre su propia "
-                    "superficie es correcto",
+            "derivado que alcance 4,5:1 en texto y 3:1 en borde y foco; "
+            "no corregir el color medido del banner, que sobre su propia "
+            "superficie es correcto",
         )
 
 
@@ -361,7 +372,7 @@ def _fuera_de_movimiento_reducido(texto: str) -> str:
     for m in MOVIMIENTO_REDUCIDO.finditer(texto):
         if m.start() < desde:
             continue
-        partes.append(texto[desde:m.start()])
+        partes.append(texto[desde : m.start()])
         profundidad, i = 0, m.end()
         while i < len(texto):
             if texto[i] == "{":
@@ -404,7 +415,8 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
 
     if not completo:
         r.bloquea(
-            "UI-15", ruta_principal,
+            "UI-15",
+            ruta_principal,
             f"el repositorio declara {total} transición(es) o animación(es) y "
             f"ninguna hoja tiene un bloque `prefers-reduced-motion`",
             "quien ha pedido al sistema operativo que reduzca el movimiento —por "
@@ -412,8 +424,8 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
             "completa igual. No es una preferencia estética: es la razón por la "
             "que existe el ajuste",
             arreglo="un bloque `@media (prefers-reduced-motion: reduce)` con "
-                    "selector universal que baje `transition-duration` y "
-                    "`animation-duration` a `.01ms !important`",
+            "selector universal que baje `transition-duration` y "
+            "`animation-duration` a `.01ms !important`",
         )
         return
 
@@ -449,13 +461,14 @@ def _bloque_selectivo(repo: Repo, r: Resultado, ruta: str, texto: str) -> None:
         return
 
     lineas = (repo.texto(ruta) or "").splitlines()  # con comentarios: ahí van las supresiones
-    n = texto[:m.start()].count("\n")
-    if (motivo := suprimido(lineas, n, "UI-15")):
+    n = texto[: m.start()].count("\n")
+    if motivo := suprimido(lineas, n, "UI-15"):
         r.supresiones.append(f"{ruta}:{n + 1} movimiento reducido — {motivo}")
         return
 
     r.bloquea(
-        "UI-15", ruta,
+        "UI-15",
+        ruta,
         f"el bloque `prefers-reduced-motion` es selectivo: apaga "
         f"{apagados} de {propios} declaración(es) de movimiento de este archivo",
         "cumple la letra y no la función. Quien pidió reducir el movimiento "
@@ -464,9 +477,9 @@ def _bloque_selectivo(repo: Repo, r: Resultado, ruta: str, texto: str) -> None:
         "movimiento completo",
         linea=n + 1,
         arreglo="usar el selector universal `*, *::before, *::after` y bajar "
-                "`transition-duration` y `animation-duration` a `.01ms "
-                "!important`, en vez de enumerar selectores que hay que "
-                "acordarse de ampliar cada vez que se añade una transición",
+        "`transition-duration` y `animation-duration` a `.01ms "
+        "!important`, en vez de enumerar selectores que hay que "
+        "acordarse de ampliar cada vez que se añade una transición",
     )
 
 
@@ -480,12 +493,14 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # El estándar de interfaz es para PROYECTOS NUEVOS. Una aplicación anterior
     # no lo incumple: es que no existía cuando se escribió.
     alcance = alcance_semilla(
-        repo, r,
+        repo,
+        r,
         f"no hay `{MARCADOR}` en la raíz: este repositorio no declara seguir "
         "el estándar de interfaz de la flota, y el estándar es para proyectos "
         "NUEVOS. Una aplicación anterior no lo incumple — no existía cuando "
         "se escribió. Se adopta añadiendo el marcador, que es lo que hace "
-        "`semilla/sembrar.py` en todo proyecto sembrado")
+        "`semilla/sembrar.py` en todo proyecto sembrado",
+    )
     if alcance is None:
         return
     texto_marcador, adopcion = alcance
@@ -497,15 +512,20 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             f"`{MARCADOR}:{maqueta[0]}` declara una maqueta validada por el cliente "
             f"({maqueta[1]}): la cara de esta aplicación es la de la maqueta, no la de la "
             "flota (identidad/ESTANDAR_UI.md §1-bis de coipo_master_produccion, enmienda "
-            "del 2026-11-12). No es una supresión: el aspecto tiene otra fuente.")
+            "del 2026-11-12). No es una supresión: el aspecto tiene otra fuente."
+        )
         return
     if not adopcion.adopta(CAPA):
         # Se cuenta como supresión: es la única vía por la que un repositorio se
         # apaga un juez a sí mismo, y esa puerta se paga. Ver `no_adopta` en comun.py.
-        no_adopta(r, adopcion, CAPA,
-                  "así que este repositorio no declara seguir el estándar de interfaz. "
-                  "Quitar la capa no arregla nada: los defectos siguen ahí, sin nadie que "
-                  "los cuente.")
+        no_adopta(
+            r,
+            adopcion,
+            CAPA,
+            "así que este repositorio no declara seguir el estándar de interfaz. "
+            "Quitar la capa no arregla nada: los defectos siguen ahí, sin nadie que "
+            "los cuente.",
+        )
         return
 
     hojas = _hojas(repo)
@@ -514,7 +534,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "no hay ninguna hoja de estilo versionada fuera de pruebas y "
             "dependencias: esta aplicación no tiene interfaz propia que juzgar. "
             "Es lo correcto para un backend, un colector o un encuadre operativo "
-            "de software de terceros")
+            "de software de terceros"
+        )
         return
 
     comprobar_foco(repo, r, hojas)

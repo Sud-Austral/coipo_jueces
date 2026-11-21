@@ -71,23 +71,32 @@ def descubrir(directorio: Path, perfil: str, solo: list[str]) -> list[tuple[str,
 
 def resumen_markdown(resultados: list[Resultado], *, modo: str, repo: str) -> str:
     lineas = [
-        f"# Verificación COIPO — `{repo}`", "",
-        f"Modo: **{modo}**", "",
+        f"# Verificación COIPO — `{repo}`",
+        "",
+        f"Modo: **{modo}**",
+        "",
         "| Juez | Veredicto | Comprobó | Bloquea | Avisa | Supresiones |",
         "|---|---|---:|---:|---:|---:|",
     ]
     for r in resultados:
         b = len(r.bloqueantes)
         a = len(r.hallazgos) - b
-        icono = {"OK": "🟢 OK", "HALLAZGOS": "🔴 HALLAZGOS",
-                 "SIN_EVALUAR": "⚪ SIN EVALUAR",
-                 "NO_APLICA": "➖ NO APLICA"}[r.veredicto]
-        lineas.append(f"| `{r.juez}` | {icono} | {len(r.comprobado)} | {b} | {a} "
-                      f"| {len(r.supresiones)} |")
+        icono = {
+            "OK": "🟢 OK",
+            "HALLAZGOS": "🔴 HALLAZGOS",
+            "SIN_EVALUAR": "⚪ SIN EVALUAR",
+            "NO_APLICA": "➖ NO APLICA",
+        }[r.veredicto]
+        lineas.append(
+            f"| `{r.juez}` | {icono} | {len(r.comprobado)} | {b} | {a} | {len(r.supresiones)} |"
+        )
     if any(r.veredicto == "SIN_EVALUAR" for r in resultados):
-        lineas += ["", "> **SIN EVALUAR no es un aprobado.** Ese juez no encontró nada "
-                       "que comprobar en este repositorio; cero hallazgos ahí no "
-                       "significa que esté conforme."]
+        lineas += [
+            "",
+            "> **SIN EVALUAR no es un aprobado.** Ese juez no encontró nada "
+            "que comprobar en este repositorio; cero hallazgos ahí no "
+            "significa que esté conforme.",
+        ]
 
     detalle = [(r, h) for r in resultados for h in r.hallazgos]
     if detalle:
@@ -101,22 +110,31 @@ def resumen_markdown(resultados: list[Resultado], *, modo: str, repo: str) -> st
 
     supr = [(r.juez, s) for r in resultados for s in r.supresiones]
     if supr:
-        lineas += ["", "## Supresiones activas", "",
-                   "Cada una exige una fila en `DEUDA.md`. Si este número crece "
-                   "respecto de `main`, el verificador se está apagando.", ""]
+        lineas += [
+            "",
+            "## Supresiones activas",
+            "",
+            "Cada una exige una fila en `DEUDA.md`. Si este número crece "
+            "respecto de `main`, el verificador se está apagando.",
+            "",
+        ]
         lineas += [f"- `{j}` — {s}" for j, s in supr]
 
     n_a = [(r.juez, n) for r in resultados for n in r.no_aplica]
     if n_a:
-        lineas += ["", "## No aplica", "",
-                   "El `[N/A]` de la Guía 8: se miró y aquí no corresponde. Lo "
-                   "declara el juez desde la evidencia, nunca el repositorio.", ""]
+        lineas += [
+            "",
+            "## No aplica",
+            "",
+            "El `[N/A]` de la Guía 8: se miró y aquí no corresponde. Lo "
+            "declara el juez desde la evidencia, nunca el repositorio.",
+            "",
+        ]
         lineas += [f"- `{j}` — {n}" for j, n in n_a]
 
     no_ev = [(r.juez, n) for r in resultados for n in r.no_evaluado]
     if no_ev:
-        lineas += ["", "## No evaluado", "",
-                   "Esto **no** es lo mismo que «sin hallazgos».", ""]
+        lineas += ["", "## No evaluado", "", "Esto **no** es lo mismo que «sin hallazgos».", ""]
         lineas += [f"- `{j}` — {n}" for j, n in no_ev]
 
     return "\n".join(lineas) + "\n"
@@ -126,11 +144,12 @@ def _argumentos() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="corre los jueces COIPO")
     p.add_argument("--repo", default=".")
     p.add_argument("--modo", choices=("advisory", "bloqueante"), default="advisory")
-    p.add_argument("--perfil", choices=("aplicacion", "encuadre_operativo"),
-                   default="aplicacion")
-    p.add_argument("--jueces", default="",
-                   help="lista separada por espacios o comas (p. ej. 'j01 j09'); "
-                        "vacío = todos los del perfil")
+    p.add_argument("--perfil", choices=("aplicacion", "encuadre_operativo"), default="aplicacion")
+    p.add_argument(
+        "--jueces",
+        default="",
+        help="lista separada por espacios o comas (p. ej. 'j01 j09'); vacío = todos los del perfil",
+    )
     p.add_argument("--resumen", default=None, help="ruta del RESUMEN.md a escribir")
     p.add_argument("--json", dest="json_salida", default=None)
     return p.parse_args()
@@ -148,23 +167,30 @@ def _modulos(perfil: str, solo: list[str], en_github: bool) -> list[tuple[str, o
     # (`j11_salud` en vez de `j11`), y eso cuesta media hora de CI.
     desconocidos = [x for x in solo if x not in disponibles]
     if desconocidos:
-        _avisar(f"--jueces nombra {', '.join(desconocidos)}, que no existe(n) "
-                f"para el perfil '{perfil}'. Se espera el id corto del juez "
-                f"(p. ej. 'j11', no 'j11_salud'). Disponibles: "
-                f"{', '.join(disponibles) or 'ninguno'}", en_github)
+        _avisar(
+            f"--jueces nombra {', '.join(desconocidos)}, que no existe(n) "
+            f"para el perfil '{perfil}'. Se espera el id corto del juez "
+            f"(p. ej. 'j11', no 'j11_salud'). Disponibles: "
+            f"{', '.join(disponibles) or 'ninguno'}",
+            en_github,
+        )
         return None
 
     modulos = descubrir(AQUI, perfil, solo)
     if not modulos:
         # Salir 1: "no corrió ningún juez" nunca puede leerse como "todo bien".
-        _avisar(f"ningún juez aplica al perfil '{perfil}'. "
-                f"Jueces del perfil: {', '.join(disponibles) or 'ninguno'}", en_github)
+        _avisar(
+            f"ningún juez aplica al perfil '{perfil}'. "
+            f"Jueces del perfil: {', '.join(disponibles) or 'ninguno'}",
+            en_github,
+        )
         return None
     return modulos
 
 
-def _correr(modulos: list[tuple[str, object]], repo: Repo, modo: str,
-            en_github: bool) -> tuple[list[Resultado], list[str]]:
+def _correr(
+    modulos: list[tuple[str, object]], repo: Repo, modo: str, en_github: bool
+) -> tuple[list[Resultado], list[str]]:
     resultados: list[Resultado] = []
     reventados: list[str] = []
     for nombre, modulo in modulos:
@@ -206,23 +232,46 @@ def _totales(resultados: list[Resultado]) -> Totales:
     )
 
 
-def _escribir(args: argparse.Namespace, repo: Repo, resultados: list[Resultado],
-              t: Totales, salida_gh: str | None) -> None:
+def _escribir(
+    args: argparse.Namespace,
+    repo: Repo,
+    resultados: list[Resultado],
+    t: Totales,
+    salida_gh: str | None,
+) -> None:
     if args.resumen:
         Path(args.resumen).write_text(
-            resumen_markdown(resultados, modo=args.modo, repo=repo.nombre), encoding="utf-8")
+            resumen_markdown(resultados, modo=args.modo, repo=repo.nombre), encoding="utf-8"
+        )
     if args.json_salida:
-        Path(args.json_salida).write_text(json.dumps(
-            {"repo": repo.nombre, "modo": args.modo, "perfil": args.perfil,
-             "bloqueantes": t.bloqueantes, "avisos": t.avisos, "supresiones": t.supresiones,
-             "resultados": [
-                 {"juez": r.juez, "veredicto": r.veredicto,
-                  "comprobado": r.comprobado, "no_evaluado": r.no_evaluado,
-                  "no_aplica": r.no_aplica,
-                  "supresiones": r.supresiones,
-                  "hallazgos": [asdict(h) for h in r.hallazgos]}
-                 for r in resultados]},
-            ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        Path(args.json_salida).write_text(
+            json.dumps(
+                {
+                    "repo": repo.nombre,
+                    "modo": args.modo,
+                    "perfil": args.perfil,
+                    "bloqueantes": t.bloqueantes,
+                    "avisos": t.avisos,
+                    "supresiones": t.supresiones,
+                    "resultados": [
+                        {
+                            "juez": r.juez,
+                            "veredicto": r.veredicto,
+                            "comprobado": r.comprobado,
+                            "no_evaluado": r.no_evaluado,
+                            "no_aplica": r.no_aplica,
+                            "supresiones": r.supresiones,
+                            "hallazgos": [asdict(h) for h in r.hallazgos],
+                        }
+                        for r in resultados
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
 
     # Las salidas del job las escribe este script y no un heredoc dentro del
     # YAML: un heredoc anidado en un bloque escalar de YAML depende de la
@@ -238,17 +287,22 @@ def _escribir(args: argparse.Namespace, repo: Repo, resultados: list[Resultado],
 
 def _imprimir_cierre(n_jueces: int, t: Totales, modo: str) -> None:
     print(f"\n{'=' * 78}")
-    print(f"{n_jueces} juez/jueces · {t.comprobaciones} comprobación(es) · "
-          f"{t.bloqueantes} bloqueante(s) · "
-          f"{t.avisos} aviso(s) · {t.supresiones} supresión(es) · modo {modo}")
+    print(
+        f"{n_jueces} juez/jueces · {t.comprobaciones} comprobación(es) · "
+        f"{t.bloqueantes} bloqueante(s) · "
+        f"{t.avisos} aviso(s) · {t.supresiones} supresión(es) · modo {modo}"
+    )
     if t.sin_evaluar:
-        print(f"SIN EVALUAR: {', '.join(t.sin_evaluar)} — no comprobaron nada. "
-              f"Cero hallazgos ahí NO significa conforme.")
+        print(
+            f"SIN EVALUAR: {', '.join(t.sin_evaluar)} — no comprobaron nada. "
+            f"Cero hallazgos ahí NO significa conforme."
+        )
     print("=" * 78)
 
 
-def _codigo_de_salida(args: argparse.Namespace, t: Totales, reventados: list[str],
-                      en_github: bool) -> int:
+def _codigo_de_salida(
+    args: argparse.Namespace, t: Totales, reventados: list[str], en_github: bool
+) -> int:
     if args.modo == "bloqueante" and t.bloqueantes:
         return 1
 
@@ -272,9 +326,12 @@ def _codigo_de_salida(args: argparse.Namespace, t: Totales, reventados: list[str
     # corren todos, así que basta con que UNO compruebe algo para que esta rama
     # no se active.
     if not t.comprobaciones and not t.todo_na:
-        _avisar("ningún juez comprobó nada: un gate que no verifica no aprueba. "
-                "Revisa el perfil, o si el repositorio tiene una forma que los "
-                "jueces no reconocen.", en_github)
+        _avisar(
+            "ningún juez comprobó nada: un gate que no verifica no aprueba. "
+            "Revisa el perfil, o si el repositorio tiene una forma que los "
+            "jueces no reconocen.",
+            en_github,
+        )
         return 1
 
     # El PERFIL es una declaración, y obliga.
@@ -289,21 +346,28 @@ def _codigo_de_salida(args: argparse.Namespace, t: Totales, reventados: list[str
     # Un `encuadre_operativo` (software de terceros) SÍ puede tener jueces sin
     # evaluar —no tiene Dockerfile ni tests— y por eso la regla no le aplica.
     if args.modo == "bloqueante" and args.perfil == "aplicacion" and t.sin_evaluar:
-        _avisar(f"perfil 'aplicacion' pero {', '.join(t.sin_evaluar)} no encontró nada "
-                f"que comprobar. O el repositorio no es una aplicación de la flota, "
-                f"o la detección del juez está rota. Un gate no aprueba lo que no miró.",
-                en_github)
+        _avisar(
+            f"perfil 'aplicacion' pero {', '.join(t.sin_evaluar)} no encontró nada "
+            f"que comprobar. O el repositorio no es una aplicación de la flota, "
+            f"o la detección del juez está rota. Un gate no aprueba lo que no miró.",
+            en_github,
+        )
         return 1
     if args.modo == "advisory" and t.bloqueantes and en_github:
         # En advisory NO se rompe el build: la flota tiene que poder desplegar
         # sus arreglos urgentes mientras se mide la distancia. Pero el número
         # se publica, para que "advisory" no acabe significando "invisible".
-        print(f"::warning::{t.bloqueantes} hallazgo(s) bloqueante(s) en modo advisory. "
-              f"Ver RESUMEN.md.")
+        print(
+            f"::warning::{t.bloqueantes} hallazgo(s) bloqueante(s) en modo advisory. "
+            f"Ver RESUMEN.md."
+        )
     if reventados:
-        _avisar(f"{len(reventados)} juez/jueces reventaron con una excepcion: "
-                f"{', '.join(reventados)}. Un gate con un juez roto no verifica lo "
-                "que dice verificar: se sale con 1 en cualquier modo.", en_github)
+        _avisar(
+            f"{len(reventados)} juez/jueces reventaron con una excepcion: "
+            f"{', '.join(reventados)}. Un gate con un juez roto no verifica lo "
+            "que dice verificar: se sale con 1 en cualquier modo.",
+            en_github,
+        )
         return 1
     return 0
 

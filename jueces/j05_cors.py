@@ -55,12 +55,12 @@ ORIGEN_POR_IP = re.compile(r"^https?://(\d{1,3}\.){3}\d{1,3}(:\d+)?/?$")
 
 ES_PRUEBA = re.compile(
     r"(^|/)(tests?|__tests__|spec|fixtures)(/|$)"
-    r"|(^|/)conftest\.py$|(^|/)test_[^/]*$|[^/]*(_test|\.test)\.py$")
+    r"|(^|/)conftest\.py$|(^|/)test_[^/]*$|[^/]*(_test|\.test)\.py$"
+)
 
 
 def _archivos_python(repo: Repo) -> list[str]:
-    return [r for r in repo.versionados()
-            if r.endswith(".py") and not ES_PRUEBA.search(r)]
+    return [r for r in repo.versionados() if r.endswith(".py") and not ES_PRUEBA.search(r)]
 
 
 def _literales(nodo: ast.AST) -> list[str] | None:
@@ -82,14 +82,17 @@ def _llamadas_cors(arbol: ast.Module):
         if not isinstance(nodo, ast.Call):
             continue
         f = nodo.func
-        nombre = f.attr if isinstance(f, ast.Attribute) else \
-            f.id if isinstance(f, ast.Name) else None
+        nombre = (
+            f.attr if isinstance(f, ast.Attribute) else f.id if isinstance(f, ast.Name) else None
+        )
         if nombre not in ("add_middleware", "CORSMiddleware"):
             continue
         primero = nodo.args[0] if nodo.args else None
-        es_cors = nombre == "CORSMiddleware" or (
-            isinstance(primero, ast.Name) and primero.id == "CORSMiddleware") or (
-            isinstance(primero, ast.Attribute) and primero.attr == "CORSMiddleware")
+        es_cors = (
+            nombre == "CORSMiddleware"
+            or (isinstance(primero, ast.Name) and primero.id == "CORSMiddleware")
+            or (isinstance(primero, ast.Attribute) and primero.attr == "CORSMiddleware")
+        )
         if es_cors:
             yield nodo
 
@@ -139,8 +142,7 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         )
 
 
-def _juzgar(repo: Repo, r: Resultado, ruta: str,
-            lineas: list[str], llamada: ast.Call) -> None:
+def _juzgar(repo: Repo, r: Resultado, ruta: str, lineas: list[str], llamada: ast.Call) -> None:
     origenes = next((k for k in llamada.keywords if k.arg == "allow_origins"), None)
     if origenes is None:
         return
@@ -153,50 +155,55 @@ def _juzgar(repo: Repo, r: Resultado, ruta: str,
         # El valor real lo pone el `.env` del servidor y no pasa por git.
         return
 
-    if (motivo := suprimido(lineas, n - 1, "G8-5")):
+    if motivo := suprimido(lineas, n - 1, "G8-5"):
         r.supresiones.append(f"{ruta}:{n} allow_origins literal — {motivo}")
         return
 
-    credenciales = next((k for k in llamada.keywords
-                         if k.arg == "allow_credentials"), None)
+    credenciales = next((k for k in llamada.keywords if k.arg == "allow_credentials"), None)
     con_credenciales = not (
         isinstance(getattr(credenciales, "value", None), ast.Constant)
-        and credenciales.value.value is False)
+        and credenciales.value.value is False
+    )
 
     if "*" in valores:
         agravante = (
             " Y `allow_credentials` no está en False, así que un sitio hostil puede "
             "leer respuestas autenticadas con la sesión de la persona."
-            if con_credenciales else
-            " `allow_credentials=False` limita el daño —el navegador no adjunta la "
+            if con_credenciales
+            else " `allow_credentials=False` limita el daño —el navegador no adjunta la "
             "cookie— pero deja abierto todo lo que responda sin autenticación."
         )
         r.bloquea(
-            "G8-5", ruta, "`allow_origins` acepta `*`",
+            "G8-5",
+            ruta,
+            "`allow_origins` acepta `*`",
             "cualquier página de internet puede llamar a esta API desde el navegador "
             "de un funcionario." + agravante,
             linea=n,
             arreglo="lista explícita de dominios leída de `CORS_ORIGINS`, nunca `*` "
-                    "(Guía 8, punto 5)",
+            "(Guía 8, punto 5)",
         )
 
     for v in valores:
         if ORIGEN_POR_IP.match(v.strip()):
             r.bloquea(
-                "G8-5", ruta, f"`allow_origins` incluye la IP `{v}`",
+                "G8-5",
+                ruta,
+                f"`allow_origins` incluye la IP `{v}`",
                 "el navegador arma `Origin` con el dominio de la barra de "
                 "direcciones, nunca con la IP del servidor: esa entrada no va a "
                 "casar jamás con una petición real. Es configuración muerta que "
                 "parece configuración, y la petición legítima se rechaza",
                 linea=n,
                 arreglo="escribir el dominio (`https://<app>.conaf.cl`). No hace "
-                        "falta que exista todavía en el DNS para configurarlo",
+                "falta que exista todavía en el DNS para configurarlo",
             )
 
     # El defecto peor: la variable existe, se documenta... y no la usa nadie.
     if _declara_cors_origins(repo):
         r.bloquea(
-            "G8-5", ruta,
+            "G8-5",
+            ruta,
             "`allow_origins` está cableado en el código mientras el repositorio "
             "declara `CORS_ORIGINS` en su `.env.example`",
             "quien despliegue va a escribir `CORS_ORIGINS=https://...` en el `.env` "
@@ -205,8 +212,8 @@ def _juzgar(repo: Repo, r: Resultado, ruta: str,
             "porque la ausente se nota",
             linea=n,
             arreglo="pasar la lista desde la configuración —`allow_origins="
-                    "settings.cors_origins`— o borrar `CORS_ORIGINS` del "
-                    "`.env.example` para que nadie crea que sirve",
+            "settings.cors_origins`— o borrar `CORS_ORIGINS` del "
+            "`.env.example` para que nadie crea que sirve",
         )
 
 

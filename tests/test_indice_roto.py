@@ -43,8 +43,16 @@ import j14_construccion  # noqa: E402
 import j16_codigo  # noqa: E402
 from comun import Repo, Resultado  # noqa: E402
 
-LEEN_EL_INDICE = (j05_cors, j06_config, j08_rsync, j09_secretos, j11_salud,
-                  j13_interfaz, j14_construccion, j16_codigo)
+LEEN_EL_INDICE = (
+    j05_cors,
+    j06_config,
+    j08_rsync,
+    j09_secretos,
+    j11_salud,
+    j13_interfaz,
+    j14_construccion,
+    j16_codigo,
+)
 
 # Un CSS con los tres defectos de j13 y un archivo de 1200 líneas: si un juez
 # llegara a mirar, tendría con qué dar HALLAZGOS. Que salga SIN_EVALUAR prueba
@@ -53,13 +61,16 @@ CSS_MALO = ":root { --v: #064928; }\n.t { color: var(--v); transition: all .2s; 
 
 
 class PruebaIndiceRoto(unittest.TestCase):
-
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="coipo_jueces_roto_"))
         self.addCleanup(shutil.rmtree, self.dir, True)
         (self.dir / ".git").write_text("gitdir: ./no-existe-este-directorio\n", encoding="utf-8")
-        (self.dir / ".semilla").write_text("version: 2026-10-25\nfabrica: 2026-10-25\n", encoding="utf-8")
-        (self.dir / "docker-compose.yml").write_text("services:\n  app:\n    build: .\n", encoding="utf-8")
+        (self.dir / ".semilla").write_text(
+            "version: 2026-10-25\nfabrica: 2026-10-25\n", encoding="utf-8"
+        )
+        (self.dir / "docker-compose.yml").write_text(
+            "services:\n  app:\n    build: .\n", encoding="utf-8"
+        )
         (self.dir / "src").mkdir()
         (self.dir / "src" / "estilos.css").write_text(CSS_MALO, encoding="utf-8")
         (self.dir / "src" / "grande.py").write_text("x = 1\n" * 1200, encoding="utf-8")
@@ -74,9 +85,12 @@ class PruebaIndiceRoto(unittest.TestCase):
             with self.subTest(juez=modulo.__name__):
                 r = Resultado(juez=modulo.__name__, descripcion="prueba")
                 modulo.comprobar(Repo(self.dir), r)
-                self.assertEqual("SIN_EVALUAR", r.veredicto,
-                                 f"{modulo.__name__}: {r.comprobado} {r.no_aplica} "
-                                 f"{[h.mensaje for h in r.hallazgos]}")
+                self.assertEqual(
+                    "SIN_EVALUAR",
+                    r.veredicto,
+                    f"{modulo.__name__}: {r.comprobado} {r.no_aplica} "
+                    f"{[h.mensaje for h in r.hallazgos]}",
+                )
                 self.assertTrue(any("git ls-files" in n for n in r.no_evaluado), r.no_evaluado)
 
 

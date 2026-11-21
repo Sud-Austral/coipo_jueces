@@ -43,8 +43,9 @@ class PruebaSem2(CasoConRepo):
         self.assertEqual([], self._sem2())
 
     def test_con_motivo_no_avisa(self):
-        self.repo.escribe(j12.PAQUETES,
-                          CABECERA + "libexpat1  # rasterio 1.5.2 la carga al importar\r\n")
+        self.repo.escribe(
+            j12.PAQUETES, CABECERA + "libexpat1  # rasterio 1.5.2 la carga al importar\r\n"
+        )
         self.assertEqual([], self._sem2())
 
     def test_sin_motivo_avisa(self):

@@ -28,7 +28,6 @@ from comun import Resultado, YamlNoSoportado, carga_yaml  # noqa: E402
 
 
 class PruebaComun(unittest.TestCase):
-
     def test_7_un_escalar_como_menos_menos_cinco_no_revienta(self):
         """`command: --5` en un compose tumbaba a j01 entero con ValueError:
         `"--5".lstrip("-").isdigit()` es True y `int("--5")` no existe."""
@@ -44,12 +43,10 @@ class PruebaComun(unittest.TestCase):
         Hasta el 2026-10-25 la corrección fue RECHAZARLAS, y eso dejaba «sin
         verificar» compose sanos de la flota (`coipo_cron_master`). Desde ese día
         se interpretan; un alias a un ancla que no existe se sigue rechazando."""
-        y = carga_yaml("x-comun: &comun\n  restart: always\n"
-                       "services:\n  app:\n    <<: *comun\n")
+        y = carga_yaml("x-comun: &comun\n  restart: always\nservices:\n  app:\n    <<: *comun\n")
         self.assertEqual("always", y["services"]["app"]["restart"])
         self.assertNotIn("restart", y, "los hijos del ancla no se cuelgan de la raíz")
-        for texto in ("services:\n  app:\n    <<: *comun\n",
-                      "ports:\n  - *puerto\n"):
+        for texto in ("services:\n  app:\n    <<: *comun\n", "ports:\n  - *puerto\n"):
             with self.assertRaises(YamlNoSoportado, msg=texto):
                 carga_yaml(texto)
         # y un `*` que NO es alias sigue siendo un valor legítimo
@@ -77,14 +74,19 @@ class PruebaJ06ConBom(CasoConRepo):
     MODULO = j06
 
     def test_11_env_example_con_bom_no_es_un_bloqueante(self):
-        self.repo.escribe("docker-compose.yml",
-                          "services:\n  app:\n    image: x\n    ports:\n"
-                          '      - "${APP_PORT:-8080}:8000"\n')
-        self.repo.escribe(".env.example",
-                          "\ufeffDATABASE_HOST=x\nDATABASE_PORT=5432\nDATABASE_USER=x\n"
-                          "DATABASE_PASSWORD=<generar>\nDATABASE_NAME=x\nAPP_PORT=8080\n")
+        self.repo.escribe(
+            "docker-compose.yml",
+            'services:\n  app:\n    image: x\n    ports:\n      - "${APP_PORT:-8080}:8000"\n',
+        )
+        self.repo.escribe(
+            ".env.example",
+            "\ufeffDATABASE_HOST=x\nDATABASE_PORT=5432\nDATABASE_USER=x\n"
+            "DATABASE_PASSWORD=<generar>\nDATABASE_NAME=x\nAPP_PORT=8080\n",
+        )
         r = self.repo.juzga()
-        faltan = [h for h in r.hallazgos if "DATABASE_" in h.mensaje and "falta" in h.mensaje.lower()]
+        faltan = [
+            h for h in r.hallazgos if "DATABASE_" in h.mensaje and "falta" in h.mensaje.lower()
+        ]
         self.assertFalse(faltan, [h.mensaje for h in r.hallazgos])
 
 
@@ -95,9 +97,11 @@ class PruebaJ11SinBackend(CasoConRepo):
         """coipo_n8n: compose, nginx y docs, ni una línea de Python. Exigirle un
         endpoint propio ponía rojo al repositorio que AGENTS.md declara excepción
         legítima y referencia de calibración."""
-        self.repo.escribe("docker-compose.yml",
-                          "services:\n  n8n:\n    image: n8nio/n8n\n    healthcheck:\n"
-                          '      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:5678/healthz"]\n')
+        self.repo.escribe(
+            "docker-compose.yml",
+            "services:\n  n8n:\n    image: n8nio/n8n\n    healthcheck:\n"
+            '      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:5678/healthz"]\n',
+        )
         r = self.repo.juzga()
         self.assertEqual("NO_APLICA", r.veredicto)
         self.assertFalse(r.hallazgos)
@@ -117,34 +121,42 @@ class PruebaJ13Revision(CasoConRepo):
         """La regex buscaba la PALABRA y la primera aparición estaba en un
         comentario de cabecera: el juez tomaba el siguiente `{...}` cualquiera
         como «el bloque». Ocurrió escribiendo el propio comentario del bloque."""
-        self.repo.escribe("src/a.css",
-                          "/* Este archivo tiene un bloque prefers-reduced-motion abajo */\n"
-                          ".x { color: #111; transition: all .2s; }\n"
-                          "@media (prefers-reduced-motion: reduce) {\n"
-                          "  *, *::before, *::after { transition-duration: .01ms !important; }\n}\n")
+        self.repo.escribe(
+            "src/a.css",
+            "/* Este archivo tiene un bloque prefers-reduced-motion abajo */\n"
+            ".x { color: #111; transition: all .2s; }\n"
+            "@media (prefers-reduced-motion: reduce) {\n"
+            "  *, *::before, *::after { transition-duration: .01ms !important; }\n}\n",
+        )
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-15"],
-                         [h.mensaje for h in r.hallazgos])
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-15"], [h.mensaje for h in r.hallazgos]
+        )
 
     def test_10_un_comentario_no_hace_pasar_un_bloque_selectivo(self):
         """Y al revés: el comentario no puede tapar un bloque que sí es selectivo."""
-        self.repo.escribe("src/a.css",
-                          "/* prefers-reduced-motion */\n"
-                          ".a { transition: all .2s; }\n.b { transition: color .2s; }\n"
-                          "@media (prefers-reduced-motion: reduce) {\n  .a { transition: none; }\n}\n")
+        self.repo.escribe(
+            "src/a.css",
+            "/* prefers-reduced-motion */\n"
+            ".a { transition: all .2s; }\n.b { transition: color .2s; }\n"
+            "@media (prefers-reduced-motion: reduce) {\n  .a { transition: none; }\n}\n",
+        )
         self.assertBloquea("es selectivo")
 
     def test_12_un_token_redefinido_en_la_segunda_regla_del_media_no_es_huerfano(self):
         """`BLOQUE_OSCURO` cortaba en la PRIMERA `}`: dentro del @media sólo veía
         la primera regla y los tokens de la segunda salían como huérfanos."""
-        self.repo.escribe("src/a.css",
-                          ":root { --texto: #111; --borde: #ccc; }\n"
-                          "@media (prefers-color-scheme: dark) {\n"
-                          "  :root { --texto: #eee; }\n  .card { --borde: #444; }\n}\n"
-                          ".a { color: var(--texto); border: 1px solid var(--borde); }\n")
+        self.repo.escribe(
+            "src/a.css",
+            ":root { --texto: #111; --borde: #ccc; }\n"
+            "@media (prefers-color-scheme: dark) {\n"
+            "  :root { --texto: #eee; }\n  .card { --borde: #444; }\n}\n"
+            ".a { color: var(--texto); border: 1px solid var(--borde); }\n",
+        )
         r = self.repo.juzga()
-        self.assertFalse([h for h in r.hallazgos if h.regla == "UI-3"],
-                         [h.mensaje for h in r.hallazgos])
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-3"], [h.mensaje for h in r.hallazgos]
+        )
 
 
 class PruebaAdoptaVacio(CasoConRepo):
@@ -169,8 +181,7 @@ class PruebaCorrer(unittest.TestCase):
             self.fail("falta `git` en el PATH")
         self.tmp = Path(tempfile.mkdtemp())
         self.jueces = self.tmp / "jueces"
-        shutil.copytree(RAIZ / "jueces", self.jueces,
-                        ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(RAIZ / "jueces", self.jueces, ignore=shutil.ignore_patterns("__pycache__"))
         self.repo = RepoSintetico(j12)
         self.addCleanup(self.repo.cierra)
         self.addCleanup(shutil.rmtree, self.tmp, True)
@@ -178,14 +189,28 @@ class PruebaCorrer(unittest.TestCase):
 
     def _correr(self, *extra):
         return subprocess.run(
-            [sys.executable, str(self.jueces / "correr.py"), "--repo", str(self.repo.dir),
-             "--modo", "advisory", "--perfil", "encuadre_operativo", *extra],
-            capture_output=True, encoding="utf-8", errors="replace")
+            [
+                sys.executable,
+                str(self.jueces / "correr.py"),
+                "--repo",
+                str(self.repo.dir),
+                "--modo",
+                "advisory",
+                "--perfil",
+                "encuadre_operativo",
+                *extra,
+            ],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
 
     def test_14_un_juez_mal_nombrado_no_se_salta_en_silencio(self):
         (self.jueces / "j7_uno.py").write_text(
             '"""x"""\nPERFILES = ("encuadre_operativo",)\n'
-            "def comprobar(repo, r):\n    r.comprobo('x')\n", encoding="utf-8")
+            "def comprobar(repo, r):\n    r.comprobo('x')\n",
+            encoding="utf-8",
+        )
         p = self._correr()
         self.assertEqual(1, p.returncode, p.stdout + p.stderr)
         self.assertIn("no sigue el patron", p.stdout + p.stderr)
@@ -193,7 +218,9 @@ class PruebaCorrer(unittest.TestCase):
     def test_un_juez_que_revienta_sale_1_y_lo_dice(self):
         (self.jueces / "j98_roto.py").write_text(
             '"""roto"""\nPERFILES = ("encuadre_operativo",)\n'
-            "def comprobar(repo, r):\n    raise RuntimeError('kaput')\n", encoding="utf-8")
+            "def comprobar(repo, r):\n    raise RuntimeError('kaput')\n",
+            encoding="utf-8",
+        )
         p = self._correr()
         self.assertEqual(1, p.returncode)
         self.assertIn("REVENTO", p.stdout + p.stderr)
@@ -203,9 +230,21 @@ class PruebaCorrer(unittest.TestCase):
         salida = self.tmp / "out.txt"
         env = dict(os.environ, GITHUB_OUTPUT=str(salida))
         subprocess.run(
-            [sys.executable, str(self.jueces / "correr.py"), "--repo", str(self.repo.dir),
-             "--modo", "advisory", "--perfil", "encuadre_operativo", "--jueces", "j99"],
-            capture_output=True, env=env)
+            [
+                sys.executable,
+                str(self.jueces / "correr.py"),
+                "--repo",
+                str(self.repo.dir),
+                "--modo",
+                "advisory",
+                "--perfil",
+                "encuadre_operativo",
+                "--jueces",
+                "j99",
+            ],
+            capture_output=True,
+            env=env,
+        )
         texto = salida.read_text(encoding="utf-8")
         self.assertIn("estado=no_corrio", texto)
         self.assertIn("bloqueantes=-1", texto)

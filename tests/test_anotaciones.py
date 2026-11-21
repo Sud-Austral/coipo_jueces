@@ -40,7 +40,6 @@ def _resultado_con_bloqueo() -> Resultado:
 
 
 class PruebaInformar(unittest.TestCase):
-
     def _salida(self, modo: str) -> str:
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -82,7 +81,6 @@ class PruebaEtiquetaEnConsola(unittest.TestCase):
 
 
 class PruebaCorrerEnGithub(unittest.TestCase):
-
     def setUp(self):
         if not hay_git():
             self.fail("falta `git` en el PATH: esta prueba lo necesita de verdad")
@@ -94,9 +92,24 @@ class PruebaCorrerEnGithub(unittest.TestCase):
         entorno = {k: v for k, v in os.environ.items() if k != "GITHUB_OUTPUT"}
         entorno.update(GITHUB_ACTIONS="true", PYTHONUTF8="1")
         return subprocess.run(
-            [sys.executable, "-B", str(RAIZ / "jueces" / "correr.py"), "--repo", str(self.repo.dir),
-             "--modo", modo, "--perfil", "encuadre_operativo", "--jueces", "j09"],
-            capture_output=True, encoding="utf-8", errors="replace", env=entorno)
+            [
+                sys.executable,
+                "-B",
+                str(RAIZ / "jueces" / "correr.py"),
+                "--repo",
+                str(self.repo.dir),
+                "--modo",
+                modo,
+                "--perfil",
+                "encuadre_operativo",
+                "--jueces",
+                "j09",
+            ],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            env=entorno,
+        )
 
     def test_advisory_no_emite_error_y_sale_0(self):
         p = self._correr("advisory")

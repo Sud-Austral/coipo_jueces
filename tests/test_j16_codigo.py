@@ -26,7 +26,9 @@ VIEJA = "version: 2026-10-20\nfabrica: 2026-10-20\ngerencia: 1_banner_SECOM\nado
 SIN_FECHA = "version: 2026-09-08\ngerencia: 1_banner_SECOM\nadopta: interfaz\n"
 
 TSCONFIG = '{\n  "compilerOptions": {\n    "strict": true\n  }\n}\n'
-DOMINIO_PURO = "export type Predio = { id: string }\nexport const area = (p: Predio) => p.id.length\n"
+DOMINIO_PURO = (
+    "export type Predio = { id: string }\nexport const area = (p: Predio) => p.id.length\n"
+)
 
 
 def lineas(n: int) -> str:
@@ -37,11 +39,14 @@ class Base(CasoConRepo):
     MODULO = j16
 
     def frontend_sano(self) -> None:
-        (self.repo
-         .escribe("frontend/package.json", "{}\n")
-         .escribe("frontend/tsconfig.json", TSCONFIG)
-         .escribe("frontend/src/dominio/predio.ts", DOMINIO_PURO)
-         .escribe("frontend/src/interfaz/App.tsx", "export default function App() { return null }\n"))
+        (
+            self.repo.escribe("frontend/package.json", "{}\n")
+            .escribe("frontend/tsconfig.json", TSCONFIG)
+            .escribe("frontend/src/dominio/predio.ts", DOMINIO_PURO)
+            .escribe(
+                "frontend/src/interfaz/App.tsx", "export default function App() { return null }\n"
+            )
+        )
 
 
 class PruebaAlcance(Base):
@@ -87,11 +92,13 @@ class PruebaTamano(Base):
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_datos_y_generado_no_cuentan(self):
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("frontend/package-lock.json", lineas(5000))
-         .escribe("frontend/public/capas/chile.geojson", lineas(5000))
-         .escribe("frontend/dist/assets/index.js", lineas(5000))
-         .escribe("frontend/public/lib/maplibre.min.js", lineas(5000)))
+        (
+            self.repo.escribe(".semilla", NUEVA)
+            .escribe("frontend/package-lock.json", lineas(5000))
+            .escribe("frontend/public/capas/chile.geojson", lineas(5000))
+            .escribe("frontend/dist/assets/index.js", lineas(5000))
+            .escribe("frontend/public/lib/maplibre.min.js", lineas(5000))
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_no_versionado_no_cuenta(self):
@@ -99,7 +106,10 @@ class PruebaTamano(Base):
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_supresion_en_cabecera_se_cuenta(self):
-        cuerpo = "-- coipo-jueces:ignorar(COD-1) migracion historica sellada, no se reescribe\n" + lineas(1200)
+        cuerpo = (
+            "-- coipo-jueces:ignorar(COD-1) migracion historica sellada, no se reescribe\n"
+            + lineas(1200)
+        )
         self.repo.escribe(".semilla", NUEVA).escribe("db/0001.sql", cuerpo)
         r = self.repo.juzga()
         self.assertSinBloqueos(r)
@@ -158,20 +168,28 @@ class PruebaCapas(Base):
     def test_dominio_que_importa_react_bloquea(self):
         self.repo.escribe(".semilla", NUEVA)
         self.frontend_sano()
-        self.repo.escribe("frontend/src/dominio/vista.ts", "import { useState } from 'react'\nexport const a = useState\n")
+        self.repo.escribe(
+            "frontend/src/dominio/vista.ts",
+            "import { useState } from 'react'\nexport const a = useState\n",
+        )
         self.assertBloquea("importa `react`")
 
     def test_dominio_que_importa_un_adaptador_bloquea(self):
         self.repo.escribe(".semilla", NUEVA)
         self.frontend_sano()
-        self.repo.escribe("frontend/src/dominio/b.ts", "import { pedir } from '../adaptadores/http'\nexport const b = pedir\n")
+        self.repo.escribe(
+            "frontend/src/dominio/b.ts",
+            "import { pedir } from '../adaptadores/http'\nexport const b = pedir\n",
+        )
         self.assertBloquea("importa `../adaptadores/http`")
 
     def test_dominio_que_importa_un_caso_de_uso_o_una_hoja_bloquea(self):
         self.repo.escribe(".semilla", NUEVA)
         self.frontend_sano()
-        self.repo.escribe("frontend/src/dominio/e.ts",
-                          "import { x } from '../aplicacion/casos.ts'\nimport './e.css'\nexport const e = x\n")
+        self.repo.escribe(
+            "frontend/src/dominio/e.ts",
+            "import { x } from '../aplicacion/casos.ts'\nimport './e.css'\nexport const e = x\n",
+        )
         r = self.repo.juzga()
         self.assertBloquea("importa `../aplicacion/casos.ts`", r)
         self.assertBloquea("importa `./e.css`", r)
@@ -179,7 +197,10 @@ class PruebaCapas(Base):
     def test_dominio_que_hace_fetch_bloquea_con_su_linea(self):
         self.repo.escribe(".semilla", NUEVA)
         self.frontend_sano()
-        self.repo.escribe("frontend/src/dominio/c.ts", "export const a = 1\nexport const c = () => fetch('/api')\n")
+        self.repo.escribe(
+            "frontend/src/dominio/c.ts",
+            "export const a = 1\nexport const c = () => fetch('/api')\n",
+        )
         r = self.repo.juzga()
         self.assertBloquea("usa `fetch", r)
         self.assertEqual(2, r.bloqueantes[0].linea)
@@ -187,40 +208,54 @@ class PruebaCapas(Base):
     def test_un_comentario_que_nombra_fetch_no_es_hallazgo(self):
         self.repo.escribe(".semilla", NUEVA)
         self.frontend_sano()
-        self.repo.escribe("frontend/src/dominio/d.ts",
-                          "// el dominio no hace fetch(): recibe los datos\n/* ni window.x */\nexport const d = 1\n")
+        self.repo.escribe(
+            "frontend/src/dominio/d.ts",
+            "// el dominio no hace fetch(): recibe los datos\n/* ni window.x */\nexport const d = 1\n",
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_un_adaptador_si_puede_usar_fetch_y_react(self):
         self.repo.escribe(".semilla", NUEVA)
         self.frontend_sano()
-        self.repo.escribe("frontend/src/adaptadores/http.ts", "export const pedir = () => fetch('/api')\n")
-        self.repo.escribe("frontend/src/interfaz/Uso.tsx", "import { useState } from 'react'\nexport const u = useState\n")
+        self.repo.escribe(
+            "frontend/src/adaptadores/http.ts", "export const pedir = () => fetch('/api')\n"
+        )
+        self.repo.escribe(
+            "frontend/src/interfaz/Uso.tsx",
+            "import { useState } from 'react'\nexport const u = useState\n",
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_sin_dominio_bloquea_en_lo_nuevo(self):
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("frontend/package.json", "{}\n")
-         .escribe("frontend/tsconfig.json", TSCONFIG)
-         .escribe("frontend/src/App.tsx", "export default 1\n"))
+        (
+            self.repo.escribe(".semilla", NUEVA)
+            .escribe("frontend/package.json", "{}\n")
+            .escribe("frontend/tsconfig.json", TSCONFIG)
+            .escribe("frontend/src/App.tsx", "export default 1\n")
+        )
         self.assertBloquea("no tiene `src/dominio/`")
 
     def test_dominio_del_backend_que_importa_sqlalchemy_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "backend/app/dominio/modelo/x.py", "from __future__ import annotations\nfrom sqlalchemy import text\n")
+            "backend/app/dominio/modelo/x.py",
+            "from __future__ import annotations\nfrom sqlalchemy import text\n",
+        )
         r = self.repo.juzga()
         self.assertBloquea("importa `sqlalchemy`", r)
         self.assertEqual(2, r.bloqueantes[0].linea)
 
     def test_dominio_del_backend_que_se_importa_a_si_mismo_es_sano(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "backend/app/dominio/politicas/p.py", "from app.dominio.errores import DatoInvalido\nimport calendar\n")
+            "backend/app/dominio/politicas/p.py",
+            "from app.dominio.errores import DatoInvalido\nimport calendar\n",
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_dominio_del_backend_que_lee_el_entorno_bloquea(self):
         """`os` está en la lista del dominio de `test_capas.py`, pieza congelada de la semilla."""
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "backend/app/dominio/reglas.py", "import sys, os\nLIMITE = int(os.environ['LIMITE'])\n")
+            "backend/app/dominio/reglas.py", "import sys, os\nLIMITE = int(os.environ['LIMITE'])\n"
+        )
         self.assertBloquea("importa `os`")
 
 
@@ -232,7 +267,8 @@ COLECTOR_PURO = (
     "from colector.dominio.errores import DatoInvalido\n"
     "@dataclass(frozen=True)\n"
     "class Valor:\n"
-    "    monto: Decimal\n")
+    "    monto: Decimal\n"
+)
 
 COLECTOR_JS_PURO = (
     "import { tokenizar } from './analisis-texto.js'\n"
@@ -240,7 +276,8 @@ COLECTOR_JS_PURO = (
     "export const contar = (noticia, puerto) => {\n"
     "  const t = noticia.document.titulo\n"
     "  return puerto.fetch(tokenizar(t))\n"
-    "}\n")
+    "}\n"
+)
 
 
 class PruebaCapasHermanos(Base):
@@ -249,7 +286,8 @@ class PruebaCapasHermanos(Base):
 
     def test_colector_python_que_importa_httpx_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import httpx\n")
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import httpx\n"
+        )
         r = self.repo.juzga()
         self.assertBloquea("importa `httpx`", r)
         self.assertEqual("collector/colector/dominio/indicadores.py", r.bloqueantes[0].archivo)
@@ -257,49 +295,62 @@ class PruebaCapasHermanos(Base):
 
     def test_colector_python_que_importa_os_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import os\n")
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import os\n"
+        )
         self.assertBloquea("importa `os`")
 
     def test_colector_python_que_importa_su_adaptador_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
             "collector/colector/dominio/indicadores.py",
-            COLECTOR_PURO + "from colector.adaptadores.postgres import guardar\n")
+            COLECTOR_PURO + "from colector.adaptadores.postgres import guardar\n",
+        )
         self.assertBloquea("importa `colector.adaptadores.postgres`")
 
     def test_colector_python_con_import_relativo_a_un_adaptador_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "from .. import adaptadores\n")
+            "collector/colector/dominio/indicadores.py",
+            COLECTOR_PURO + "from .. import adaptadores\n",
+        )
         self.assertBloquea("importa `..`")
 
     def test_un_modulo_propio_que_se_llama_como_uno_prohibido_no_es_hallazgo(self):
         """`from . import os` trae `dominio/os.py`, no la biblioteca del sistema."""
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "from . import os\n")
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "from . import os\n"
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_colector_python_puro_sale_limpio_y_se_registra(self):
-        self.repo.escribe(".semilla", NUEVA).escribe("collector/colector/dominio/indicadores.py", COLECTOR_PURO)
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO
+        )
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos)
-        self.assertTrue(any("`collector/colector/dominio/`" in c for c in r.comprobado), r.comprobado)
+        self.assertTrue(
+            any("`collector/colector/dominio/`" in c for c in r.comprobado), r.comprobado
+        )
 
     def test_colector_viejo_solo_avisa(self):
         self.repo.escribe(".semilla", VIEJA).escribe(
-            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import httpx\n")
+            "collector/colector/dominio/indicadores.py", COLECTOR_PURO + "import httpx\n"
+        )
         self.assertSinBloqueos()
         self.assertAvisa("importa `httpx`")
 
     def test_colector_js_puro_sale_limpio(self):
         """La forma del colector de coipo_prensa2: imports relativos dentro del dominio,
         y un método `fetch` de un puerto inyectado, que no es la red."""
-        self.repo.escribe(".semilla", NUEVA).escribe("collector/src/dominio/conteo.js", COLECTOR_JS_PURO)
+        self.repo.escribe(".semilla", NUEVA).escribe(
+            "collector/src/dominio/conteo.js", COLECTOR_JS_PURO
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_colector_js_que_habla_con_afuera_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
             "collector/src/dominio/archivo.js",
             "import pg from 'pg'\nconst fs = require('node:fs')\nexport const url = process.env.DB_URL\n"
-            "export const traer = () => fetch('https://ejemplo.invalid')\n")
+            "export const traer = () => fetch('https://ejemplo.invalid')\n",
+        )
         r = self.repo.juzga()
         self.assertBloquea("importa `pg`", r)
         self.assertBloquea("importa `node:fs`", r)
@@ -308,12 +359,14 @@ class PruebaCapasHermanos(Base):
 
     def test_el_adaptador_del_colector_si_puede_hablar_con_afuera(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "collector/src/adaptadores/archivador.js", "import pg from 'pg'\nexport const p = pg\n")
+            "collector/src/adaptadores/archivador.js", "import pg from 'pg'\nexport const p = pg\n"
+        )
         self.assertEqual([], self.repo.juzga().hallazgos)
 
     def test_un_dominio_dentro_de_pruebas_no_es_un_dominio(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
-            "collector/tests/dominio/test_x.py", "import os\nimport httpx\n")
+            "collector/tests/dominio/test_x.py", "import os\nimport httpx\n"
+        )
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos)
         self.assertTrue(any("ningún otro `dominio/`" in n for n in r.no_aplica), r.no_aplica)
@@ -326,18 +379,27 @@ class PruebaCasosProbados(Base):
     """COD-4: un caso de uso tiene al menos una prueba versionada que lo nombra. Sólo avisa."""
 
     def test_caso_con_prueba_sale_limpio(self):
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("backend/app/aplicacion/casos/__init__.py", "")
-         .escribe("backend/app/aplicacion/casos/rechazar_tramite.py", CASO)
-         .escribe("backend/tests/aplicacion/test_rechazar_tramite.py",
-                  "from app.aplicacion.casos.rechazar_tramite import RechazarTramite\n"))
+        (
+            self.repo.escribe(".semilla", NUEVA)
+            .escribe("backend/app/aplicacion/casos/__init__.py", "")
+            .escribe("backend/app/aplicacion/casos/rechazar_tramite.py", CASO)
+            .escribe(
+                "backend/tests/aplicacion/test_rechazar_tramite.py",
+                "from app.aplicacion.casos.rechazar_tramite import RechazarTramite\n",
+            )
+        )
         r = self.repo.juzga()
         self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
-        self.assertTrue(any("COD-4: 1 caso(s) de uso, 1 nombrado" in c for c in r.comprobado), r.comprobado)
+        self.assertTrue(
+            any("COD-4: 1 caso(s) de uso, 1 nombrado" in c for c in r.comprobado), r.comprobado
+        )
 
     def test_caso_sin_prueba_avisa_y_no_bloquea(self):
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("backend/app/aplicacion/casos/rechazar_tramite.py", CASO))
+        (
+            self.repo.escribe(".semilla", NUEVA).escribe(
+                "backend/app/aplicacion/casos/rechazar_tramite.py", CASO
+            )
+        )
         r = self.repo.juzga()
         cod4 = [h for h in r.hallazgos if h.regla == "COD-4"]
         self.assertEqual(1, len(cod4), r.hallazgos)
@@ -346,24 +408,33 @@ class PruebaCasosProbados(Base):
     def test_un_nombre_que_solo_contiene_al_caso_no_cuenta(self):
         """Falso negativo encontrado calibrando: `enviar` no queda probado porque una
         prueba hable de `reenviar_aviso`. Por eso la búsqueda va con límites de palabra."""
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("frontend/src/aplicacion/enviar.ts", "export const enviar = () => 1\n")
-         .escribe("frontend/src/aplicacion/reenviar_aviso.test.ts", "// reenviar_aviso\n"))
+        (
+            self.repo.escribe(".semilla", NUEVA)
+            .escribe("frontend/src/aplicacion/enviar.ts", "export const enviar = () => 1\n")
+            .escribe("frontend/src/aplicacion/reenviar_aviso.test.ts", "// reenviar_aviso\n")
+        )
         r = self.repo.juzga()
-        self.assertEqual(["frontend/src/aplicacion/enviar.ts"],
-                         [h.archivo for h in r.hallazgos if h.regla == "COD-4"])
+        self.assertEqual(
+            ["frontend/src/aplicacion/enviar.ts"],
+            [h.archivo for h in r.hallazgos if h.regla == "COD-4"],
+        )
 
     def test_un_auxiliar_privado_no_es_un_caso_de_uso(self):
         """Falso positivo de la calibración: `casos/_operacion.py` en una app real."""
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("backend/app/aplicacion/casos/_operacion.py", "def ayuda():\n    return 1\n"))
+        (
+            self.repo.escribe(".semilla", NUEVA).escribe(
+                "backend/app/aplicacion/casos/_operacion.py", "def ayuda():\n    return 1\n"
+            )
+        )
         r = self.repo.juzga()
         self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
 
     def test_los_puertos_y_las_pruebas_no_son_casos_de_uso(self):
-        (self.repo.escribe(".semilla", NUEVA)
-         .escribe("frontend/src/aplicacion/puertos/almacen.ts", "export interface Almacen {}\n")
-         .escribe("frontend/src/aplicacion/tema.test.ts", "// nada\n"))
+        (
+            self.repo.escribe(".semilla", NUEVA)
+            .escribe("frontend/src/aplicacion/puertos/almacen.ts", "export interface Almacen {}\n")
+            .escribe("frontend/src/aplicacion/tema.test.ts", "// nada\n")
+        )
         r = self.repo.juzga()
         self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
         self.assertTrue(any("no hay casos de uso" in n for n in r.no_aplica), r.no_aplica)

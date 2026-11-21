@@ -59,8 +59,13 @@ REGLA = "G8-4"
 # de contenido. Un `.env.example` con un secreto real dentro sigue siendo un
 # incidente, y de hecho es la forma más habitual de filtrar uno.
 PERMITIDOS_ENV = {
-    ".env.example", ".env.sample", ".env.template", ".env.dist",
-    ".env.dev.example", ".env.local.example", ".env.prod.example",
+    ".env.example",
+    ".env.sample",
+    ".env.template",
+    ".env.dist",
+    ".env.dev.example",
+    ".env.local.example",
+    ".env.prod.example",
 }
 SUFIJOS_PERMITIDOS = (".env.example", ".env.sample", ".env.template")
 
@@ -74,17 +79,59 @@ VITE = re.compile(r"^(frontend|web|client)/\.env\.(development|production|test)$
 # Ruido: lo que no se escanea porque no puede contener un secreto escrito a
 # mano y sí puede contener basura de alta entropía (hashes, minificados).
 EXTENSIONES_BINARIAS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".svg", ".pdf", ".zip",
-    ".gz", ".tar", ".mp4", ".mp3", ".woff", ".woff2", ".ttf", ".eot", ".otf",
-    ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".mbz", ".jar", ".so", ".dll",
-    ".pyc", ".whl", ".db", ".sqlite", ".sqlite3",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".svg",
+    ".pdf",
+    ".zip",
+    ".gz",
+    ".tar",
+    ".mp4",
+    ".mp3",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".otf",
+    ".xlsx",
+    ".xls",
+    ".docx",
+    ".doc",
+    ".pptx",
+    ".mbz",
+    ".jar",
+    ".so",
+    ".dll",
+    ".pyc",
+    ".whl",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
 }
 NOMBRES_RUIDO = {
-    "package-lock.json", "poetry.lock", "yarn.lock", "pnpm-lock.yaml",
-    "Cargo.lock", "composer.lock", "go.sum", "requirements.lock",
+    "package-lock.json",
+    "poetry.lock",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "Cargo.lock",
+    "composer.lock",
+    "go.sum",
+    "requirements.lock",
 }
-DIRECTORIOS_RUIDO = ("node_modules/", "dist/", "build/", ".venv/", "venv/",
-                     "__pycache__/", "site-packages/", "vendor/")
+DIRECTORIOS_RUIDO = (
+    "node_modules/",
+    "dist/",
+    "build/",
+    ".venv/",
+    "venv/",
+    "__pycache__/",
+    "site-packages/",
+    "vendor/",
+)
 TOPE_BYTES = 512 * 1024
 
 # --------------------------------------------------------------------------
@@ -280,11 +327,7 @@ def escaneable(repo: Repo, ruta: str) -> bool:
 
 def env_permitido(ruta: str) -> bool:
     nombre = Path(ruta).name
-    return (
-        nombre in PERMITIDOS_ENV
-        or nombre.endswith(SUFIJOS_PERMITIDOS)
-        or bool(VITE.match(ruta))
-    )
+    return nombre in PERMITIDOS_ENV or nombre.endswith(SUFIJOS_PERMITIDOS) or bool(VITE.match(ruta))
 
 
 def comprobar_env_versionados(repo: Repo, r: Resultado) -> None:
@@ -302,14 +345,15 @@ def comprobar_env_versionados(repo: Repo, r: Resultado) -> None:
         if env_permitido(ruta):
             continue
         r.bloquea(
-            REGLA, ruta,
+            REGLA,
+            ruta,
             "archivo de entorno versionado en git",
             "cualquiera con acceso al repositorio —y a todo su historial— tiene "
             "las credenciales de producción; el .gitignore no protege un archivo "
             "que ya está trackeado",
             arreglo="git rm --cached <archivo>, rotar TODO lo que contenga y "
-                    "purgar el historial. Rotar sin purgar deja el secreto viejo "
-                    "accesible en cualquier clon anterior.",
+            "purgar el historial. Rotar sin purgar deja el secreto viejo "
+            "accesible en cualquier clon anterior.",
         )
 
 
@@ -359,7 +403,9 @@ def _clave_privada(r: Resultado, ruta: str, lineas: list[str], i: int) -> None:
         r.supresiones.append(f"{ruta}:{i + 1} clave privada — {motivo}")
         return
     r.bloquea(
-        REGLA, ruta, "bloque de clave privada versionado",
+        REGLA,
+        ruta,
+        "bloque de clave privada versionado",
         "la clave sirve para suplantar al servicio; rotarla "
         "obliga a reconfigurar a cada consumidor",
         linea=i + 1,
@@ -388,15 +434,15 @@ def _dsn_con_clave(r: Resultado, ruta: str, lineas: list[str], i: int) -> None:
             r.supresiones.append(f"{ruta}:{i + 1} DSN con credencial — {motivo}")
             continue
         r.bloquea(
-            REGLA, ruta,
-            "credencial embebida en una URL de conexión "
-            f"(usuario '{m.group('usuario')}')",
+            REGLA,
+            ruta,
+            f"credencial embebida en una URL de conexión (usuario '{m.group('usuario')}')",
             "la contraseña de la base viaja en el código, en los logs de "
             "la aplicación y en cualquier traza que imprima la URL",
             linea=i + 1,
             arreglo="componer la URL desde las cinco variables "
-                    "DATABASE_HOST/PORT/USER/PASSWORD/NAME (Guía 8, punto 3); nunca "
-                    "desde una DATABASE_URL del entorno",
+            "DATABASE_HOST/PORT/USER/PASSWORD/NAME (Guía 8, punto 3); nunca "
+            "desde una DATABASE_URL del entorno",
         )
 
 
@@ -410,15 +456,16 @@ def _asignaciones(r: Resultado, ruta: str, lineas: list[str], i: int, en_env: bo
             r.supresiones.append(f"{ruta}:{i + 1} {clave} — {motivo}")
             continue
         r.bloquea(
-            REGLA, ruta,
+            REGLA,
+            ruta,
             f"'{clave}' parece llevar un valor real, no un placeholder",
             "el secreto está publicado para todo el que tenga acceso al "
             "repositorio; si es el JWT_SECRET de la flota, permite firmar "
             "tokens de cualquier app de CONAF",
             linea=i + 1,
             arreglo="sustituir por un placeholder que diga cómo generarlo "
-                    "(p. ej. '<generar: openssl rand -hex 32>'), rotar el "
-                    "valor real y purgar el historial",
+            "(p. ej. '<generar: openssl rand -hex 32>'), rotar el "
+            "valor real y purgar el historial",
         )
 
 
@@ -436,8 +483,10 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     if sin_indice(repo, r):
         return
     if not repo.versionados():
-        r.no_evaluado.append("`git ls-files` funcionó y no devolvió nada: el "
-                             "repositorio no tiene archivos versionados")
+        r.no_evaluado.append(
+            "`git ls-files` funcionó y no devolvió nada: el "
+            "repositorio no tiene archivos versionados"
+        )
         return
     comprobar_env_versionados(repo, r)
     r.comprobo("archivos .env en el arbol versionado")

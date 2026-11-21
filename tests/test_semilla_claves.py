@@ -19,7 +19,9 @@ from comun_semilla import leer_adopcion, leer_ajeno, leer_clave, leer_fabrica, l
 
 class PruebaAjeno(unittest.TestCase):
     def test_lista_en_bloque(self):
-        texto = "version: 1\najeno:\n  - vendor/visor\n  - frontend/public/libs/  # copiada\nfin: x\n"
+        texto = (
+            "version: 1\najeno:\n  - vendor/visor\n  - frontend/public/libs/  # copiada\nfin: x\n"
+        )
         self.assertEqual(["vendor/visor/", "frontend/public/libs/"], leer_ajeno(texto))
 
     def test_en_linea_y_en_flujo(self):
@@ -38,11 +40,15 @@ class PruebaAjeno(unittest.TestCase):
 
 class PruebaMaqueta(unittest.TestCase):
     def test_con_sangria(self):
-        self.assertEqual((2, "origen@abc123"), leer_maqueta("version: 1\n  maqueta: origen@abc123\n"))
+        self.assertEqual(
+            (2, "origen@abc123"), leer_maqueta("version: 1\n  maqueta: origen@abc123\n")
+        )
 
     def test_sin_comillas_ni_comentario(self):
-        self.assertEqual((1, "origen@abc123"),
-                         leer_maqueta('maqueta: "origen@abc123"  # validada el 2026-11-12\n'))
+        self.assertEqual(
+            (1, "origen@abc123"),
+            leer_maqueta('maqueta: "origen@abc123"  # validada el 2026-11-12\n'),
+        )
 
     def test_vacia_o_comentada_no_declara(self):
         self.assertIsNone(leer_maqueta("maqueta:\n"))
