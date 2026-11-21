@@ -236,19 +236,24 @@ def comprobar_nginx_interno(repo: Repo, r: Resultado) -> None:
         texto = repo.texto(ruta)
         if texto is None:
             continue
-        r.comprobo(f"nginx interno ({ruta})")
         lineas = texto.splitlines()
         tiene_resolver = bool(RESOLVER.search(texto))
         for m in PROXY_LITERAL.finditer(texto):
+            # Sólo se exime `localhost`. Hasta el 2026-11-21 un `resolver` en el archivo
+            # eximía TAMBIÉN al nombre literal, y `resolver` sólo actúa sobre un upstream
+            # en `$variable`: con un nombre literal nginx lo resuelve una vez al arrancar,
+            # haya o no `resolver`. Un upstream en variable no casa `PROXY_LITERAL`.
             destino = m.group("destino")
-            if destino in ("localhost",) or tiene_resolver:
+            if destino == "localhost":
                 continue
             n = texto[:m.start()].count("\n")
             if (motivo := suprimido(lineas, n, "NG-1")):
                 r.supresiones.append(f"{ruta}:{n + 1} proxy_pass literal — {motivo}")
                 continue
             r.avisa("NG-1", ruta,
-                      f"`proxy_pass` al nombre literal `{destino}` sin `resolver`",
+                      f"`proxy_pass` al nombre literal `{destino}` "
+                      + ("con `resolver`, que sólo actúa sobre un upstream en variable"
+                         if tiene_resolver else "sin `resolver`"),
                       "nginx resuelve el nombre una sola vez al arrancar; cuando el "
                       "contenedor de destino se recrea con otra IP, responde 502 con "
                       "el backend sano al lado y el compose en verde",
@@ -256,6 +261,7 @@ def comprobar_nginx_interno(repo: Repo, r: Resultado) -> None:
                       arreglo="añadir `resolver 127.0.0.11 valid=10s ipv6=off;` y "
                               f"pasar el upstream por variable: "
                               f"`set $destino {destino}; proxy_pass http://$destino:8000$request_uri;`")
+        r.comprobo(f"nginx interno ({ruta})")
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:

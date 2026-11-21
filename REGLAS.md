@@ -102,7 +102,7 @@ y `tests/test_reglas_citadas.py` lo verifica: si una regla de esta tabla llama a
 
 | Código | Juez | Qué comprueba | Qué respalda hoy la regla |
 |---|---|---|---|
-| `NG-1` | `j01` | `proxy_pass` a un nombre literal sin `resolver` en el nginx **interno** | Ningún documento. Lo implementan por su cuenta `COIPO_USUARIOS`, `coipo_n8n` y `coipo_seguimiento_madera`; siete repos más no. El comportamiento de nginx (resolución única al arrancar) sí es verificable. **La versión anterior de este juez justificaba la regla con un «despliegue a uat roto con exit 22» que no consta en ningún sitio.** |
+| `NG-1` | `j01` | `proxy_pass` a un nombre literal en el nginx **interno**. Sólo se exime el upstream en `$variable` (que es el arreglo, con su `resolver`) y `localhost`: hasta el 2026-11-21 un `resolver` en el archivo eximía también al nombre literal, que nginx resuelve igual una sola vez | Ningún documento. Lo implementan por su cuenta `COIPO_USUARIOS`, `coipo_n8n` y `coipo_seguimiento_madera`; siete repos más no. El comportamiento de nginx (resolución única al arrancar) sí es verificable. **La versión anterior de este juez justificaba la regla con un «despliegue a uat roto con exit 22» que no consta en ningún sitio.** |
 | `OPS-1` | `j01` | los servicios declaran `mem_limit` | Ningún documento. Solo `coipo_n8n` lo hace, en sus cuatro servicios. El arreglo exige medir la RAM de la VM antes, así que la regla no puede bloquear. |
 | `CI-1` | `j06` | la versión de python/node del CI coincide con la que construyen los Dockerfile | Ningún documento. Divergencia real medida en `coipo_prensa2` (CI 3.11, imágenes 3.13/3.14) y `COIPO_ENTREGA_PLANTA` (CI node 20, Dockerfile node 22): el CI prueba sobre un runtime que no es el que se despliega. |
 

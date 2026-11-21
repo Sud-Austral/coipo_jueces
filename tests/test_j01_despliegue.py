@@ -208,11 +208,23 @@ class PruebaNginxInterno(CasoConRepo):
         despliegue de siete repositorios que la incumplen.
         """
         self._con_nginx(NGINX_LITERAL)
-        self.assertAvisa("sin `resolver`")
+        self.assertRegla("NG-1", "AVISA", "sin `resolver`")
 
-    def test_con_resolver_no_bloquea(self):
+    def test_upstream_en_variable_con_resolver_no_avisa(self):
+        """La única forma eximida: el upstream en `$variable` y un `resolver`.
+
+        Hasta el 2026-11-21 esta prueba se llamaba `test_con_resolver_no_bloquea` y
+        comprobaba `assertSinBloqueos` sobre una regla que SÓLO avisa: un NG-1 falso
+        sobre la forma correcta la pasaba igual."""
         self._con_nginx(NGINX_BUENO)
-        self.assertSinBloqueos()
+        self.assertSinRegla("NG-1")
+
+    def test_nombre_literal_con_resolver_sigue_avisando(self):
+        """`resolver` sólo actúa sobre un upstream en variable: con un nombre literal
+        nginx lo resuelve una vez al arrancar, haya o no `resolver` en el bloque."""
+        self._con_nginx(NGINX_LITERAL.replace(
+            "    listen 8000;\n", "    listen 8000;\n    resolver 127.0.0.11 valid=10s;\n"))
+        self.assertRegla("NG-1", "AVISA", "`backend`")
 
     def test_proxy_pass_a_ip_no_bloquea(self):
         """El vhost del host proxea a 127.0.0.1:APP_PORT y eso es correcto.
