@@ -114,6 +114,65 @@ class PruebaPuerto(CasoConRepo):
         self.assertEqual([], r.hallazgos)
         self.assertTrue(r.no_evaluado)
 
+    def test_la_linea_de_la_semilla_pasa(self):
+        """La forma que siembra la fábrica: IP de escucha y guarda `:?` con mensaje."""
+        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
+            '"${APP_PORT:-8080}:8000"', LINEA_DE_LA_SEMILLA))
+        self.assertSinRegla("G8-2")
+
+    def test_otra_variable_bloquea_aunque_su_mensaje_diga_app_port(self):
+        """El mensaje de la guarda no es la variable: `${PUERTO:?defina APP_PORT}` es PUERTO."""
+        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
+            '"${APP_PORT:-8080}:8000"', '"127.0.0.1:${PUERTO:?defina APP_PORT}:8000"'))
+        h = self.assertRegla("G8-2", "BLOQUEA", "no es `APP_PORT`")
+        self.assertIn("${PUERTO:?defina APP_PORT}", h.mensaje)
+
+    def test_otra_variable_con_ip_sigue_bloqueando(self):
+        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
+            '"${APP_PORT:-8080}:8000"', '"127.0.0.1:${OTRA}:8000"'))
+        self.assertRegla("G8-2", "BLOQUEA", "no es `APP_PORT`")
+
+    def test_puerto_cableado_con_protocolo_bloquea(self):
+        self.repo.escribe("docker-compose.yml", COMPOSE_CORRECTO.replace(
+            '"${APP_PORT:-8080}:8000"', '"127.0.0.1:8113:8000/tcp"'))
+        self.assertRegla("G8-2", "BLOQUEA", "cablea el puerto 8113")
+
+
+# La línea que siembra `semilla/ESQUELETO/docker-compose.yml` de la fábrica (sin datos
+# de ninguna aplicación: es la guarda genérica de APP_PORT).
+LINEA_DE_LA_SEMILLA = '"127.0.0.1:${APP_PORT:?falta APP_PORT en el .env del servidor}:8000"'
+
+
+class PruebaLadoHost(unittest.TestCase):
+    """El lado del host de un `ports:`, leído entero aunque lleve `:` dentro de `${...}`.
+
+    Hasta el 2026-11-21 se partía por el ÚLTIMO `:` y luego por el último `:` del resto:
+    la línea de la semilla daba `?falta APP_PORT en el .env del servidor}` —sin `${`, así
+    que ni se juzgaba— y `${PUERTO:?defina APP_PORT}` pasaba igual."""
+
+    def test_la_linea_de_la_semilla_se_lee_entera(self):
+        self.assertEqual("${APP_PORT:?falta APP_PORT en el .env del servidor}",
+                         j02._lado_host(LINEA_DE_LA_SEMILLA))
+
+    def test_la_variable_es_el_nombre_y_no_el_mensaje(self):
+        self.assertEqual("PUERTO", j02._variable("${PUERTO:?defina APP_PORT}"))
+        self.assertEqual("APP_PORT", j02._variable("${APP_PORT:?falta APP_PORT}"))
+        self.assertEqual("APP_PORT", j02._variable("${APP_PORT:-8080}"))
+        self.assertEqual("APP_PORT", j02._variable("$APP_PORT"))
+        self.assertIsNone(j02._variable("8113"))
+
+    def test_formas_conocidas(self):
+        casos = {
+            '"${APP_PORT:-8080}:8000"': "${APP_PORT:-8080}",
+            "127.0.0.1:8113:8000": "8113",
+            "8113:8000/tcp": "8113",
+            "8000": None,
+            "${APP_PORT}:8000": "${APP_PORT}",
+        }
+        for valor, esperado in casos.items():
+            with self.subTest(valor=valor):
+                self.assertEqual(esperado, j02._lado_host(valor))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

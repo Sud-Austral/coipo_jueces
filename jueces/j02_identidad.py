@@ -51,24 +51,54 @@ PERFILES = ("aplicacion", "encuadre_operativo")
 # digitos, guion bajo y guion. El punto queda fuera a proposito.
 NOMBRE_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
+PROTOCOLO = re.compile(r"/(?:tcp|udp|sctp)$", re.IGNORECASE)
+# `${NOMBRE}`, `${NOMBRE:-x}`, `${NOMBRE:?mensaje}`, `${NOMBRE-x}`... y `$NOMBRE`. El
+# nombre es lo que va ANTES del modificador; el mensaje de una guarda no es la variable.
+VARIABLE = re.compile(r"^\$(?:\{(?P<llaves>[A-Za-z_][A-Za-z0-9_]*)(?:[:?\-+=][^}]*)?\}"
+                      r"|(?P<suelta>[A-Za-z_][A-Za-z0-9_]*))$")
+
+
+def _trozos(spec: str) -> list[str]:
+    """`spec` partido por los `:` que NO están dentro de `${...}` ni de `[...]` (IPv6)."""
+    trozos, actual, profundidad = [], [], 0
+    for i, ch in enumerate(spec):
+        if ch in "{[" and (ch == "[" or spec[i - 1:i] == "$"):
+            profundidad += 1
+        elif ch in "}]" and profundidad:
+            profundidad -= 1
+        elif ch == ":" and not profundidad:
+            trozos.append("".join(actual))
+            actual = []
+            continue
+        actual.append(ch)
+    trozos.append("".join(actual))
+    return trozos
+
+
 def _lado_host(valor: object) -> str | None:
     """El lado del HOST de un `ports:`, que es el que colisiona entre apps.
 
-    Se parte por el ULTIMO `:` y no con una expresion regular. La primera
-    version usaba `[^":]+` para el lado izquierdo y por eso NUNCA casaba la
-    forma correcta —`${APP_PORT:-8080}:8000`—, porque el `:-` del valor por
-    defecto la cortaba por la mitad. El efecto era el peor posible: los
-    repositorios bien configurados salian verdes sin haber sido examinados, y
-    publicar por una variable equivocada era indetectable.
+    La primera versión usaba `[^":]+` para el lado izquierdo y por eso NUNCA casaba
+    la forma correcta —`${APP_PORT:-8080}:8000`—: el `:-` del valor por defecto la
+    cortaba por la mitad, y los repositorios bien configurados salían verdes sin
+    haber sido examinados. La segunda partía por el ÚLTIMO `:` y luego por el último
+    `:` del resto, y con una guarda `:?` volvía a cortar dentro de la variable: la
+    línea que siembra la fábrica, `127.0.0.1:${APP_PORT:?falta APP_PORT en el .env
+    del servidor}:8000`, daba `?falta APP_PORT en el .env del servidor}`, que ni se
+    juzgaba (2026-11-21). Ahora se parte sólo por los `:` de fuera de `${...}`:
+    `[IP:]HOST:CONTENEDOR[/protocolo]`.
     """
-    v = str(valor).strip().strip('"').strip("'")
-    izquierda, sep, derecha = v.rpartition(":")
-    if not sep or not derecha.isdigit():
+    v = PROTOCOLO.sub("", str(valor).strip().strip('"').strip("'"))
+    trozos = _trozos(v)
+    if len(trozos) < 2 or not trozos[-1].isdigit():
         return None  # `8000` a secas: expone al contenedor, no al host
-    if izquierda.startswith("${"):
-        return izquierda
-    # `127.0.0.1:8113:8000` -> el puerto del host es el ultimo trozo.
-    return izquierda.rpartition(":")[2] or izquierda
+    return trozos[-2] or None
+
+
+def _variable(host: str) -> str | None:
+    """El NOMBRE de la variable con que se publica (`APP_PORT`), o None si no es una."""
+    m = VARIABLE.match(host.strip())
+    return (m.group("llaves") or m.group("suelta")) if m else None
 
 
 def _ruta_compose(repo: Repo) -> str | None:
@@ -149,9 +179,10 @@ def comprobar_puerto(repo: Repo, r: Resultado) -> None:
 def _juzgar_publicacion(r: Resultado, ruta: str, texto: str,
                         servicio: str, host: str) -> None:
     # `${APP_PORT:-8080}` es la forma correcta: el valor real lo pone el `.env`
-    # del servidor y el default solo sirve para levantar en local.
-    if "${" in host:
-        if "APP_PORT" not in host:
+    # del servidor y el default solo sirve para levantar en local. Se compara el
+    # NOMBRE de la variable, no el texto: `${PUERTO:?defina APP_PORT}` es PUERTO.
+    if "$" in host:
+        if _variable(host) != "APP_PORT":
             r.bloquea(
                 "G8-2", ruta,
                 f"el servicio `{servicio}` publica `{host}`, que no es `APP_PORT`",

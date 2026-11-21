@@ -19,7 +19,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ / "jueces") not in sys.path:
     sys.path.insert(0, str(RAIZ / "jueces"))
 
-from comun import Repo, Resultado  # noqa: E402
+from comun import Hallazgo, Repo, Resultado, Severidad  # noqa: E402
 
 
 def hay_git() -> bool:
@@ -116,4 +116,31 @@ class CasoConRepo(unittest.TestCase):
         self.assertTrue(
             any(fragmento in m for m in avisos),
             f"no avisó por «{fragmento}». Avisos: {avisos}",
+        )
+
+    def assertRegla(self, codigo: str, severidad: str, fragmento: str = "",
+                    resultado=None) -> Hallazgo:
+        """Hay un hallazgo con ESE código y ESA severidad (y el fragmento, si se da).
+
+        `assertBloquea`/`assertAvisa` miran sólo el mensaje: un hallazgo con el código
+        equivocado —el `DOCKER-hc` que salía en lugar de `DK-5`, o un G8-4 donde tocaba
+        G8-8— los pasa igual. Ésta mira lo que el gate cuenta y publica."""
+        r = resultado or self.repo.juzga()
+        esperada = Severidad(severidad)
+        hallados = [h for h in r.hallazgos
+                    if h.regla == codigo and h.severidad is esperada and fragmento in h.mensaje]
+        self.assertTrue(
+            hallados,
+            f"no hay {codigo} {esperada.value}" + (f" con «{fragmento}»" if fragmento else "")
+            + f". Hallazgos: {[(h.regla, h.severidad.value, h.mensaje) for h in r.hallazgos]}",
+        )
+        return hallados[0]
+
+    def assertSinRegla(self, codigo: str, resultado=None) -> None:
+        """Ningún hallazgo con ese código, de ninguna severidad."""
+        r = resultado or self.repo.juzga()
+        self.assertEqual(
+            [], [f"{h.severidad.value} {h.ubicacion()} {h.mensaje}" for h in r.hallazgos
+                 if h.regla == codigo],
+            f"no debería haber {codigo}",
         )
