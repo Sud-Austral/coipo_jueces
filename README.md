@@ -21,7 +21,9 @@ Entradas opcionales del workflow (VERIFICADO en `.github/workflows/verificar.yml
 | `ref_jueces` | `v2` | tag o SHA de `coipo_jueces` con el que se verifica; pasarlo explícito junto al SHA del `uses:` congela de verdad YAML y motor |
 | `runner` | `ubuntu-latest` | etiqueta del runner; uno self-hosted no consume cuota de Actions (necesita `git` y `python3`) |
 
-Salidas: `bloqueantes` (número de hallazgos `BLOQUEA`) y `supresiones`. Versionado y
+Salidas: `estado` (`corrio`, o `no_corrio` si `correr.py` murió antes de terminar: los
+números valen entonces `-1`), `bloqueantes` y `avisos` (hallazgos `BLOQUEA` y `AVISA`) y
+`supresiones`. `estado` y `avisos` se exponen desde el 2026-11-21. Versionado y
 publicación de tags: [`docs/VERSIONADO.md`](docs/VERSIONADO.md).
 
 A mano, sobre cualquier repositorio y sin instalar nada:
@@ -95,7 +97,7 @@ código. Cada juez lleva su tabla de calibración en el docstring.
 aplicaciones: entran la fábrica, este repositorio y copias de prueba): **40** sin
 ningún `BLOQUEA` y **14** que salen 0; `coipo_n8n` y `coipo_prensa2`, los dos de
 calibración, en verde; 131 `BLOQUEA` en total. El detalle por repositorio y juez, y
-lo que cambió respecto de `main`, está en `docs/VERSIONADO.md` («Sin publicar»).
+lo que cambió respecto de `main`, está en `docs/VERSIONADO.md` (`v2.0.14`).
 
 > **La tabla de abajo es del 2026-09-08 y queda como registro fechado**: se midió
 > con nueve jueces sobre los 24 repositorios de entonces, y no se ha vuelto a
@@ -165,19 +167,27 @@ el `DEUDA.md` de la app.
 
 ## Jueces
 
-| Juez | Reglas | Qué mira | Estado |
-|---|---|---|---|
-| `j01_despliegue` | `G8-7` · `DK-3` · `DK-4` · `NG-1` · `OPS-1` | compose (`version:`, un solo `ports:`, base de datos propia, healthcheck, `restart`), `.dockerignore` frente al contexto de build, y `proxy_pass` literal sin `resolver` en el nginx interno | ✅ |
-| `j06_config` | `G8-3` · `G8-6` · `CI-1` | `.env.example` y las seis variables base, `APP_PORT` sin comillas, `DATABASE_URL` prohibida, `SESSION_`/`SESION_` conviviendo, y versiones del CI frente a las del Dockerfile | ✅ |
-| `j09_secretos` | `G8-4` | `.env` versionados, claves privadas, credenciales en DSN y valores con pinta de generados | ✅ |
-| `j11_salud` | `G8-9` · `G8-11` | `/health` existe, sin auth ni redirección, con `text()`; y que un fallo de datos no se disfrace de app sana | ✅ |
-| `j02_identidad` | `G8-1` · `G8-2` | nombre del repositorio en minúsculas y `APP_PORT` declarado y no cableado | ✅ |
-| `j05_cors` | `G8-5` | CORS por dominio, nunca `*` ni una IP | ✅ |
-| `j08_rsync` | `G8-8` · `G8-10` | `.gitignore` con las rutas **ancladas**, y qué llega al servidor | ✅ |
-| `j12_semilla` | `SEM-1` | que las piezas congeladas de la semilla no se editen por aplicación, en los repositorios que **declaran** haberse sembrado (`.semilla`). Una pieza que sólo está atrasada —coincide con una huella de `semilla.lock.historial`, cualquier lock publicado antes— AVISA siempre, sin plazo; sólo la editada BLOQUEA. Ver la nota en [`REGLAS.md`](REGLAS.md) | ✅ |
-| `j13_interfaz` | `UI-3` · `UI-9` · `UI-15` | la interfaz —tokens de color redefinidos en el tema oscuro, `outline:0` con sustituto (`UI-9`; se llamó `UI-10` hasta el 2026-10-25, ver `REGLAS.md`), y `prefers-reduced-motion` apagando todo el movimiento— en los repositorios que **declaran** seguir el estándar (`.semilla`) | ✅ **BLOQUEA** desde la firma del estándar (2026-09-07) |
-| `j14_construccion` | `FAB-8` | que `docs/CONSTRUCCION.md` exista, esté versionado, no le quede ningún `[PENDIENTE]`, cite la metodología de IGNUS y lleve al menos un `correlation_id` con forma válida: el rastro de haber consultado la fábrica antes de escribir código (`AGENTS.md` de la fábrica, §3.8). **Sólo la forma**: no llama a IGNUS. **Mira hacia adelante**: BLOQUEA en lo sembrado desde el 2026-10-20 que adopta `semilla`, AVISA en lo anterior | ✅ publicado en `v2.0.13` (2026-10-25) |
-| `j16_codigo` | `COD-1` · `COD-2` · `COD-3` | código mantenible: ningún archivo de código de más de 1000 líneas (aviso sobre 800), el frontend en TypeScript estricto, y el dominio —del backend, del frontend y de cualquier servicio hermano con `dominio/`, como `collector/`— sin interfaz, red, base de datos ni sistema (hexagonal). **Mira hacia adelante**: BLOQUEA en lo sembrado desde el 2026-10-24 (`fabrica:` de `.semilla`) que adopta `semilla`, AVISA en lo anterior y en lo que sólo adopta otro estándar | ✅ publicado en `v2.0.12` (2026-10-24) |
+Once, y se cuentan con `ls jueces/j*.py`: `j01_despliegue`, `j02_identidad`,
+`j05_cors`, `j06_config`, `j08_rsync`, `j09_secretos`, `j11_salud`, `j12_semilla`,
+`j13_interfaz`, `j14_construccion` y `j16_codigo`. **Qué comprueba cada uno, con qué
+código, qué documento lo respalda y con qué severidad está en [`REGLAS.md`](REGLAS.md),
+y sólo ahí.** Hasta el 2026-11-21 había aquí una tabla con los códigos de cada juez, y
+se había separado del catálogo: no nombraba `SEM-2`, `MAQ-1`, `FAB-9` ni `COD-4`, ni el
+`DOCKER-hc` que `j11` emitía sin fila. Una copia sincronizada hoy vuelve a separarse mañana; por eso se
+quitó en vez de corregirla. Lo que mira hacia adelante y desde qué fecha, en el
+docstring de cada juez (`VIGENCIA`).
+
+### Números de juez reservados o retirados
+
+Los huecos de la numeración no son jueces perdidos:
+
+- **`j03`, `j04`, `j07` y `j10`** vienen del diseño de
+  `borradores/DECISION_ARQUITECTURA-2026-09-04.md` de la fábrica (`j03_iam_bff`,
+  `j04_auditoria_pii`, `j07_postgres`, `j10_rat`), que está en cuarentena. **Nunca se
+  escribieron**: no hay rastro de ellos en la historia de este repositorio.
+- **`j15`** (`j15_cuota.py`) existe sólo en la rama `rescate/jueces-cuota-sin-publicar`
+  (commit `5191a9a`, «j14 y j15 escritos y NO publicables») y **nunca se publicó**.
+
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
 prueba falla si un juez emite un código que no figura ahí —o si el catálogo
@@ -208,8 +218,9 @@ vigente. Medido el 2026-10-25 en la rama `arreglos-auditoria-2026-10-25`: 301
 pruebas, OK, **0 omitidas**. La única que se omitía (la de los tags de
 `test_verificar_yaml.py`, fuera de CI) ahora comprueba contra la mayor vigente que
 declara `docs/VERSIONADO.md`; en CI sigue exigiendo los tags. Corre en CI con
-`.github/workflows/autotest.yml`; `.github/workflows/probar-runner.yml` (manual) comprueba que un
-runner self-hosted sirve para los jueces.
+`.github/workflows/autotest.yml`. (Hasta el 2026-11-21 había además un
+`probar-runner.yml` manual que pedía un runner self-hosted desde este repositorio
+público y quedaba encolado para siempre: se retiró.)
 
 ## Más documentación
 

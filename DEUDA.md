@@ -12,7 +12,7 @@ la única señal temprana de que un gate se está apagando solo.**
 
 | Regla | Dónde | Por qué | Qué la cerraría |
 |---|---|---|---|
-| `G8-4` | `tests/test_j09_secretos.py` (fixture `tests/fixtures/id_rsa`) | Es la **prueba** de que `j09` detecta una clave privada: el fixture tiene que parecer una clave para que el detector la vea. Se suprime con motivo escrito en vez de evadir el detector, porque una evasión no deja rastro y la supresión sí | Nada: es deuda **por diseño** y se queda. El día que `j09` distinga `tests/fixtures/` por su cuenta, la fila sobra |
+| `G8-4` | `tests/test_j09_secretos.py`, en `test_clave_privada_en_un_test_si_bloquea`: el marcador va en la línea anterior al encabezado sintético, y el gate la publica con su línea (`tests/test_j09_secretos.py:282` el 2026-11-21). Hasta ese día esta celda decía «fixture `tests/fixtures/id_rsa`», que no existe en el árbol: esa ruta se crea dentro del repositorio temporal de la prueba | Es la **prueba** de que `j09` detecta una clave privada: el fixture tiene que parecer una clave para que el detector la vea. Se suprime con motivo escrito en vez de evadir el detector, porque una evasión no deja rastro y la supresión sí | Nada: es deuda **por diseño** y se queda. El día que `j09` distinga `tests/fixtures/` por su cuenta, la fila sobra |
 
 **1 supresión activa.** Si sube, la pregunta no es cuál cerrar: es por qué el
 gate dejó de servir.

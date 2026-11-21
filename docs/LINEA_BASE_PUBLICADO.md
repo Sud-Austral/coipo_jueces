@@ -1,7 +1,8 @@
 # Línea base de lo publicado — coipo_jueces
 
 > Generado el 2026-10-26 con la metodología «Mejorar una app ya publicada» (objetivo 527, versión con banda de ruido
-> y hallazgos preexistentes). Solo lectura sobre lo publicado (GET). **Archivo nuevo, sin commit.**
+> y hallazgos preexistentes). Solo lectura sobre lo publicado (GET). Se escribió sin commit y se versionó después, en `e8567fc`;
+> hasta el 2026-11-21 esta línea seguía diciendo «sin commit». `probar-runner.yml`, que nombra el §8, se retiró el 2026-11-21.
 
 ## 1. Identificación
 | | |

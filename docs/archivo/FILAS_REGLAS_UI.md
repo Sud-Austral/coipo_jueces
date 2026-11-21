@@ -1,5 +1,10 @@
 # Filas para `REGLAS.md` — las reglas de interfaz (`UI-N`)
 
+> **Archivado el 2026-11-21 en `docs/archivo/`** (estaba en la raíz): es el checklist
+> de las filas `UI-N` que se pegaron en `REGLAS.md` el 2026-09-07, no pide nada, y
+> habla de `UI-10` donde el catálogo vigente dice `UI-9`. Se conserva como registro;
+> lo que manda es `REGLAS.md`.
+
 > # EJECUTADO EL 2026-09-07. ESTE ARCHIVO YA NO PIDE NADA.
 >
 > Era un checklist: qué pegar en `REGLAS.md` para que `j13` pudiera viajar. Se
