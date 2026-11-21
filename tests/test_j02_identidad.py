@@ -161,6 +161,13 @@ class PruebaLadoHost(unittest.TestCase):
         self.assertEqual("APP_PORT", j02._variable("$APP_PORT"))
         self.assertIsNone(j02._variable("8113"))
 
+    def test_un_valor_por_defecto_anidado_no_cambia_la_variable(self):
+        """Forma real de la flota, medida en la calibración del 2026-11-21: el primer
+        arreglo la ponía en BLOQUEA porque `[^}]*` no cruzaba la llave interior."""
+        host = j02._lado_host('"${APP_PORT:-${PUERTO_PUBLICADO:-3000}}:3000"')
+        self.assertEqual("${APP_PORT:-${PUERTO_PUBLICADO:-3000}}", host)
+        self.assertEqual("APP_PORT", j02._variable(host))
+
     def test_formas_conocidas(self):
         casos = {
             '"${APP_PORT:-8080}:8000"': "${APP_PORT:-8080}",

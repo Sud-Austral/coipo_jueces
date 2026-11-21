@@ -54,7 +54,9 @@ NOMBRE_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 PROTOCOLO = re.compile(r"/(?:tcp|udp|sctp)$", re.IGNORECASE)
 # `${NOMBRE}`, `${NOMBRE:-x}`, `${NOMBRE:?mensaje}`, `${NOMBRE-x}`... y `$NOMBRE`. El
 # nombre es lo que va ANTES del modificador; el mensaje de una guarda no es la variable.
-VARIABLE = re.compile(r"^\$(?:\{(?P<llaves>[A-Za-z_][A-Za-z0-9_]*)(?:[:?\-+=][^}]*)?\}"
+# El resto, hasta la última llave, puede llevar otra variable anidada como valor por
+# defecto: `${APP_PORT:-${PUERTO_PUBLICADO:-3000}}` (coipo_meteodmc) publica APP_PORT.
+VARIABLE = re.compile(r"^\$(?:\{(?P<llaves>[A-Za-z_][A-Za-z0-9_]*)(?:[:?\-+=].*)?\}"
                       r"|(?P<suelta>[A-Za-z_][A-Za-z0-9_]*))$")
 
 
