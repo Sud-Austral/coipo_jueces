@@ -165,14 +165,15 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     nuevo, contexto = _severidad(marcador, r)
 
     ruta = repo.ruta(CONSTRUCCION)
-    r.comprobo(f"FAB-8: buscado `{CONSTRUCCION}` ({contexto})")
     if not ruta.is_file():
         _anota(r, nuevo, archivo=CONSTRUCCION,
                mensaje=f"no existe `{CONSTRUCCION}` ({contexto})",
                manifestacion=_MANIFESTACION,
                arreglo=f"ejecutar {PASO} y dejar el archivo con la metodología, los "
                        "objetivos aplicados y el `correlation_id` de cada consulta")
+        r.comprobo(f"FAB-8: buscado `{CONSTRUCCION}` ({contexto})")
         return
+    r.comprobo(f"FAB-8: buscado `{CONSTRUCCION}` ({contexto})")
 
     if repo.tiene_git():
         versionados = repo.versionados()
@@ -259,7 +260,8 @@ MIRADO = re.compile(r"^[ \t]*(?:-[ \t]*)?mirado[ \t]*:[ \t]*(?P<valor>[^\r\n]*)"
 
 def _mirado(repo: Repo, r: Resultado, marcador: str, texto: str) -> None:
     if not repo.existe("frontend/package.json"):
-        r.comprobo("FAB-9: no hay `frontend/package.json`; no hay interfaz que mirar")
+        # N/A y no una comprobación: hasta el 2026-11-21 esto contaba como mirado.
+        r.no_corresponde("FAB-9: no hay `frontend/package.json`; no hay interfaz que mirar")
         return
     fecha = leer_fabrica(marcador)
     nuevo = (fecha is not None and fecha >= VIGENCIA_MIRADO
@@ -268,10 +270,14 @@ def _mirado(repo: Repo, r: Resultado, marcador: str, texto: str) -> None:
                 if nuevo else f"regla del {VIGENCIA_MIRADO}, anterior a esta aplicación o "
                               "sin `semilla` adoptada: sólo aviso")
     m = MIRADO.search(texto)
-    r.comprobo(f"FAB-9: buscado `mirado:` en `{CONSTRUCCION}` ({contexto})")
     valor = (m.group("valor").strip() if m else "")
-    if m and len(valor) >= 12 and not PENDIENTE.search(valor):
-        return
+    if not (m and len(valor) >= 12 and not PENDIENTE.search(valor)):
+        _sin_mirado(r, nuevo, contexto, texto, m)
+    r.comprobo(f"FAB-9: buscado `mirado:` en `{CONSTRUCCION}` ({contexto})")
+
+
+def _sin_mirado(r: Resultado, nuevo: bool, contexto: str, texto: str,
+                m: re.Match[str] | None) -> None:
     datos = dict(
         archivo=CONSTRUCCION,
         linea=texto.count("\n", 0, m.start()) + 1 if m else None,

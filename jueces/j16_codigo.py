@@ -233,7 +233,8 @@ def _tamano(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
 def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
                 excluidos: tuple[str, ...] = ()) -> None:
     if not repo.existe("frontend/package.json"):
-        r.comprobo("COD-2: no hay `frontend/package.json`; no hay frontend que juzgar")
+        # N/A y no una comprobación (hasta el 2026-11-21 contaba como hecha).
+        r.no_corresponde("COD-2: no hay `frontend/package.json`; no hay frontend que juzgar")
         return
     versionados = repo.versionados()
     versionados = [p for p in versionados if not (excluidos and p.startswith(excluidos))]
@@ -241,8 +242,12 @@ def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
           if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".js", ".jsx")]
     ts = [p for p in versionados
           if p.startswith("frontend/src/") and PurePosixPath(p).suffix.lower() in (".ts", ".tsx")]
+    _sin_typescript(r, nuevo, contexto, js)
+    _sin_estricto(repo, r, nuevo, contexto, versionados)
     r.comprobo(f"COD-2: {len(ts)} archivo(s) TypeScript y {len(js)} JavaScript en `frontend/src/`")
 
+
+def _sin_typescript(r: Resultado, nuevo: bool, contexto: str, js: list[str]) -> None:
     if js:
         muestra = ", ".join(f"`{p}`" for p in js[:5]) + (f" y {len(js) - 5} más" if len(js) > 5 else "")
         datos = dict(
@@ -261,6 +266,9 @@ def _typescript(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
         else:
             r.avisa(COD_2, **datos)
 
+
+def _sin_estricto(repo: Repo, r: Resultado, nuevo: bool, contexto: str,
+                  versionados: list[str]) -> None:
     configuraciones = [p for p in versionados if re.fullmatch(r"frontend/tsconfig[\w.-]*\.json", p)]
     estricto = any(re.search(r'"strict"\s*:\s*true', repo.texto(p) or "") for p in configuraciones)
     if not estricto:
@@ -400,7 +408,9 @@ def _capas_hermanos(repo: Repo, r: Resultado, nuevo: bool) -> None:
     cero hallazgos. El dominio de un colector es tan dominio como el del backend."""
     hermanos = _dominios_hermanos(repo.versionados())
     if not hermanos:
-        r.comprobo("COD-3: ningún otro `dominio/` versionado fuera de `backend/app/` y `frontend/src/`")
+        # N/A y no una comprobación (hasta el 2026-11-21 contaba como hecha).
+        r.no_corresponde("COD-3: ningún otro `dominio/` versionado fuera de `backend/app/` y "
+                         "`frontend/src/`")
         return
     for raiz, rutas in sorted(hermanos.items()):
         for ruta in rutas:
@@ -457,14 +467,13 @@ def _casos_probados(repo: Repo, r: Resultado, excluidos: tuple[str, ...] = ()) -
     casos = [(v, m.group(1)) for v in versionados
              if (m := CASO_PY.match(v) or CASO_TS.match(v)) and not PRUEBA.search(v)]
     if not casos:
-        r.comprobo("COD-4: no hay casos de uso en `app/aplicacion/casos/` ni en "
-                   "`frontend/src/aplicacion/`")
+        # N/A y no una comprobación (hasta el 2026-11-21 contaba como hecha).
+        r.no_corresponde("COD-4: no hay casos de uso en `app/aplicacion/casos/` ni en "
+                         "`frontend/src/aplicacion/`")
         return
     pruebas = "\n".join(repo.texto(v) or "" for v in versionados if PRUEBA.search(v))
     sin_prueba = [(v, nombre) for v, nombre in casos
                   if not re.search(rf"\b{re.escape(nombre)}\b", pruebas)]
-    r.comprobo(f"COD-4: {len(casos)} caso(s) de uso, {len(casos) - len(sin_prueba)} "
-               "nombrado(s) por alguna prueba versionada")
     for ruta, nombre in sin_prueba:
         r.avisa(COD_4, archivo=ruta,
                 mensaje=f"ninguna prueba versionada nombra el caso de uso `{nombre}`",
@@ -474,6 +483,8 @@ def _casos_probados(repo: Repo, r: Resultado, excluidos: tuple[str, ...] = ()) -
                 arreglo=("una prueba de la capa `aplicacion` contra dobles en memoria de sus "
                          "puertos, sin MagicMock: el molde es "
                          "`backend/tests/aplicacion/test_rechazar_tramite.py` de la semilla"))
+    r.comprobo(f"COD-4: {len(casos)} caso(s) de uso, {len(casos) - len(sin_prueba)} "
+               "nombrado(s) por alguna prueba versionada")
 
 
 # ── Entrada ───────────────────────────────────────────────────────────────────

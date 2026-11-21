@@ -234,6 +234,17 @@ class PruebaArchivosDeEntorno(AsercionesDeJuez):
         self.repo.escribe("frontend/.env", "VITE_API_BASE_URL=\n")
         self.assertRegla("G8-4", "BLOQUEA", "archivo de entorno versionado")
 
+    def test_cuenta_solo_los_archivos_que_escanea(self):
+        """«contenido de N archivos» decía N = TODO lo versionado, también lo que se
+        salta por binario, por estar en `node_modules/` o por ser un lockfile."""
+        self.repo.escribe("app.py", "x = 1\n")
+        self.repo.escribe("LEEME.md", "# x\n")
+        self.repo.escribe("logo.png", "no es una imagen\n")
+        self.repo.escribe("node_modules/x/index.js", "module.exports = 1\n")
+        self.repo.escribe("package-lock.json", "{}\n")
+        r = self.repo.juzga()
+        self.assertIn("contenido de 2 archivos versionados", r.comprobado)
+
     def test_el_gitignore_lo_juzga_j08_y_no_j09(self):
         """Sin `.gitignore`, o con `.env` sin anclar, j09 avisaba con G8-4 lo mismo que
         j08 ya cuenta como G8-8 —y el «sin anclar» contradecía a j08, que lo da por

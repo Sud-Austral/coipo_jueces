@@ -89,12 +89,41 @@ def _archivos_python(repo: Repo) -> list[str]:
             if r.endswith(".py") and "/tests/" not in r and not r.startswith("tests/")]
 
 
-def _modulo_con_salud(repo: Repo) -> tuple[str, str] | None:
-    """(ruta, texto) del módulo que declara la ruta /health, o None."""
+def _modulos_con_salud(repo: Repo) -> list[tuple[str, str]]:
+    """(ruta, texto) de cada módulo que nombra la ruta `/health` y tiene un decorador.
+
+    TODOS, no el primero: hasta el 2026-11-21 se tomaba el primero, y si era un
+    middleware con la lista de rutas públicas, la función de verdad —en otro módulo—
+    no se miraba y su autenticación pasaba sin juzgar."""
+    salida = []
     for ruta in _archivos_python(repo):
         texto = repo.texto(ruta)
         if texto and RUTA_SALUD.search(texto) and "@" in texto:
-            return ruta, texto
+            salida.append((ruta, texto))
+    return salida
+
+
+def _handler(candidatos: list[tuple[str, str]], r: Resultado):
+    """(ruta, texto, árbol, función) del módulo donde está la función decorada, o None.
+
+    Si no está en ninguno, lo dice en `no_evaluado`: un módulo que no compila y el
+    primero que nombra `/health` sin la función, como antes."""
+    errores, sin_funcion = [], []
+    for ruta, texto in candidatos:
+        try:
+            arbol = ast.parse(texto)
+        except SyntaxError as e:
+            errores.append(f"{ruta}: no se pudo parsear ({e}). El /health no se verificó.")
+            continue
+        if (fn := _funcion_de_salud(arbol)) is not None:
+            return ruta, texto, arbol, fn
+        sin_funcion.append(ruta)
+    r.no_evaluado.extend(errores)
+    if sin_funcion:
+        r.no_evaluado.append(
+            f"{sin_funcion[0]} menciona /health pero no se encontró la función decorada. "
+            f"Puede ser un montaje dinámico; hay que mirarlo a mano."
+        )
     return None
 
 
@@ -195,8 +224,8 @@ def _suprimido_en_compose(repo: Repo, regla: str) -> str | None:
 
 
 def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
-    hallado = _modulo_con_salud(repo)
-    if hallado is None:
+    candidatos = _modulos_con_salud(repo)
+    if not candidatos:
         if (nginx := _nginx_con_salud(repo)) is not None:
             _comprobar_nginx(*nginx, r)
             return
@@ -224,23 +253,13 @@ def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
         )
         return
 
-    ruta, texto = hallado
+    hallado = _handler(candidatos, r)
+    if hallado is None:
+        return
+    ruta, texto, arbol, fn = hallado
+    # Se registra cuando hay una función que juzgar, no antes de parsear.
     r.comprobo(f"endpoint /health ({ruta})")
     lineas = texto.splitlines()
-
-    try:
-        arbol = ast.parse(texto)
-    except SyntaxError as e:
-        r.no_evaluado.append(f"{ruta}: no se pudo parsear ({e}). El /health no se verificó.")
-        return
-
-    fn = _funcion_de_salud(arbol)
-    if fn is None:
-        r.no_evaluado.append(
-            f"{ruta} menciona /health pero no se encontró la función decorada. "
-            f"Puede ser un montaje dinámico; hay que mirarlo a mano."
-        )
-        return
 
     _comprobar_sin_auth(fn, arbol, ruta, lineas, r)
     _comprobar_sql_crudo(fn, ruta, texto, lineas, r)

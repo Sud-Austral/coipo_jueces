@@ -150,7 +150,8 @@ class PruebaTypeScript(Base):
         self.repo.escribe(".semilla", NUEVA).escribe("backend/app/main.py", "x = 1\n")
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos)
-        self.assertTrue(any("no hay frontend" in c for c in r.comprobado))
+        # N/A desde el 2026-11-21: «no hay frontend» no es una comprobación hecha.
+        self.assertTrue(any("no hay frontend" in n for n in r.no_aplica), r.no_aplica)
 
 
 class PruebaCapas(Base):
@@ -315,7 +316,7 @@ class PruebaCapasHermanos(Base):
             "collector/tests/dominio/test_x.py", "import os\nimport httpx\n")
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos)
-        self.assertTrue(any("ningún otro `dominio/`" in c for c in r.comprobado), r.comprobado)
+        self.assertTrue(any("ningún otro `dominio/`" in n for n in r.no_aplica), r.no_aplica)
 
 
 CASO = "class RechazarTramite:\n    pass\n"
@@ -365,7 +366,7 @@ class PruebaCasosProbados(Base):
          .escribe("frontend/src/aplicacion/tema.test.ts", "// nada\n"))
         r = self.repo.juzga()
         self.assertEqual([], [h for h in r.hallazgos if h.regla == "COD-4"])
-        self.assertTrue(any("no hay casos de uso" in c for c in r.comprobado), r.comprobado)
+        self.assertTrue(any("no hay casos de uso" in n for n in r.no_aplica), r.no_aplica)
 
 
 if __name__ == "__main__":

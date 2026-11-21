@@ -311,92 +311,113 @@ def comprobar_env_versionados(repo: Repo, r: Resultado) -> None:
         )
 
 
-def comprobar_contenido(repo: Repo, r: Resultado) -> None:
+def comprobar_contenido(repo: Repo, r: Resultado) -> int:
     """Escaneo del contenido, con el listón ajustado al tipo de archivo.
 
     En un archivo de prueba solo se busca una clave privada: los fixtures
     llevan credenciales falsas por necesidad, y tratarlas como incidente es la
     vía más rápida a que alguien apague el juez.
+
+    Devuelve cuántos archivos escaneó DE VERDAD: hasta el 2026-11-21 la comprobación
+    decía «contenido de N archivos» con N = todo lo versionado, también lo que se
+    salta por binario, por ruido o por tamaño.
     """
+    escaneados = 0
     for ruta in repo.versionados():
         if not escaneable(repo, ruta):
             continue
         texto = repo.texto(ruta)
         if texto is None or chr(0) in texto[:8192]:
             continue
+        escaneados += 1
+        _escanear(r, ruta, texto)
+    return escaneados
 
-        nombre = Path(ruta).name
-        en_env = nombre == ".env" or nombre.startswith(".env.")
-        es_prueba = bool(ES_PRUEBA.search(ruta)) and not en_env
-        lineas = texto.splitlines()
 
-        for i, linea in enumerate(lineas):
-            if len(linea) > 2048:
-                continue
+def _escanear(r: Resultado, ruta: str, texto: str) -> None:
+    nombre = Path(ruta).name
+    en_env = nombre == ".env" or nombre.startswith(".env.")
+    es_prueba = bool(ES_PRUEBA.search(ruta)) and not en_env
+    lineas = texto.splitlines()
+    for i, linea in enumerate(lineas):
+        if len(linea) > 2048:
+            continue
+        if CLAVE_PRIVADA.search(linea):
+            _clave_privada(r, ruta, lineas, i)
+            continue
+        if es_prueba:
+            continue
+        _dsn_con_clave(r, ruta, lineas, i)
+        _asignaciones(r, ruta, lineas, i, en_env)
 
-            if CLAVE_PRIVADA.search(linea):
-                motivo = suprimido(lineas, i, REGLA)
-                if motivo:
-                    r.supresiones.append(f"{ruta}:{i + 1} clave privada — {motivo}")
-                else:
-                    r.bloquea(
-                        REGLA, ruta, "bloque de clave privada versionado",
-                        "la clave sirve para suplantar al servicio; rotarla "
-                        "obliga a reconfigurar a cada consumidor",
-                        linea=i + 1,
-                        arreglo="retirar del historial y emitir un par nuevo",
-                    )
-                continue
 
-            if es_prueba:
-                continue
+def _clave_privada(r: Resultado, ruta: str, lineas: list[str], i: int) -> None:
+    motivo = suprimido(lineas, i, REGLA)
+    if motivo:
+        r.supresiones.append(f"{ruta}:{i + 1} clave privada — {motivo}")
+        return
+    r.bloquea(
+        REGLA, ruta, "bloque de clave privada versionado",
+        "la clave sirve para suplantar al servicio; rotarla "
+        "obliga a reconfigurar a cada consumidor",
+        linea=i + 1,
+        arreglo="retirar del historial y emitir un par nuevo",
+    )
 
-            for m in DSN_CON_CLAVE.finditer(linea):
-                clave, usuario, host = m.group("clave", "usuario", "host")
-                if REFERENCIA.match(clave) or PLACEHOLDER.search(clave):
-                    continue
-                if INTERPOLADO.search(clave) or INTERPOLADO.search(usuario):
-                    continue
-                # `coipo:coipo@localhost` en un .md es un ejemplo de la
-                # documentación, no una credencial. Usuario igual a contraseña
-                # es la convención universal del dato de juguete.
-                if HOSTS_DE_EJEMPLO.match(host) or clave == usuario:
-                    continue
-                motivo = suprimido(lineas, i, REGLA)
-                if motivo:
-                    r.supresiones.append(f"{ruta}:{i + 1} DSN con credencial — {motivo}")
-                    continue
-                r.bloquea(
-                    REGLA, ruta,
-                    "credencial embebida en una URL de conexión "
-                    f"(usuario '{m.group('usuario')}')",
-                    "la contraseña de la base viaja en el código, en los logs de "
-                    "la aplicación y en cualquier traza que imprima la URL",
-                    linea=i + 1,
-                    arreglo="componer la URL desde las cinco variables "
-                            "DATABASE_HOST/PORT/USER/PASSWORD/NAME (Guía 8, punto 3); nunca "
-                            "desde una DATABASE_URL del entorno",
-                )
 
-            for m in ASIGNACION.finditer(linea):
-                clave, valor = m.group("clave"), m.group("valor")
-                if not parece_secreto(clave, valor, en_env=en_env):
-                    continue
-                motivo = suprimido(lineas, i, REGLA)
-                if motivo:
-                    r.supresiones.append(f"{ruta}:{i + 1} {clave} — {motivo}")
-                    continue
-                r.bloquea(
-                    REGLA, ruta,
-                    f"'{clave}' parece llevar un valor real, no un placeholder",
-                    "el secreto está publicado para todo el que tenga acceso al "
-                    "repositorio; si es el JWT_SECRET de la flota, permite firmar "
-                    "tokens de cualquier app de CONAF",
-                    linea=i + 1,
-                    arreglo="sustituir por un placeholder que diga cómo generarlo "
-                            "(p. ej. '<generar: openssl rand -hex 32>'), rotar el "
-                            "valor real y purgar el historial",
-                )
+def _es_credencial_de_dsn(m: re.Match[str]) -> bool:
+    clave, usuario, host = m.group("clave", "usuario", "host")
+    if REFERENCIA.match(clave) or PLACEHOLDER.search(clave):
+        return False
+    if INTERPOLADO.search(clave) or INTERPOLADO.search(usuario):
+        return False
+    # `coipo:coipo@localhost` en un .md es un ejemplo de la documentación, no una
+    # credencial. Usuario igual a contraseña es la convención universal del dato de
+    # juguete.
+    return not (HOSTS_DE_EJEMPLO.match(host) or clave == usuario)
+
+
+def _dsn_con_clave(r: Resultado, ruta: str, lineas: list[str], i: int) -> None:
+    for m in DSN_CON_CLAVE.finditer(lineas[i]):
+        if not _es_credencial_de_dsn(m):
+            continue
+        motivo = suprimido(lineas, i, REGLA)
+        if motivo:
+            r.supresiones.append(f"{ruta}:{i + 1} DSN con credencial — {motivo}")
+            continue
+        r.bloquea(
+            REGLA, ruta,
+            "credencial embebida en una URL de conexión "
+            f"(usuario '{m.group('usuario')}')",
+            "la contraseña de la base viaja en el código, en los logs de "
+            "la aplicación y en cualquier traza que imprima la URL",
+            linea=i + 1,
+            arreglo="componer la URL desde las cinco variables "
+                    "DATABASE_HOST/PORT/USER/PASSWORD/NAME (Guía 8, punto 3); nunca "
+                    "desde una DATABASE_URL del entorno",
+        )
+
+
+def _asignaciones(r: Resultado, ruta: str, lineas: list[str], i: int, en_env: bool) -> None:
+    for m in ASIGNACION.finditer(lineas[i]):
+        clave, valor = m.group("clave"), m.group("valor")
+        if not parece_secreto(clave, valor, en_env=en_env):
+            continue
+        motivo = suprimido(lineas, i, REGLA)
+        if motivo:
+            r.supresiones.append(f"{ruta}:{i + 1} {clave} — {motivo}")
+            continue
+        r.bloquea(
+            REGLA, ruta,
+            f"'{clave}' parece llevar un valor real, no un placeholder",
+            "el secreto está publicado para todo el que tenga acceso al "
+            "repositorio; si es el JWT_SECRET de la flota, permite firmar "
+            "tokens de cualquier app de CONAF",
+            linea=i + 1,
+            arreglo="sustituir por un placeholder que diga cómo generarlo "
+                    "(p. ej. '<generar: openssl rand -hex 32>'), rotar el "
+                    "valor real y purgar el historial",
+        )
 
 
 # EL `.gitignore` YA NO SE MIRA AQUÍ (2026-11-21). Este juez avisaba, con G8-4, de un
@@ -418,8 +439,8 @@ def comprobar(repo: Repo, r: Resultado) -> None:
         return
     comprobar_env_versionados(repo, r)
     r.comprobo("archivos .env en el arbol versionado")
-    comprobar_contenido(repo, r)
-    r.comprobo(f"contenido de {len(repo.versionados())} archivos versionados")
+    escaneados = comprobar_contenido(repo, r)
+    r.comprobo(f"contenido de {escaneados} archivos versionados")
 
 
 if __name__ == "__main__":
