@@ -248,6 +248,37 @@ Lección para `Publicar`, arriba: **la suite verde no es la validación del
 YAML**. Antes de mover `v2`, mirar que el run de `Autotest` del commit incluya
 el job `el-reusable-lo-valida-github` en verde.
 
+### `v2.0.5`, 2026-09-09 — el lock, tras arreglar lo que hacía nacer roja a cada aplicación
+
+> Esta entrada y la de `v2.0.6` se escribieron el 2026-11-21: los dos tags existían
+> (`git tag -l`) y este archivo saltaba de `v2.0.4` a `v2.0.7`. Lo de abajo sale de los
+> mensajes de sus commits y de `git diff v2.0.4 v2.0.5`, no de memoria.
+
+Tag sobre `8b9e74f` (PR #3, commit `7c68159`). **Ningún juez cambia**: cambian
+`semilla.lock`, dos filas de `REGLAS.md`, `FILAS_REGLAS_UI.md` y un docstring de
+`tests/test_reglas_citadas.py`. El lock pasa de **21 a 20 archivos**, porque la fábrica
+arregló tres defectos que llegaban tal cual a cada aplicación nueva:
+
+- `backend/tests/contrato/test_health.py` (sellada): su expresión rechazaba
+  `http://127.0.0.1:8000/health`, el healthcheck que escribe el propio esqueleto, y la
+  compuerta `t0` de toda aplicación sembrada salía roja sin poder arreglarlo.
+- `backend/Dockerfile` y `frontend/Dockerfile`: el backend copia `requirements.txt` (de
+  la aplicación) y `requirements-base.txt` (sellado); el frontend usa `npm ci` con el
+  lock que el esqueleto ya versiona. `requirements.txt` y `requirements-dev.txt` salen
+  del lock; entran `requirements-base.txt` y `requirements-dev-base.txt`.
+- `.dockerignore` sale del lock (`NO_SE_SELLA`): cada aplicación lo amplía.
+
+Medido entonces con la semilla materializada: nueve jueces, 21 comprobaciones, 0
+bloqueantes.
+
+### `v2.0.6`, 2026-09-09 — el arnés del verificador de banner
+
+Tag sobre `64803f8` (PR #4, commit `dc4a01e`). Sólo cambia una huella de
+`semilla.lock`: `frontend/scripts/verify-banner.mjs` pedía los banners en una ruta que la
+semilla no siembra (`src/assets/`, heredada de `COIPO_USUARIOS`), así que
+`npm run verificar:banner` no podía pasar en ninguna aplicación recién sembrada. Ahora
+pide `/banner.jpg` y `/banner-corto.jpg`, como el componente real. Ningún juez cambia.
+
 ### `v2.0.7`, 2026-09-15 — el lock, tras arreglar la semilla
 
 **`v2` apunta a `v2.0.7`.** No cambia ni un juez: lo único que cambia es
@@ -594,6 +625,67 @@ La versión nueva:
 
 Se probó con los dos runners. **0 `BLOQUEA` nuevos:** la pieza anterior queda en el historial,
 así que una app que la tenga sólo recibe un aviso de atrasada.
+
+### Sin publicar (en `main` local, sin tag)
+
+Lo que hay en `main` después de `v2.0.19` y todavía no tiene tag. **Ningún tag se movió.**
+
+Commits anteriores a esta tanda:
+
+- `5c84057` — `j12`: `SEM-2` para `backend/paquetes-sistema.txt`, y el lock de la semilla
+  del 2026-11-20.
+- `c73a20c` — `semilla.lock`: `test_guards` y `test_log_inmutable` desde
+  `coipo_informe_sapif`.
+- `c347f53` — repositorio público: sin el detalle de secretos de otra aplicación ni IPs
+  internas (la redacción de P0; no se deshace).
+
+La tanda «P1a — que el gate no mienta» (2026-11-21), un commit por tema:
+
+| Tema | Qué cambia en lo que el gate dice |
+|---|---|
+| Trazabilidad | `DOCKER-hc` pasa a `DK-5`; `test_reglas_citadas` lee el primer argumento de TODA llamada a `bloquea`/`avisa` y falla ante un alias |
+| `j02` | el lado del host de `ports:` se lee entero (`127.0.0.1:${APP_PORT:?msg}:8000`, valores anidados) |
+| `j11` | `G8-9` ve `Depends()` por defecto, `dependencies=[...]`, `sesion_actual` y `RedirectResponse`; **`SEM-4`** (AVISA): el cuerpo de `/health` lleva `app` |
+| `j13` | sin ningún tema oscuro, `UI-3` es un hallazgo (antes «no evaluado» y OK) |
+| `.env` | un solo `ignora_env()` para `j01` y `j08`; `j09` deja el `.gitignore` a `G8-8`; la lista de Vite exige el sufijo de modo |
+| `j01` | `NG-1` sólo exime el upstream en `$variable`: un nombre literal con `resolver` avisa |
+| `j12` | **`SEM-3`** (AVISA): falta una pieza sellada de `backend/tests/` |
+| Motor | la consola dice la severidad real en advisory; lo que no se miró es N/A y no una comprobación; un solo lector de claves de `.semilla`; `Repo.compose()`, `alcance_semilla`, `no_adopta` y `Siembra` en vez de cuatro copias |
+| Workflows | `verificar.yml` expone `estado` y `avisos` y no persiste la credencial; `autotest.yml` con actionlint (versión y sha256 fijados) y ruff; fuera `probar-runner.yml` |
+| Zen de Python | `ruff.toml` copiado de la semilla; `ruff check` en cero, y `ruff format` en el último commit de la tanda, solo |
+
+**Radio medido** (2026-11-21), el gate en advisory sobre los mismos 88 clones de
+`D:\GitHub` que la línea base del 2026-11-20, más la siembra fresca `coipo_prueba3` y una
+copia suya con los archivos en el índice; `main` antes de la tanda (`c347f53`) contra el
+final. **BLOQUEA: 180 → 183** (sobre los 88 de la línea base: 141 → 144); **AVISA: 555 →
+613**. Los tres `BLOQUEA` nuevos, uno por uno:
+
+- `coipo_app`, **0 → 1**: `UI-3` sin tema oscuro. Declara `adopta: semilla, interfaz` y su
+  CSS no tiene ni una regla de tema oscuro. **Es un repositorio verde que pasa a rojo**
+  (consume `@v2` en advisory en sus tres workflows, así que su build no se rompe). Por la
+  letra de «Cuándo toca una mayor nueva», eso es mayor nueva; el precedente de `v2.0.14`
+  —«arreglar una lectura que dejaba sin juzgar a quien sí pidió ser juzgado es `vN.x`»—
+  se escribió con la condición de que ningún `exit` pasara de 0 a 1, y aquí en
+  bloqueante pasaría. **Lo decide Luis Monsalve antes de publicar.**
+- Un repositorio que ya tenía cuatro: `G8-2`. Una línea `IP:${VARIABLE:?mensaje}:puerto`
+  se leía cortada dentro de la guarda y no se juzgaba; publica un puerto por una
+  variable que no es `APP_PORT`.
+- Otro que ya tenía cinco: `G8-4`, por un `.env` versionado bajo `frontend/` sin sufijo
+  de modo, que la lista de Vite dejaba pasar (`j08` ya lo bloqueaba como `G8-10`).
+
+(Este repositorio es público: los dos se nombran en el informe de la tanda, no aquí.)
+
+Ningún `BLOQUEA` nuevo en `coipo_n8n` (0 → 0) ni en la siembra fresca (sus 18 son los de
+`docs/CONSTRUCCION.md` sin rellenar, antes y después). Los avisos: −62 `G8-4` (el
+duplicado del `.gitignore`), +107 `SEM-3` en 13 aplicaciones sembradas (casi todos el
+arnés de `backend/tests/arnes/` y `test_guards`/`test_log_inmutable`, sellados después de
+sembrarlas), +11 `SEM-4`, +2 `NG-1` en una aplicación (nombre literal con `resolver`),
+y `DOCKER-hc` → `DK-5` en dos repositorios (3 avisos). Los refactores del
+motor y de ruff se comprobaron aparte: la misma salida, JSON y consola, en los 90.
+
+Antes de publicar, además de lo de arriba: `semilla.lock` se resella en su propio paso
+(cambió `verificar.yml`), y el run de `Autotest` tiene que salir verde con los pasos
+nuevos de actionlint y ruff, que sólo se han ejecutado en local.
 
 ### Migrar a una mayor nueva
 
