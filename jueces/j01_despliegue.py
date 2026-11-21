@@ -12,7 +12,7 @@ CALIBRACIÓN INVERSA (medida el 2026-09-05)
 
   Los otros tres deben salir ROJO, y por defectos reales y distintos:
     COIPO_ENTREGA_PLANTA -> sin `.dockerignore` en la raíz con `context: .`
-    COIPO_USUARIOS       -> `.dockerignore` que no excluye `.env`
+    el caso de j09       -> `.dockerignore` que no excluye `.env`
     coipo_prensa2        -> `proxy_pass` con nombre literal en el nginx interno
 
 PERFILES

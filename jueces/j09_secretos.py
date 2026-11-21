@@ -6,23 +6,21 @@ el único cuyo hallazgo no admite discusión: un secreto en git ya salió del
 perímetro, y ninguna configuración posterior lo devuelve.
 
 EL CASO QUE FUNDA ESTA REGLA
-  `COIPO_USUARIOS/.env` está en `git ls-files` desde el commit 1b475c2 del
-  2026-04-20, con `JWT_SECRET` (62 hex) y `RUT_HMAC_SECRETS` (v1:<64 b64url>)
-  reales. El `.gitignore` del repo SÍ lista `.env` — pero un archivo ya
-  trackeado ignora el `.gitignore`, así que la protección es cosmética. Ese JWT
-  es HS256, global de toda la flota y sin claim `aud`: quien lo tenga firma
-  tokens válidos para cualquier app de CONAF, incluido `is_admin: true`.
+  Una aplicación de la flota tenía su `.env` real en `git ls-files`, aunque su
+  `.gitignore` SÍ listaba `.env`: un archivo ya trackeado ignora el
+  `.gitignore`, así que la protección era cosmética. Dos lecciones generales:
+  una clave de firma compartida por varias aplicaciones compromete a todas a la
+  vez, y una clave de seudonimización publicada no se arregla rotando, porque lo
+  ya calculado con ella no se puede recalcular sin el dato en claro.
 
-  Y `RUT_HMAC_SECRETS` es peor, porque no se arregla rotando: `core/rut.py` no
-  re-hashea lo antiguo (haría falta el RUT en claro, que justamente no se
-  guarda), de modo que cada `rut_hmac` escrito con `v1` queda calculado para
-  siempre con una clave publicada. La seudonimización de esas filas es nula.
+  (Este repositorio es PÚBLICO: el caso se describe sin nombre de aplicación,
+  commit ni variables desde el 2026-11-21. El detalle vive fuera de aquí.)
 
 PRUEBA DE CALIBRACIÓN (obligatoria antes de encender la regla)
-  Corrido hoy sobre COIPO_USUARIOS este juez debe salir ROJO, y sobre
-  coipo_prensa2 y COIPO_ENTREGA_PLANTA debe salir VERDE — sus `.env.example`
-  usan placeholders a propósito. Si no reproduce esas tres respuestas, el
-  verificador está mal y no se conecta a nada.
+  Corrido sobre la aplicación del caso este juez debía salir ROJO, y sobre dos
+  aplicaciones cuyos `.env.example` usan placeholders a propósito, VERDE
+  (calibración de 2026-09). Si no reproduce esas respuestas, el verificador está
+  mal y no se conecta a nada.
 
 POR QUÉ `git ls-files` Y NO UN RECORRIDO DEL DISCO
   Un `.env` en el directorio de trabajo es lo NORMAL y correcto: es como se
@@ -51,8 +49,9 @@ REGLA = "G8-4"
 # `.env` versionados que SÍ son legítimos:
 #   - los ejemplos, que existen precisamente para llevar placeholders;
 #   - los `.env.*` de Vite bajo frontend/, que en esta flota contienen
-#     `VITE_API_BASE_URL=` y nada más (COIPO_USUARIOS/frontend/.env.production
-#     está VACÍO a propósito, para que las rutas queden relativas).
+#     `VITE_API_BASE_URL=` y nada más (en la aplicación del caso,
+#     `frontend/.env.production` está VACÍO a propósito, para que las rutas
+#     queden relativas).
 #
 # Estar en la allowlist exime de la regla "no versionar .env", NO del escaneo
 # de contenido. Un `.env.example` con un secreto real dentro sigue siendo un

@@ -29,7 +29,7 @@ CALIBRACIÓN INVERSA (medida el 2026-09-05, sobre `git ls-files`)
   coipo_prensa2        -> VERDE.
   coipo_dendroenergia  -> VERDE.
   coipo_n8n            -> VERDE: `/.env` anclado.
-  COIPO_USUARIOS       -> ROJO doble: `data/` SIN anclar, y `.env` versionado
+  el caso de j09       -> ROJO doble: `data/` SIN anclar, y `.env` versionado
                           pese a figurar en el `.gitignore` —porque
                           `.gitignore` no se aplica a lo que ya está trackeado.
   COIPO_DIRECTORIO     -> ROJO: versiona `frontend/.env`, que desde agosto de

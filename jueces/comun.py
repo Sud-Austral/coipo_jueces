@@ -196,7 +196,7 @@ class Repo:
     Se apoya en `git ls-files` y no en un recorrido del disco: lo que importa
     para casi todas las reglas es qué está VERSIONADO. Un `.env` presente en el
     disco de trabajo y no trackeado es correcto; el mismo archivo en
-    `git ls-files` es el incidente de COIPO_USUARIOS.
+    `git ls-files` es el incidente que funda j09.
     """
 
     def __init__(self, raiz: str | os.PathLike[str]) -> None:

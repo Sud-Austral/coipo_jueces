@@ -48,7 +48,7 @@ from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion",)
 
-# Un origen escrito por IP: `http://172.31.2.41:8111`. El navegador nunca manda
+# Un origen escrito por IP: `http://192.0.2.10:8111`. El navegador nunca manda
 # esto como Origin, asi que la entrada no casa nunca con una peticion real.
 ORIGEN_POR_IP = re.compile(r"^https?://(\d{1,3}\.){3}\d{1,3}(:\d+)?/?$")
 

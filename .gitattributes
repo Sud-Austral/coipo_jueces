@@ -2,7 +2,7 @@
 #
 # El `.env` de cada app se teclea a mano en el servidor y el pipeline de
 # despliegue lo excluye del rsync, así que nadie lo revisa. Un CRLF mete un \r
-# DENTRO del valor de cada variable (DATABASE_HOST=172.31.2.40\r) y produce
+# DENTRO del valor de cada variable (DATABASE_HOST=192.0.2.10\r) y produce
 # errores de conexión absurdos; un BOM al principio —que PowerShell 5.1 escribe
 # con `Set-Content -Encoding utf8`— corrompe la PRIMERA clave del archivo.
 # `coipo_n8n` es hoy el único repo de la flota con esto, y por eso es el único

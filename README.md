@@ -121,8 +121,8 @@ interfaz`). Tras esta medición se corrigió un falso positivo de `j11` sobre
 | `COIPO_CHATBOTNORMATIVA` · `COIPO_LICITACION_IA` · `COIPO_PDF_EXCEL` | 3 | 1–2 | |
 | `COIPO_BID_LOSRIOS` | 4 | 2 | |
 | `COIPO_DIRECTORIO` | 6 | 3 | |
-| `COIPO_USUARIOS` | 9 | 8 | `.env` versionado con `JWT_SECRET` y `RUT_HMAC_SECRETS`; `.dockerignore` que no excluye `.env` |
-| `COIPO_SEGUIMIENTO` · `COIPO_SEGUIMIENTOPROYECTO` | **12** | 8 | los dos peores de la flota; `DATABASE_URL` versionada y `5432:5432` publicado |
+| `COIPO_USUARIOS` | 9 | 8 | secretos versionados (el detalle no se publica en este repositorio, que es público) |
+| `COIPO_SEGUIMIENTO` · `COIPO_SEGUIMIENTOPROYECTO` | **12** | 8 | los dos peores de la flota (el detalle no se publica aquí) |
 
 **Lo que dice la medición completa:** de 24, **cinco** con cero bloqueantes, y
 sólo dos son aplicaciones. Los repositorios con 5–7 comprobaciones no están más

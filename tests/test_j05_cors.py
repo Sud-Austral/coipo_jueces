@@ -74,7 +74,7 @@ class PruebaCors(CasoConRepo):
 
     def test_origen_por_ip_bloquea(self):
         """Una IP en allow_origins no casa NUNCA con una petición real."""
-        self.repo.escribe("backend/main.py", main_con('["http://172.31.2.41:8111"]'))
+        self.repo.escribe("backend/main.py", main_con('["http://192.0.2.10:8111"]'))
         self.assertBloquea("incluye la IP")
 
     def test_dominio_literal_no_bloquea_por_si_solo(self):
