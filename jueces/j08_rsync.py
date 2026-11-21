@@ -80,9 +80,7 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
         # que despliega va a tener un `.env` con credenciales de produccion en el
         # servidor; uno que no despliega todavia, no. Bloquear a los dos por igual
         # convierte al juez en ruido justo en los repositorios donde no importa.
-        desplegable = any(repo.existe(n) for n in
-                          ("docker-compose.yml", "docker-compose.yaml",
-                           "compose.yml", "compose.yaml"))
+        desplegable = repo.compose() is not None
         # Dos llamadas explícitas y no un alias (`anota = r.bloquea if ... else
         # r.avisa`): `test_reglas_citadas` lee el código y la severidad de cada
         # llamada en el AST, y un alias se los escondía (2026-11-21).

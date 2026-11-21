@@ -79,8 +79,10 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, ejecutar, leer_adopcion, leer_ajeno, leer_fabrica, leer_maqueta,  # noqa: E402
-                   sin_indice, suprimido)
+from comun import (  # noqa: E402
+    Repo, Resultado, alcance_semilla, ejecutar, leer_ajeno, leer_maqueta, leer_siembra, sin_indice,
+    suprimido,
+)
 
 PERFILES = ("aplicacion",)
 
@@ -494,35 +496,23 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # saldría OK: cero de cero (auditoría del 2026-10-25).
     if sin_indice(repo, r):
         return
-    marcador = repo.texto(MARCADOR)
-    if marcador is None:
-        r.no_corresponde(
-            f"no hay `{MARCADOR}`: el repositorio no declara seguir un estándar de la "
-            "flota. Lo que existía antes de la fábrica no se juzga con sus reglas "
-            "nuevas (FILOSOFIA.md, §3).")
+    alcance = alcance_semilla(
+        repo, r,
+        f"no hay `{MARCADOR}`: el repositorio no declara seguir un estándar de la "
+        "flota. Lo que existía antes de la fábrica no se juzga con sus reglas "
+        "nuevas (FILOSOFIA.md, §3).")
+    if alcance is None:
         return
+    marcador, adopcion = alcance
 
-    adopcion = leer_adopcion(marcador)
-    if adopcion.vacia:
-        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
-        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
-        return
-
-    fecha = leer_fabrica(marcador)
-    vigente = fecha is not None and fecha >= VIGENCIA
-    nuevo = vigente and adopcion.adopta(CAPA)
-    if nuevo:
-        contexto = f"sembrado el {fecha}, con la regla ya vigente desde el {VIGENCIA}"
-    elif vigente:
-        contexto = f"sembrado el {fecha}, pero declara no adoptar `{CAPA}`: sólo aviso"
+    # Las cuatro ramas de la severidad por fecha, compartidas con j14 (`Siembra`).
+    siembra = leer_siembra(marcador, VIGENCIA, CAPA)
+    nuevo, contexto = siembra.nuevo, siembra.contexto(CAPA, MARCADOR)
+    if siembra.vigente and not siembra.adopta:
         r.supresiones.append(
             f"{MARCADOR} declara no adoptar `{CAPA}` — {adopcion.cita(MARCADOR)}: COD-1..3 "
-            f"bajan de BLOQUEA a AVISA en un repositorio sembrado el {fecha}. Es legítimo "
-            "sólo si el repositorio NO se sembró con la semilla.")
-    elif fecha:
-        contexto = f"sembrado el {fecha}, antes de la regla del {VIGENCIA}: sólo aviso"
-    else:
-        contexto = f"`{MARCADOR}` sin `fabrica:`: sólo aviso"
+            f"bajan de BLOQUEA a AVISA en un repositorio sembrado el {siembra.fecha}. Es "
+            "legítimo sólo si el repositorio NO se sembró con la semilla.")
 
     # Lo que no es código de la aplicación: la maqueta validada (sin supresión) y lo que
     # `.semilla` declara `ajeno:` (cada carpeta, una supresión publicada). Ver comun_semilla.

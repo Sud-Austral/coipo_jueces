@@ -81,7 +81,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import sin_indice, Repo, Resultado, ejecutar, leer_adopcion, leer_fabrica  # noqa: E402
+from comun import (  # noqa: E402
+    Adopcion, Repo, Resultado, alcance_semilla, ejecutar, leer_siembra, sin_indice,
+)
 
 PERFILES = ("aplicacion",)
 
@@ -123,23 +125,18 @@ def _anota(r: Resultado, nuevo: bool, **datos: object) -> None:
         r.avisa(FAB_8, **datos)  # type: ignore[arg-type]
 
 
-def _severidad(marcador: str, r: Resultado) -> tuple[bool, str]:
-    """(¿bloquea?, contexto para el mensaje), desde `fabrica:` y `adopta:`."""
-    fecha = leer_fabrica(marcador)
-    if fecha is None:
-        return False, f"`{MARCADOR}` sin `fabrica:`: sólo aviso"
-    if fecha < VIGENCIA:
-        return False, f"sembrado el {fecha}, antes de la regla del {VIGENCIA}: sólo aviso"
+def _severidad(marcador: str, adopcion: Adopcion, r: Resultado) -> tuple[bool, str]:
+    """(¿bloquea?, contexto para el mensaje), desde `fabrica:` y `adopta:`.
 
-    adopcion = leer_adopcion(marcador)
-    contexto = f"sembrado el {fecha}, con la regla ya vigente desde el {VIGENCIA}"
-    if not adopcion.adopta(CAPA):
+    Las cuatro ramas y sus textos viven en `Siembra` (comun_semilla.py), compartidas
+    con j16; aquí queda lo propio: la supresión cuando FAB-8 baja a AVISA."""
+    siembra = leer_siembra(marcador, VIGENCIA, CAPA)
+    if siembra.vigente and not siembra.adopta:
         razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`: FAB-8 baja de BLOQUEA "
-                 f"a AVISA en un repositorio sembrado el {fecha}. Es legítimo sólo si el "
-                 "repositorio NO se sembró con la semilla.")
+                 f"a AVISA en un repositorio sembrado el {siembra.fecha}. Es legítimo sólo si "
+                 "el repositorio NO se sembró con la semilla.")
         r.supresiones.append(f"{MARCADOR} declara no adoptar `{CAPA}` — {razon}")
-        return False, f"sembrado el {fecha}, pero declara no adoptar `{CAPA}`: sólo aviso"
-    return True, contexto
+    return siembra.nuevo, siembra.contexto(CAPA, MARCADOR)
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
@@ -148,21 +145,16 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # `CONSTRUCCION.md` está versionado: no se dictamina (auditoría del 2026-10-25).
     if repo.tiene_git() and sin_indice(repo, r):
         return
-    marcador = repo.texto(MARCADOR)
-    if marcador is None:
-        r.no_corresponde(
-            f"no hay `{MARCADOR}`: el repositorio no declara haberse construido con la "
-            "fábrica. Lo que existía antes de ella no se juzga con sus reglas nuevas "
-            "(FILOSOFIA.md, §3).")
+    alcance = alcance_semilla(
+        repo, r,
+        f"no hay `{MARCADOR}`: el repositorio no declara haberse construido con la "
+        "fábrica. Lo que existía antes de ella no se juzga con sus reglas nuevas "
+        "(FILOSOFIA.md, §3).")
+    if alcance is None:
         return
+    marcador, adopcion = alcance
 
-    adopcion = leer_adopcion(marcador)
-    if adopcion.vacia:
-        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
-        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
-        return
-
-    nuevo, contexto = _severidad(marcador, r)
+    nuevo, contexto = _severidad(marcador, adopcion, r)
 
     ruta = repo.ruta(CONSTRUCCION)
     if not ruta.is_file():
@@ -263,10 +255,9 @@ def _mirado(repo: Repo, r: Resultado, marcador: str, texto: str) -> None:
         # N/A y no una comprobación: hasta el 2026-11-21 esto contaba como mirado.
         r.no_corresponde("FAB-9: no hay `frontend/package.json`; no hay interfaz que mirar")
         return
-    fecha = leer_fabrica(marcador)
-    nuevo = (fecha is not None and fecha >= VIGENCIA_MIRADO
-             and leer_adopcion(marcador).adopta(CAPA))
-    contexto = (f"sembrado el {fecha}, con la regla vigente desde el {VIGENCIA_MIRADO}"
+    siembra = leer_siembra(marcador, VIGENCIA_MIRADO, CAPA)
+    nuevo = siembra.nuevo
+    contexto = (f"sembrado el {siembra.fecha}, con la regla vigente desde el {VIGENCIA_MIRADO}"
                 if nuevo else f"regla del {VIGENCIA_MIRADO}, anterior a esta aplicación o "
                               "sin `semilla` adoptada: sólo aviso")
     m = MIRADO.search(texto)

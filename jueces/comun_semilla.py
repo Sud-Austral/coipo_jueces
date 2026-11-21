@@ -257,6 +257,46 @@ def leer_fabrica(texto: str | None) -> str | None:
     return m.group(0) if m else None
 
 
+# ── La severidad por fecha de siembra: una sola vez (2026-11-21) ──────────────
+#
+# j14 (FAB-8, FAB-9) y j16 (COD-1..3) BLOQUEAN lo sembrado desde su vigencia que
+# adopta `semilla`, y AVISAN en todo lo demás. Cada uno lo calculaba con su copia de
+# las mismas cuatro ramas y los mismos cuatro textos.
+
+
+@dataclass(frozen=True)
+class Siembra:
+    """`fabrica:` y `adopta:` de un `.semilla` frente a la vigencia de una regla."""
+
+    fecha: str | None
+    vigencia: str
+    adopta: bool
+
+    @property
+    def vigente(self) -> bool:
+        """Sembrado el día de la vigencia o después."""
+        return self.fecha is not None and self.fecha >= self.vigencia
+
+    @property
+    def nuevo(self) -> bool:
+        """BLOQUEA: sembrado con la regla vigente Y adopta la capa."""
+        return self.vigente and self.adopta
+
+    def contexto(self, capa: str = "semilla", marcador: str = ".semilla") -> str:
+        """El paréntesis que acompaña al mensaje: por qué bloquea o sólo avisa."""
+        if self.nuevo:
+            return f"sembrado el {self.fecha}, con la regla ya vigente desde el {self.vigencia}"
+        if self.vigente:
+            return f"sembrado el {self.fecha}, pero declara no adoptar `{capa}`: sólo aviso"
+        if self.fecha:
+            return f"sembrado el {self.fecha}, antes de la regla del {self.vigencia}: sólo aviso"
+        return f"`{marcador}` sin `fabrica:`: sólo aviso"
+
+
+def leer_siembra(texto: str | None, vigencia: str, capa: str = "semilla") -> Siembra:
+    return Siembra(leer_fabrica(texto), vigencia, leer_adopcion(texto).adopta(capa))
+
+
 # ── La maqueta validada: la clave `maqueta:` de `.semilla` ────────────────────
 #
 # Una aplicación sembrada con `sembrar.py --maqueta` (coipo_master_produccion, desde el

@@ -31,13 +31,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    COMPOSE, Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, ignora_env, numero_de_linea,
+    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, ignora_env, numero_de_linea,
     suprimido,
 )
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
-# COMPOSE vive en comun.py: era una de cuatro copias.
+# Qué compose hay en la raíz lo dice `Repo.compose()` de comun.py: era una de cuatro copias.
 
 # Motores de base de datos que NUNCA van en el compose de una app: el Postgres
 # de esta flota es COMPARTIDO, vive fuera de Docker en otra máquina y lo
@@ -65,10 +65,6 @@ NGINX_INTERNO = ("frontend/nginx.conf", "ops/nginx/app.conf", "nginx/app.conf",
 # --------------------------------------------------------------------------
 
 
-def _ruta_compose(repo: Repo) -> str | None:
-    return next((c for c in COMPOSE if repo.existe(c)), None)
-
-
 def _servicios(compose: dict) -> dict:
     s = compose.get("services")
     return s if isinstance(s, dict) else {}
@@ -86,7 +82,7 @@ def _contexto_de_build(servicio: dict) -> str | None:
 
 
 def comprobar_compose(repo: Repo, r: Resultado) -> None:
-    ruta = _ruta_compose(repo)
+    ruta = repo.compose()
     if ruta is None:
         r.no_evaluado.append(
             "no hay docker-compose.yml en la raíz: este repositorio no despliega "
@@ -183,7 +179,7 @@ def comprobar_contexto_de_build(repo: Repo, r: Resultado) -> None:
     cada build de cada imagen. Y con él, cualquier `.env` presente en el disco
     del servidor.
     """
-    ruta = _ruta_compose(repo)
+    ruta = repo.compose()
     if ruta is None:
         return
     try:

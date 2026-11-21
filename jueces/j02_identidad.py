@@ -40,12 +40,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    COMPOSE, Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, numero_de_linea, suprimido,
+    Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, numero_de_linea, suprimido,
 )
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
-# COMPOSE vive en comun.py: era una de cuatro copias.
+# Qué compose hay en la raíz lo dice `Repo.compose()` de comun.py: era una de cuatro copias.
 
 # Nombre valido para `/opt/apps/<nombre>/` y para un hostname: minusculas,
 # digitos, guion bajo y guion. El punto queda fuera a proposito.
@@ -103,10 +103,6 @@ def _variable(host: str) -> str | None:
     return (m.group("llaves") or m.group("suelta")) if m else None
 
 
-def _ruta_compose(repo: Repo) -> str | None:
-    return next((n for n in COMPOSE if repo.existe(n)), None)
-
-
 def comprobar_nombre(repo: Repo, r: Resultado) -> None:
     """Guía 8, punto 1 — el nombre del repositorio es el de la carpeta del servidor."""
     nombre = repo.nombre
@@ -138,7 +134,7 @@ def comprobar_nombre(repo: Repo, r: Resultado) -> None:
 
 def comprobar_puerto(repo: Repo, r: Resultado) -> None:
     """Guía 8, punto 2 — APP_PORT declarado, plausible y no cableado."""
-    ruta = _ruta_compose(repo)
+    ruta = repo.compose()
     if ruta is None:
         r.no_evaluado.append("sin docker-compose.yml: no hay APP_PORT que verificar")
         return

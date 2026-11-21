@@ -69,8 +69,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (sin_indice, Repo, Resultado, ejecutar, leer_adopcion, leer_maqueta,  # noqa: E402
-                   suprimido)
+from comun import (Repo, Resultado, alcance_semilla, ejecutar, leer_maqueta,  # noqa: E402
+                   no_adopta, sin_indice, suprimido)
 
 PERFILES = ("aplicacion",)
 
@@ -466,22 +466,17 @@ def comprobar(repo: Repo, r: Resultado) -> None:
 
     # El estándar de interfaz es para PROYECTOS NUEVOS. Una aplicación anterior
     # no lo incumple: es que no existía cuando se escribió.
-    if not repo.existe(MARCADOR):
-        r.no_corresponde(
-            f"no hay `{MARCADOR}` en la raíz: este repositorio no declara seguir "
-            "el estándar de interfaz de la flota, y el estándar es para proyectos "
-            "NUEVOS. Una aplicación anterior no lo incumple — no existía cuando "
-            "se escribió. Se adopta añadiendo el marcador, que es lo que hace "
-            "`semilla/sembrar.py` en todo proyecto sembrado")
+    alcance = alcance_semilla(
+        repo, r,
+        f"no hay `{MARCADOR}` en la raíz: este repositorio no declara seguir "
+        "el estándar de interfaz de la flota, y el estándar es para proyectos "
+        "NUEVOS. Una aplicación anterior no lo incumple — no existía cuando "
+        "se escribió. Se adopta añadiendo el marcador, que es lo que hace "
+        "`semilla/sembrar.py` en todo proyecto sembrado")
+    if alcance is None:
         return
-
-    # El marcador existe, pero puede declarar que adopta otras capas y no ésta.
-    adopcion = leer_adopcion(repo.texto(MARCADOR))
-    if adopcion.vacia:
-        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
-        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
-        return
-    maqueta = leer_maqueta(repo.texto(MARCADOR))
+    texto_marcador, adopcion = alcance
+    maqueta = leer_maqueta(texto_marcador)
     if maqueta and not adopcion.adopta(CAPA):
         # Sin supresión: la cara viene de una maqueta validada por el cliente, con nombre
         # y commit. Ver `leer_maqueta` en comun_semilla.py.
@@ -492,14 +487,12 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "del 2026-11-12). No es una supresión: el aspecto tiene otra fuente.")
         return
     if not adopcion.adopta(CAPA):
-        razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que este "
-                 "repositorio no declara seguir el estándar de interfaz. Quitar la "
-                 "capa no arregla nada: los defectos siguen ahí, sin nadie que los "
-                 "cuente.")
-        r.no_corresponde(razon)
         # Se cuenta como supresión: es la única vía por la que un repositorio se
-        # apaga un juez a sí mismo, y esa puerta se paga. Ver comun.py.
-        r.supresiones.append(f"{MARCADOR} declara no adoptar `{CAPA}` — {razon}")
+        # apaga un juez a sí mismo, y esa puerta se paga. Ver `no_adopta` en comun.py.
+        no_adopta(r, adopcion, CAPA,
+                  "así que este repositorio no declara seguir el estándar de interfaz. "
+                  "Quitar la capa no arregla nada: los defectos siguen ahí, sin nadie que "
+                  "los cuente.")
         return
 
     hojas = _hojas(repo)

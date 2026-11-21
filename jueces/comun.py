@@ -40,7 +40,9 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 from comun_yaml import (  # noqa: E402,F401  (reexportados: los jueces los importan de aquí)
     YamlNoSoportado, _sin_comentario, carga_yaml, numero_de_linea,
 )
-from comun_semilla import Adopcion, leer_adopcion, leer_ajeno, leer_fabrica, leer_maqueta  # noqa: E402,F401
+from comun_semilla import (  # noqa: E402,F401
+    Adopcion, Siembra, leer_adopcion, leer_ajeno, leer_fabrica, leer_maqueta, leer_siembra,
+)
 
 # --------------------------------------------------------------------------
 # Hallazgos
@@ -323,6 +325,41 @@ def ignora_env(lineas: Iterable[str]) -> bool:
         if linea.lstrip("!") in PATRONES_ENV:
             ignorado = not negada
     return ignorado
+
+
+# ── El alcance que declara `.semilla`, una sola vez (2026-11-21) ──────────────
+#
+# j12, j13, j14 y j16 empezaban igual, cada uno con su copia: sin `.semilla`, NO_APLICA
+# con su motivo; con `adopta:` vacía, «no evaluado» y no se dictamina. La semántica
+# está en comun_semilla.py.
+MARCADOR_SEMILLA = ".semilla"
+
+
+def alcance_semilla(repo: Repo, r: Resultado,
+                    sin_marcador: str) -> tuple[str, Adopcion] | None:
+    """(texto de `.semilla`, su `adopta:`), o None si no hay que dictaminar.
+
+    Sin `.semilla` anota `sin_marcador` como N/A; con `adopta:` vacía, el motivo en
+    `no_evaluado`. Un `.semilla` que no se puede leer no declara nada: N/A."""
+    texto = repo.texto(MARCADOR_SEMILLA)
+    if texto is None:
+        r.no_corresponde(sin_marcador)
+        return None
+    adopcion = leer_adopcion(texto)
+    if adopcion.vacia:
+        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR_SEMILLA))
+        return None
+    return texto, adopcion
+
+
+def no_adopta(r: Resultado, adopcion: Adopcion, capa: str, consecuencia: str) -> None:
+    """La capa de un juez no está en `adopta:`: N/A, citando la línea, y SUPRESIÓN.
+
+    Es la única vía por la que un repositorio se apaga un juez a sí mismo, y esa
+    puerta se paga: sale con `::warning::` y exige su fila en DEUDA.md."""
+    razon = f"{adopcion.cita(MARCADOR_SEMILLA)} y no incluye `{capa}`, {consecuencia}"
+    r.no_corresponde(razon)
+    r.supresiones.append(f"{MARCADOR_SEMILLA} declara no adoptar `{capa}` — {razon}")
 
 
 def sin_indice(repo: Repo, r: Resultado) -> bool:

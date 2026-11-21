@@ -189,7 +189,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import (Repo, Resultado, ejecutar, leer_adopcion, leer_maqueta,  # noqa: E402
+from comun import (Repo, Resultado, alcance_semilla, ejecutar, leer_maqueta, no_adopta,  # noqa: E402
                    suprimido)
 
 PERFILES = ("aplicacion", "encuadre_operativo")
@@ -388,37 +388,26 @@ def _leer_historial(r: Resultado) -> dict[str, dict[str, datetime.date]]:
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
-    if not repo.existe(MARCADOR):
-        # Que un repositorio tenga `backend/Dockerfile` no significa que lo haya
-        # copiado de aquí: toda aplicación web tiene uno. Sin declaración, no hay
-        # nada que comparar.
-        r.no_corresponde(
-            f"no hay `{MARCADOR}` en la raíz: este repositorio no se sembró con la "
-            "semilla de la flota, así que sus archivos son suyos aunque se llamen "
-            "igual. Si SÍ se sembró y alguien borró el marcador, restaurarlo es lo "
-            "que vuelve a encender esta comprobación.")
+    # Que un repositorio tenga `backend/Dockerfile` no significa que lo haya copiado
+    # de aquí: toda aplicación web tiene uno. Sin declaración, no hay nada que comparar.
+    # El alcance (sin `.semilla`, `adopta:` vacía) lo resuelve `alcance_semilla`.
+    alcance = alcance_semilla(
+        repo, r,
+        f"no hay `{MARCADOR}` en la raíz: este repositorio no se sembró con la "
+        "semilla de la flota, así que sus archivos son suyos aunque se llamen "
+        "igual. Si SÍ se sembró y alguien borró el marcador, restaurarlo es lo "
+        "que vuelve a encender esta comprobación.")
+    if alcance is None:
         return
-
-    # El marcador existe, pero puede declarar que adopta OTRA capa y no ésta. Ver
-    # `leer_adopcion` en comun.py: la clave ausente adopta todo, así que esto sólo
-    # se dispara cuando alguien la escribió a propósito.
-    adopcion = leer_adopcion(repo.texto(MARCADOR))
-    if adopcion.vacia:
-        # Un error de declaración: no se dictamina (la semántica, en comun_semilla.py).
-        r.no_evaluado.append(adopcion.motivo_vacia(MARCADOR))
-        return
+    texto_marcador, adopcion = alcance
+    # El marcador puede declarar que adopta OTRA capa y no ésta: N/A, citando la
+    # línea, y contado como supresión (`no_adopta` en comun.py).
     if not adopcion.adopta(CAPA):
-        razon = (f"{adopcion.cita(MARCADOR)} y no incluye `{CAPA}`, así que las "
-                 "piezas congeladas de este repositorio NO se comparan contra el "
-                 "lock. Es legítimo en una aplicación que adopta un estándar de la "
-                 "flota sin haberse sembrado con la semilla; deja de serlo si el "
-                 "repositorio SÍ se sembró.")
-        r.no_corresponde(razon)
-        # Y se cuenta como supresión, no sólo como aviso informativo: esta es la
-        # única vía por la que un repositorio puede apagarse un juez a sí mismo, y
-        # `comun.py` explica por qué esa puerta se paga. Sale con `::warning::` y
-        # exige su fila en DEUDA.md, igual que un `coipo-jueces:ignorar`.
-        r.supresiones.append(f"{MARCADOR} declara no adoptar `{CAPA}` — {razon}")
+        no_adopta(r, adopcion, CAPA,
+                  "así que las piezas congeladas de este repositorio NO se comparan contra "
+                  "el lock. Es legítimo en una aplicación que adopta un estándar de la "
+                  "flota sin haberse sembrado con la semilla; deja de serlo si el "
+                  "repositorio SÍ se sembró.")
         return
 
     esperado = _lock()
@@ -431,7 +420,7 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             "--escribir <ruta>/semilla.lock` en coipo_master_produccion.")
         return
 
-    m = VERSION.search(repo.texto(MARCADOR) or "")
+    m = VERSION.search(texto_marcador)
     version = m.group("version") if m else "sin declarar"
 
     presentes = [ruta for ruta in esperado if repo.existe(ruta)]
