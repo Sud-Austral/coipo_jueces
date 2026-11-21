@@ -16,9 +16,11 @@ que distingue un archivo escrito tras consultar de uno escrito de memoria».
          `corr-maestro-…`). Sin `registrado:` sólo avisa.
 
 LA LÓGICA DE REFERENCIA es `flota/herramientas_de_fabrica.py --construccion` de la
-fábrica (`juzgar_construccion`), calibrada allí: mismas expresiones, mismos
-campos. Esa fábrica prueba la PARIDAD de los dos lectores con
-`test_paridad_con_j14_de_coipo_jueces_si_esta_clonado_al_lado` cuando este
+fábrica (`juzgar_construccion`, que desde el 2026-11-21 vive en
+`flota/herramientas_de_fabrica_construccion.py`), calibrada allí: mismas
+expresiones, mismos campos. Esa fábrica prueba la PARIDAD de los dos lectores con
+`test_paridad_con_j14_de_coipo_jueces_si_esta_clonado_al_lado`
+(`flota/probar_herramientas_de_fabrica_construccion.py`) cuando este
 repositorio está clonado al lado: sobre los mismos textos, buenos y rotos, el
 instrumento da HALLAZGOS si y sólo si este juez BLOQUEA (con `fabrica:` vigente).
 Esa prueba crea la aplicación SIN git: por eso este juez lee el disco y sólo
