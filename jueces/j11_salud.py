@@ -165,6 +165,8 @@ def _comprobar_nginx(ruta: str, linea: int, cuerpo: str, r: Resultado) -> None:
     """Guía 8, punto 9, en nginx: 2xx, sin autenticación y sin redirección."""
     r.comprobo(f"endpoint /health servido por el nginx interno ({ruta}:{linea})")
     codigos = RETORNO.findall(cuerpo)
+    if codigos and not re.search(r"[\"']app[\"']\s*:", cuerpo):
+        _sin_identidad(r, ruta, linea)
     if AUTH_NGINX.search(cuerpo):
         r.bloquea("G8-9", ruta, "el `location /health` del nginx exige autenticación",
                   "el smoke test usa `curl -sf`: un 401 hace fallar el despliegue entero "
@@ -243,6 +245,7 @@ def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
     _comprobar_sin_auth(fn, arbol, ruta, lineas, r)
     _comprobar_sql_crudo(fn, ruta, texto, lineas, r)
     _comprobar_except_mudo(fn, ruta, lineas, r, repo)
+    _comprobar_identidad(fn, arbol, ruta, lineas, r)
 
 
 def _parametros(fn) -> list[tuple[ast.arg, ast.expr | None]]:
@@ -462,6 +465,61 @@ def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado,
                     "PLATAFORMA: que el smoke test de infra-docker-base lea el cuerpo "
                     "y no solo el código.",
         )
+
+
+# ── SEM-4: el cuerpo de `/health` lleva `app` ────────────────────────────────
+#
+# «`APP_NOMBRE` es un literal versionado y sale en `/health`. Es lo único que delata
+# una colisión de `APP_PORT`: si otra aplicación ocupa tu puerto, el `curl` del
+# despliegue recibe SU `/health`, responde 200, y tu despliegue se declara exitoso
+# sobre el contenedor equivocado» (`semilla/ESQUELETO/CLAUDE.md` §4 de la fábrica; la
+# regla 4 de la pieza sellada `rutas/salud.py` dice lo mismo). El despliegue ya lo
+# advierte; aquí se ve antes, en el CI. AVISA: es una regla nueva (AGENTS.md §5).
+#
+# Se busca en TODO el módulo del handler, no sólo en su `return`: la semilla arma el
+# cuerpo con `{"status": "ok", **_identidad()}` y `app` vive en `_identidad()`. Cuenta
+# una clave `"app"` en un dict, un `app=` en una llamada (`dict(app=...)`, un modelo),
+# un `x["app"] = ...` o un campo `app` en una clase (un modelo de pydantic).
+
+
+def _declara_app(arbol: ast.Module) -> bool:
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Dict) and any(
+                isinstance(k, ast.Constant) and k.value == "app" for k in nodo.keys):
+            return True
+        if isinstance(nodo, ast.Call) and any(k.arg == "app" for k in nodo.keywords):
+            return True
+        if isinstance(nodo, ast.Subscript) and isinstance(nodo.ctx, ast.Store) \
+                and isinstance(nodo.slice, ast.Constant) and nodo.slice.value == "app":
+            return True
+        if isinstance(nodo, ast.ClassDef) and any(
+                isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name)
+                and s.target.id == "app" for s in nodo.body):
+            return True
+    return False
+
+
+def _sin_identidad(r: Resultado, ruta: str, linea: int) -> None:
+    r.avisa(
+        "SEM-4", ruta, "el cuerpo de `/health` no lleva la clave `app`",
+        "si otra aplicación ocupa el APP_PORT de ésta, el `curl -sf` del despliegue recibe "
+        "SU `/health`, responde 200, y el despliegue se declara exitoso sobre el "
+        "contenedor equivocado: sin `app` en el cuerpo nada lo distingue",
+        linea=linea,
+        arreglo="devolver `\"app\": APP_NOMBRE`, con el nombre como literal versionado y no "
+                "leído del entorno, como `backend/app/adaptadores/entrada/http/rutas/salud.py` "
+                "de la semilla (`semilla/ESQUELETO/CLAUDE.md` §4)",
+    )
+
+
+def _comprobar_identidad(fn, arbol: ast.Module, ruta: str, lineas: list[str],
+                         r: Resultado) -> None:
+    if not _declara_app(arbol):
+        if (motivo := suprimido(lineas, fn.lineno - 1, "SEM-4")):
+            r.supresiones.append(f"{ruta}:{fn.lineno} /health sin `app` — {motivo}")
+        else:
+            _sin_identidad(r, ruta, fn.lineno)
+    r.comprobo("/health: el cuerpo lleva `app`")
 
 
 def comprobar_coherencia_healthcheck(repo: Repo, r: Resultado) -> None:

@@ -176,6 +176,82 @@ class PruebaSinAutenticacion(CasoConRepo):
         self.assertSinRegla("G8-9", r)
 
 
+SALUD_COMO_LA_SEMILLA = '''\
+from fastapi import APIRouter, Response
+
+APP_NOMBRE = "coipo_prueba"
+router = APIRouter()
+
+
+def _identidad() -> dict:
+    return {"app": APP_NOMBRE, "version": "1", "commit": "abc", "construido_en": "hoy"}
+
+
+@router.get("/health")
+def salud(respuesta: Response) -> dict:
+    cuerpo = {"status": "ok", **_identidad()}
+    return cuerpo
+'''
+
+
+class PruebaIdentidadEnSalud(CasoConRepo):
+    """SEM-4: el cuerpo de `/health` lleva `app`.
+
+    Es lo único que delata una colisión de `APP_PORT`: si otra aplicación ocupa el
+    puerto, el `curl -sf` del despliegue recibe SU `/health`, responde 200, y el
+    despliegue se declara exitoso sobre el contenedor equivocado
+    (`semilla/ESQUELETO/CLAUDE.md` §4 de la fábrica)."""
+
+    MODULO = j11
+
+    def setUp(self):
+        super().setUp()
+        self.repo.escribe("docker-compose.yml", COMPOSE)
+
+    def test_sin_app_avisa(self):
+        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
+            '{"status": "ok", "app": "prueba"}', '{"status": "ok"}'))
+        r = self.repo.juzga()
+        self.assertRegla("SEM-4", "AVISA", "`app`", r)
+        self.assertSinBloqueos(r)
+
+    def test_con_app_no_avisa(self):
+        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO)
+        self.assertSinRegla("SEM-4")
+
+    def test_la_forma_de_la_semilla_no_avisa(self):
+        """La semilla arma el cuerpo con `**_identidad()`: `app` vive en otra función."""
+        self.repo.escribe("backend/app/routers/salud.py", SALUD_COMO_LA_SEMILLA)
+        self.assertSinRegla("SEM-4")
+
+    def test_un_modelo_con_campo_app_no_avisa(self):
+        self.repo.escribe("backend/app/routers/salud.py", (
+            "from fastapi import APIRouter\nfrom pydantic import BaseModel\n\n"
+            "router = APIRouter()\n\n\nclass Salud(BaseModel):\n    status: str\n    app: str\n\n\n"
+            '@router.get("/health")\ndef salud() -> Salud:\n'
+            '    return Salud(status="ok", app="coipo_prueba")\n'))
+        self.assertSinRegla("SEM-4")
+
+    def test_se_puede_suprimir_con_motivo(self):
+        self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
+            '{"status": "ok", "app": "prueba"}', '{"status": "ok"}').replace(
+            "def salud(", "# coipo-jueces:ignorar(SEM-4) el balanceador ya distingue la app\ndef salud("))
+        r = self.repo.juzga()
+        self.assertSinRegla("SEM-4", r)
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+
+    def test_el_nginx_sin_app_avisa(self):
+        self.repo.escribe("docker-compose.yml", COMPOSE_SOLO_APP)
+        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD.replace(
+            '\'{"status":"ok","app":"prueba"}\'', "'ok'"))
+        self.assertRegla("SEM-4", "AVISA", "`app`")
+
+    def test_el_nginx_con_app_no_avisa(self):
+        self.repo.escribe("docker-compose.yml", COMPOSE_SOLO_APP)
+        self.repo.escribe("frontend/nginx.conf", NGINX_SALUD)
+        self.assertSinRegla("SEM-4")
+
+
 class PruebaRepositorioVacio(CasoConRepo):
     """El caso `coipo_cabania`: sin compose y sin `/health`. Nunca OK.
 
