@@ -58,9 +58,18 @@ on:
         type: string
         default: ubuntu-latest
     outputs:
+      # Las cuatro que escribe correr.py en $GITHUB_OUTPUT. Hasta el 2026-11-21 sólo
+      # salían dos: `estado` -el centinela que distingue «no corrió» de «cero»- y
+      # `avisos` se quedaban dentro del job (tests/test_verificar_yaml.py lo fija).
+      estado:
+        description: "corrio | no_corrio. Con no_corrio los números valen -1: el script murió antes de terminar."
+        value: ${{ jobs.verificar.outputs.estado }}
       bloqueantes:
         description: "Número de hallazgos de severidad BLOQUEA."
         value: ${{ jobs.verificar.outputs.bloqueantes }}
+      avisos:
+        description: "Número de hallazgos de severidad AVISA."
+        value: ${{ jobs.verificar.outputs.avisos }}
       supresiones:
         description: "Supresiones activas. Si crece respecto de main, el juez se está apagando."
         value: ${{ jobs.verificar.outputs.supresiones }}
@@ -77,7 +86,9 @@ jobs:
     # despliegan.
     timeout-minutes: 10
     outputs:
+      estado: ${{ steps.correr.outputs.estado }}
       bloqueantes: ${{ steps.correr.outputs.bloqueantes }}
+      avisos: ${{ steps.correr.outputs.avisos }}
       supresiones: ${{ steps.correr.outputs.supresiones }}
     steps:
       # Sin `repository:`, checkout trae el repositorio LLAMANTE. Es lo que se
@@ -88,6 +99,9 @@ jobs:
           # `git ls-files` lee el índice, no el historial: un clon superficial
           # basta y ahorra minutos en repos con muchos commits.
           fetch-depth: 1
+          # Los jueces sólo leen: el token no tiene por qué quedarse en `.git/config`
+          # mientras corren (2026-11-21).
+          persist-credentials: false
 
       # EL MOTOR VIENE DE LA MISMA REFERENCIA QUE EL YAML, y eso arregla un
       # defecto que costo un diagnostico entero.
@@ -152,6 +166,7 @@ jobs:
           ref: ${{ steps.motor.outputs.ref }}
           path: .coipo_jueces
           fetch-depth: 1
+          persist-credentials: false
 
       # No hay `setup-python`: los jueces son de biblioteca estándar a
       # propósito, así que el python del runner sirve. Es un minuto menos por

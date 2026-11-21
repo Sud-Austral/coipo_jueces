@@ -1,4 +1,6 @@
-# Abre (o comenta) un issue cuando `coherencia` falla en main, y lo cierra cuando vuelve a verde.
+# Abre (o comenta) un issue cuando `Autotest` falla en main, y lo cierra cuando vuelve a verde.
+# (Hasta el 2026-11-21 esta línea decía `coherencia`, que es el workflow de la fábrica de
+# donde se copió; aquí vigila `Autotest`, como dicen `workflows:` y el título del issue.)
 #
 # POR QUÉ EXISTE (copiado de coipo_master_produccion). El CI de la fábrica estuvo ROJO del 2026-11-12 al 2026-11-14 —una cuenta
 # fija de 8 gerencias cuando ya había 9, y `FAB-9` sin su línea `mirado:` en el CONSTRUCCION

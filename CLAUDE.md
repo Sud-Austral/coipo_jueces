@@ -7,7 +7,7 @@ Verificadores ejecutables (Python, solo biblioteca estándar) de la flota COIPO 
 - `jueces/`: `comun.py` (severidades, veredicto de cuatro estados, supresiones, `Repo` con `indice_roto()` y `sin_indice()`), `comun_yaml.py` (el parser YAML de los compose), `comun_semilla.py` (`adopta:` y `fabrica:` de `.semilla`, con su semántica única), `correr.py` (orquestador) y once `jNN_*.py` (j01, j02, j05, j06, j08, j09, j11, j12, j13, j14, j16). Se cuentan con `ls jueces/j*.py`.
 - `tests/`: una prueba por juez más transversales (`test_reglas_citadas.py`, `test_tres_estados.py`, `test_verificar_yaml.py`, `test_workflows_yaml.py`, `test_adopta_cruzado.py`, `test_adopta_formas.py`, `test_indice_roto.py`, `test_anotaciones.py`, `test_yaml_formas.py`); `ayuda.py` arma repositorios sintéticos.
 - `REGLAS.md` (catálogo de reglas), `DEUDA.md` (supresiones activas), `semilla.lock`, `docs/VERSIONADO.md`.
-- `.github/workflows/`: `verificar.yml` (reusable), `autotest.yml` (los jueces se prueban a sí mismos), `probar-runner.yml` (manual).
+- `.github/workflows/`: `verificar.yml` (reusable), `autotest.yml` (los jueces se prueban a sí mismos, con actionlint sobre el reusable) y `alerta-main.yml` (abre un issue si `Autotest` falla en main). `probar-runner.yml` se retiró el 2026-11-21: pedía un runner self-hosted desde un repositorio público y quedaba encolado para siempre.
 
 ## Comandos (VERIFICADOS el 2026-10-25)
 ```bash

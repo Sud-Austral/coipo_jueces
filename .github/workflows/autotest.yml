@@ -80,6 +80,30 @@ jobs:
           print('verificar.yml ok')
           "
 
+      - name: actionlint sobre el reusable
+        # La validación que de verdad cuenta es la de GitHub al LLAMAR al reusable (el
+        # job de abajo), pero llega tarde: `v2.0.3` salió rota por dos defectos que
+        # actionlint señala. Versión fijada y el binario comprobado contra su sha256
+        # (del `actionlint_1.7.12_checksums.txt` de la release, medido el 2026-11-21):
+        # un `curl | tar` sin hash ejecuta lo que el servidor sirva ese día.
+        #
+        # `-ignore` de UN mensaje: `github.job_workflow_ref` no está en el contexto
+        # documentado, y el propio verificar.yml explica que llega vacío y por qué el
+        # paso muere si no hay referencia. Sin shellcheck ni pyflakes (`-shellcheck=`,
+        # `-pyflakes=`): lo que se comprobó en local es exactamente lo que corre aquí.
+        env:
+          ACTIONLINT: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          archivo="actionlint_${ACTIONLINT}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archivo" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT}/${archivo}"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$archivo" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archivo" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color -shellcheck= -pyflakes= \
+            -ignore 'property "job_workflow_ref" is not defined' \
+            .github/workflows/verificar.yml
+
       - name: Los jueces sobre su propio repositorio
         # Dogfooding, y no es simbólico: este repo es PÚBLICO. Si un fixture con
         # un secreto de mentira deja de estar bajo tests/ y pasa a parecer real,

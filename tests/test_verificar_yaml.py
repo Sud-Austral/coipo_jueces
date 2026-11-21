@@ -163,5 +163,51 @@ class PruebaRefPorDefecto(unittest.TestCase):
         self.assertIn("exit 1", self.texto)
 
 
+CORRER = RAIZ / "jueces" / "correr.py"
+
+
+class PruebaSalidasYCheckout(unittest.TestCase):
+    """Lo que `correr.py` escribe en `$GITHUB_OUTPUT` sale del reusable, y los
+    checkouts no dejan la credencial en el disco (2026-11-21).
+
+    `correr.py` escribe `estado`, `bloqueantes`, `avisos` y `supresiones`, y el
+    reusable sólo exponía dos: `estado=no_corrio` —el centinela que distingue «no
+    corrió» de «cero»— no llegaba al llamante. Y `actions/checkout` sin
+    `persist-credentials: false` deja el token en `.git/config` mientras corren los
+    jueces y el resto del job."""
+
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(RAIZ / "jueces"))
+        from comun_yaml import carga_yaml
+        self.yaml = carga_yaml(VERIFICAR.read_text(encoding="utf-8"))
+        # Las cadenas de `fh.write("estado=...\nbloqueantes=...")` tal como están en el
+        # fuente: el `\n` es una barra y una ene, y separa claves.
+        cadenas = re.findall(r'fh\.write\(f?"([^"]*)"', CORRER.read_text(encoding="utf-8"))
+        self.escritas = sorted({clave for c in cadenas
+                                for clave in re.findall(r"(?:^|\\n)(\w+)=", c)})
+
+    def test_correr_escribe_lo_que_esta_prueba_espera(self):
+        self.assertEqual(["avisos", "bloqueantes", "estado", "supresiones"], self.escritas)
+
+    def test_cada_salida_de_correr_sale_del_job_y_del_reusable(self):
+        del_job = self.yaml["jobs"]["verificar"]["outputs"]
+        del_reusable = self.yaml["on"]["workflow_call"]["outputs"]
+        for clave in self.escritas:
+            with self.subTest(clave=clave):
+                self.assertEqual(f"${{{{ steps.correr.outputs.{clave} }}}}", del_job.get(clave))
+                self.assertEqual(f"${{{{ jobs.verificar.outputs.{clave} }}}}",
+                                 (del_reusable.get(clave) or {}).get("value"))
+
+    def test_ningun_checkout_persiste_la_credencial(self):
+        checkouts = [s for s in self.yaml["jobs"]["verificar"]["steps"]
+                     if str(s.get("uses", "")).startswith("actions/checkout@")]
+        self.assertEqual(2, len(checkouts))
+        for paso in checkouts:
+            with self.subTest(paso=paso.get("name")):
+                self.assertIn(str((paso.get("with") or {}).get("persist-credentials")).lower(),
+                              {"false"})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
