@@ -646,7 +646,7 @@ La tanda «P1a — que el gate no mienta» (2026-11-21), un commit por tema:
 | Trazabilidad | `DOCKER-hc` pasa a `DK-5`; `test_reglas_citadas` lee el primer argumento de TODA llamada a `bloquea`/`avisa` y falla ante un alias |
 | `j02` | el lado del host de `ports:` se lee entero (`127.0.0.1:${APP_PORT:?msg}:8000`, valores anidados) |
 | `j11` | `G8-9` ve `Depends()` por defecto, `dependencies=[...]`, `sesion_actual` y `RedirectResponse`; **`SEM-4`** (AVISA): el cuerpo de `/health` lleva `app` |
-| `j13` | sin ningún tema oscuro, `UI-3` es un hallazgo (antes «no evaluado» y OK) |
+| `j13` | sin ningún tema oscuro, `UI-3` es un hallazgo (antes «no evaluado» y OK): BLOQUEA en lo sembrado desde el 2026-11-22, AVISA en lo anterior |
 | `.env` | un solo `ignora_env()` para `j01` y `j08`; `j09` deja el `.gitignore` a `G8-8`; la lista de Vite exige el sufijo de modo |
 | `j01` | `NG-1` sólo exime el upstream en `$variable`: un nombre literal con `resolver` avisa |
 | `j12` | **`SEM-3`** (AVISA): falta una pieza sellada de `backend/tests/` |
@@ -666,7 +666,11 @@ final. **BLOQUEA: 180 → 183** (sobre los 88 de la línea base: 141 → 144); *
   letra de «Cuándo toca una mayor nueva», eso es mayor nueva; el precedente de `v2.0.14`
   —«arreglar una lectura que dejaba sin juzgar a quien sí pidió ser juzgado es `vN.x`»—
   se escribió con la condición de que ningún `exit` pasara de 0 a 1, y aquí en
-  bloqueante pasaría. **Lo decide Luis Monsalve antes de publicar.**
+  bloqueante pasaría. **Resuelto el mismo día sin mayor nueva** (6bd55bb): como FAB-9,
+  «sin tema oscuro» bloquea sólo en lo sembrado desde el 2026-11-22 y avisa en lo
+  anterior (FILOSOFIA.md §4 de la fábrica). `coipo_app` queda con un AVISA y sin
+  bloqueantes (medido: 0 BLOQUEA, UI-3 en AVISA); el radio de esta tanda baja a
+  **BLOQUEA 182** (141 → 143 sobre los 88), contado restando ese caso.
 - Un repositorio que ya tenía cuatro: `G8-2`. Una línea `IP:${VARIABLE:?mensaje}:puerto`
   se leía cortada dentro de la guarda y no se juzgaba; publica un puerto por una
   variable que no es `APP_PORT`.
