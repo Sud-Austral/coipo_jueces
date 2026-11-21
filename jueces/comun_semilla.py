@@ -1,6 +1,8 @@
-"""Lo que declara `.semilla`: las claves `adopta:` y `fabrica:`.
+"""Lo que declara `.semilla`: las claves `adopta:`, `fabrica:`, `maqueta:` y `ajeno:`.
 
 Vive aparte de `comun.py` desde el 2026-10-25 (`COD-1`). `comun.py` lo reexporta.
+Las cuatro se leen con `leer_clave()` desde el 2026-11-21: la misma sangría, el
+mismo comentario y la misma lista en bloque para todas.
 """
 
 from __future__ import annotations
@@ -85,10 +87,67 @@ from comun_yaml import _sin_comentario
 #
 # Una línea comentada NO declara nada: `^\s*adopta` no casa con `# adopta: x`,
 # porque `#` no es espacio en blanco. Hay una prueba que lo fija.
-_ADOPTA = re.compile(r"^(?P<sangria>[ \t]*)adopta[ \t]*:[ \t]*(?P<lista>[^\r\n]*)", re.MULTILINE)
 _ITEM = re.compile(r"^(?P<sangria>[ \t]*)-(?:[ \t]+(?P<valor>.*))?$")
 
 CAPAS_CONOCIDAS = frozenset({"semilla", "interfaz"})
+
+
+# ── Un solo lector de claves (2026-11-21) ─────────────────────────────────────
+#
+# Hasta ese día cada clave tenía su expresión: `adopta:` y `fabrica:` aceptaban
+# sangría y `maqueta:` y `ajeno:` no; sólo `adopta:` leía la lista YAML en bloque
+# (`ajeno:` la leía vacía y medía igual las carpetas declaradas), y `maqueta:` se
+# quedaba con las comillas. Ahora las cuatro se leen aquí, igual: la PRIMERA línea
+# `<clave>:` no comentada (con o sin sangría), su valor sin comentario y, si está
+# vacío, los ítems de la lista en bloque que la sigue.
+
+
+@dataclass(frozen=True)
+class Clave:
+    """Una clave de `.semilla` tal como está escrita."""
+
+    numero: int  # línea de la clave, desde 1
+    linea: str  # la línea literal, con su sangría
+    valor: str  # lo que va a la derecha de `:`, sin comentario y sin espacios
+    items: tuple[str, ...] = ()  # los ítems de una lista en bloque, si `valor` está vacío
+    hasta: int = 0  # la última línea de esa lista (= `numero` si no hay)
+
+
+def leer_clave(texto: str | None, nombre: str) -> Clave | None:
+    """La clave `nombre:` de un `.semilla`, o None si no está.
+
+    Una línea comentada no declara nada: `^[ \\t]*clave` no casa con `# clave: x`,
+    porque `#` no es espacio en blanco."""
+    if not texto:
+        return None
+    m = re.search(rf"^(?P<sangria>[ \t]*){re.escape(nombre)}[ \t]*:[ \t]*(?P<resto>[^\r\n]*)",
+                  texto, re.MULTILINE)
+    if not m:
+        return None
+    numero = texto[: m.start()].count("\n") + 1
+    valor = _sin_comentario(m.group("resto")).strip()
+    if valor:
+        return Clave(numero, m.group(0), valor, (), numero)
+    # Sin nada a la derecha: puede abrir una lista YAML en bloque. Los ítems van a la
+    # sangría de la clave o más adentro; se saltan líneas en blanco y comentarios, y la
+    # lista termina en la primera línea que no es un ítem.
+    sangria = len(m.group("sangria").expandtabs())
+    items: list[str] = []
+    hasta = numero
+    for n, linea in enumerate(texto[m.end():].splitlines()[1:], start=numero + 1):
+        if not linea.strip() or linea.lstrip().startswith("#"):
+            continue
+        item = _ITEM.match(linea)
+        if not item or len(item.group("sangria").expandtabs()) < sangria:
+            break
+        items.append(_sin_comentario(item.group("valor") or "").strip())
+        hasta = n
+    return Clave(numero, m.group(0), "", tuple(items), hasta)
+
+
+def _sin_comillas(valor: str) -> str:
+    v = valor.strip()
+    return v[1:-1].strip() if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'" else v
 
 
 def _capas(crudo: str) -> list[str]:
@@ -167,34 +226,17 @@ def leer_adopcion(texto: str | None) -> Adopcion:
     """Lee la clave `adopta:` de un `.semilla`, en cualquiera de sus tres formas.
 
     Ausente = adopta todo. Ver la semántica completa arriba."""
-    if not texto:
+    clave = leer_clave(texto, "adopta")
+    if clave is None:
         return Adopcion(None)
-    m = _ADOPTA.search(texto)
-    if not m:
-        return Adopcion(None)
-    numero = texto[: m.start()].count("\n") + 1
-    crudo = _sin_comentario(m.group("lista")).strip()
+    crudo = clave.valor
     if crudo:
         forma = ("lista en línea YAML" if crudo.startswith("[")
                  else "entre comillas" if crudo[0] in "\"'" else "en línea")
-        return Adopcion(frozenset(_capas(crudo)), numero, m.group(0), forma)
-
-    # Sin nada a la derecha: puede abrir una lista YAML en bloque. Los ítems van a
-    # la sangría de la clave o más adentro; se saltan líneas en blanco y
-    # comentarios, y la lista termina en la primera línea que no es un ítem.
-    sangria = len(m.group("sangria").expandtabs())
-    capas: list[str] = []
-    hasta = numero
-    for n, linea in enumerate(texto[m.end():].splitlines()[1:], start=numero + 1):
-        if not linea.strip() or linea.lstrip().startswith("#"):
-            continue
-        item = _ITEM.match(linea)
-        if not item or len(item.group("sangria").expandtabs()) < sangria:
-            break
-        capas += _capas(_sin_comentario(item.group("valor") or ""))
-        hasta = n
-    forma = "lista en bloque YAML" if hasta != numero else "sin capas"
-    return Adopcion(frozenset(capas), numero, m.group(0), forma, hasta)
+        return Adopcion(frozenset(_capas(crudo)), clave.numero, clave.linea, forma)
+    capas = [c for item in clave.items for c in _capas(item)]
+    forma = "lista en bloque YAML" if clave.hasta != clave.numero else "sin capas"
+    return Adopcion(frozenset(capas), clave.numero, clave.linea, forma, clave.hasta)
 
 
 # ── La fecha de siembra: la clave `fabrica:` de `.semilla` ───────────────────
@@ -205,15 +247,14 @@ def leer_adopcion(texto: str | None) -> Adopcion:
 # lo sembrado desde su vigencia y avisa en lo anterior. `j16` la leía con su
 # propia expresión; `j14` es el segundo lector y por eso vive aquí, una sola vez.
 # Como `adopta:`, una línea comentada no declara nada.
-_FABRICA = re.compile(r"^[ \t]*fabrica[ \t]*:[ \t]*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
+_FECHA = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def leer_fabrica(texto: str | None) -> str | None:
     """`AAAA-MM-DD` de la clave `fabrica:` de un `.semilla`, o None si no la lleva."""
-    if not texto:
-        return None
-    m = _FABRICA.search(texto)
-    return m.group(1) if m else None
+    clave = leer_clave(texto, "fabrica")
+    m = _FECHA.match(_sin_comillas(clave.valor)) if clave else None
+    return m.group(0) if m else None
 
 
 # ── La maqueta validada: la clave `maqueta:` de `.semilla` ────────────────────
@@ -225,7 +266,6 @@ def leer_fabrica(texto: str | None) -> str | None:
 # No adoptar `interfaz` ahí NO es una supresión: el aspecto tiene otra fuente, con
 # nombre y commit. j13 lo lee para no contarla; j16 para no medir la referencia; j12
 # para comprobar que la cara copiada no se editó (MAQ-1).
-_MAQUETA = re.compile(r"^maqueta[ \t]*:[ \t]*(?P<valor>\S+)", re.MULTILINE)
 
 
 # ── Código ajeno: la clave `ajeno:` de `.semilla` ──────────────────────────────
@@ -236,21 +276,24 @@ _MAQUETA = re.compile(r"^maqueta[ \t]*:[ \t]*(?P<valor>\S+)", re.MULTILINE)
 # CADA una se cuenta como supresión y sale publicada (AGENTS.md §5): declarar ajeno
 # apaga una medición, y esa puerta se paga. La maqueta validada NO va por aquí: tiene
 # su propia clave y no es supresión (2026-11-12).
-_AJENO = re.compile(r"^ajeno[ \t]*:[ \t]*(?P<lista>[^\r\n]*)", re.MULTILINE)
 
 
 def leer_ajeno(texto: str | None) -> list[str]:
-    """Prefijos de ruta declarados ajenos, con barra final. Vacío si no hay clave."""
-    if not texto or not (m := _AJENO.search(texto)):
+    """Prefijos de ruta declarados ajenos, con barra final. Vacío si no hay clave.
+
+    En línea (`ajeno: a/, b/`), en flujo (`[a/, b/]`) o en bloque (`- a/`)."""
+    clave = leer_clave(texto, "ajeno")
+    if clave is None:
         return []
-    rutas = (p.strip().strip("\"'[]").strip() for p in re.split(r"[,\s]+", m.group("lista")))
+    crudo = " ".join((clave.valor, *clave.items))
+    rutas = (p.strip().strip("\"'[]").strip() for p in re.split(r"[,\s]+", crudo))
     return [r if r.endswith("/") else r + "/" for r in rutas if r and r not in {"/", "./"}]
 
 
 def leer_maqueta(texto: str | None) -> tuple[int, str] | None:
     """(línea, `origen@commit`) de la clave `maqueta:`, o None si no la lleva."""
-    if not texto or not (m := _MAQUETA.search(texto)):
-        return None
-    return texto.count("\n", 0, m.start()) + 1, m.group("valor")
+    clave = leer_clave(texto, "maqueta")
+    valor = _sin_comillas(clave.valor).split() if clave else []
+    return (clave.numero, valor[0]) if clave and valor else None
 
 
