@@ -31,7 +31,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from comun import (  # noqa: E402
-    COMPOSE, Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, numero_de_linea, suprimido,
+    COMPOSE, Repo, Resultado, YamlNoSoportado, carga_yaml, ejecutar, ignora_env, numero_de_linea,
+    suprimido,
 )
 
 PERFILES = ("aplicacion", "encuadre_operativo")
@@ -56,7 +57,9 @@ RESOLVER = re.compile(r"^\s*resolver\s+", re.MULTILINE)
 NGINX_INTERNO = ("frontend/nginx.conf", "ops/nginx/app.conf", "nginx/app.conf",
                  "nginx.conf", "web/nginx.conf")
 
-EXCLUYE_ENV = {".env", ".env*", "/.env", "**/.env", ".env.*", "*.env"}
+# Qué patrones de `.dockerignore` dejan fuera el `.env` lo decide `ignora_env()` de
+# comun.py, el mismo que lee el `.gitignore` en j08. Aquí había una lista propia que
+# aceptaba `.env.*`, que NO excluye `.env` (2026-11-21).
 
 
 # --------------------------------------------------------------------------
@@ -212,9 +215,7 @@ def comprobar_contexto_de_build(repo: Repo, r: Resultado) -> None:
                     "`context: .` que alguien añada lo hará sin avisar")
         return
 
-    lineas = repo.lineas(".dockerignore")
-    patrones = {l.strip() for l in lineas if l.strip() and not l.startswith("#")}
-    if not (patrones & EXCLUYE_ENV):
+    if not ignora_env(repo.lineas(".dockerignore")):
         r.bloquea("DK-4", ".dockerignore", "el `.dockerignore` no excluye `.env`",
                   "el archivo con las credenciales de producción entra en el "
                   "contexto de build; un `COPY . .` lo deja dentro de la imagen, "

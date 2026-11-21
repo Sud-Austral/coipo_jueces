@@ -62,8 +62,12 @@ PERMITIDOS_ENV = {
 }
 SUFIJOS_PERMITIDOS = (".env.example", ".env.sample", ".env.template")
 
-# Vite lee estos según el modo; van versionados por diseño.
-VITE = re.compile(r"^(frontend|web|client)/\.env(\.(development|production|test))?$")
+# Vite lee estos según el modo; van versionados por diseño. El SUFIJO DE MODO es
+# obligatorio: hasta el 2026-11-21 era opcional y un `frontend/.env` a secas —el
+# archivo de secretos de siempre, que desde agosto de 2026 llega al servidor (j08,
+# G8-10)— pasaba como si fuera de Vite. Coherente con j08, que distingue `.env`
+# exacto (BLOQUEA) de una variante `.env.<algo>` (AVISA).
+VITE = re.compile(r"^(frontend|web|client)/\.env\.(development|production|test)$")
 
 # Ruido: lo que no se escanea porque no puede contener un secreto escrito a
 # mano y sí puede contener basura de alta entropía (hashes, minificados).
@@ -395,38 +399,12 @@ def comprobar_contenido(repo: Repo, r: Resultado) -> None:
                 )
 
 
-def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
-    """`/.env` anclado con barra inicial.
-
-    Sin la barra, el patrón casa a cualquier profundidad. `guia-8 §8` documenta
-    el caso real: un `data/` sin anclar dejó congelado un catálogo en el
-    servidor durante meses, porque `rsync --delete` no borra lo excluido y el
-    directorio versionado nunca llegaba a actualizarse. Nadie lo vio: `/health`
-    respondió 200 todo ese tiempo.
-    """
-    if not repo.existe(".gitignore"):
-        r.avisa(REGLA, "", "el repositorio no tiene .gitignore",
-                "nada impide que el próximo `git add -A` versione un .env",
-                arreglo="añadir un .gitignore con /.env y /data/ anclados")
-        return
-
-    lineas = repo.lineas(".gitignore")
-    patrones = [l.strip() for l in lineas if l.strip() and not l.startswith("#")]
-    if any(p in ("/.env", "/.env*") for p in patrones):
-        return
-
-    sin_anclar = next((i + 1 for i, l in enumerate(lineas)
-                       if l.strip() in (".env", ".env*")), None)
-    if sin_anclar:
-        r.avisa(REGLA, ".gitignore",
-                "'.env' sin barra inicial: casa a cualquier profundidad",
-                "un .env anidado queda excluido del rsync y se congela en el "
-                "servidor sin que nada avise",
-                linea=sin_anclar, arreglo="anclarlo como /.env")
-    else:
-        r.avisa(REGLA, ".gitignore", "el .gitignore no excluye .env",
-                "el próximo `git add -A` versiona las credenciales locales",
-                arreglo="añadir /.env")
+# EL `.gitignore` YA NO SE MIRA AQUÍ (2026-11-21). Este juez avisaba, con G8-4, de un
+# `.gitignore` ausente o que no ignora `.env` —lo mismo que j08 cuenta como G8-8, que
+# es el punto de la Guía 8 que lo pide— y de un `.env` «sin barra inicial», que j08 da
+# por bueno: la Guía 8, punto 8, sólo exige anclar `/data/`, y un `.env` ignorado a
+# cualquier profundidad protege más, no menos (su manifestación hablaba de un rsync
+# que no lee el `.gitignore`). Un defecto, un código, un juez.
 
 
 def comprobar(repo: Repo, r: Resultado) -> None:
@@ -442,8 +420,6 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     r.comprobo("archivos .env en el arbol versionado")
     comprobar_contenido(repo, r)
     r.comprobo(f"contenido de {len(repo.versionados())} archivos versionados")
-    comprobar_gitignore(repo, r)
-    r.comprobo(".gitignore")
 
 
 if __name__ == "__main__":

@@ -26,6 +26,9 @@ sys.path.insert(0, str(RAIZ / "jueces"))
 import j09_secretos as j09  # noqa: E402
 from comun import Repo, Resultado, suprimido  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ayuda import AsercionesDeJuez  # noqa: E402
+
 # 64 caracteres hexadecimales. No abre nada: es literalmente el sha256 de la
 # cadena "fixture sintetico de coipo_jueces, no es un secreto".
 HEX_FALSO = "3f1b8c2e9a47d05e6b83f2c1a09d47be15c3082fa6d94e7b1c250af38d69e4a7"
@@ -175,7 +178,7 @@ class PruebaDsn(unittest.TestCase):
             self._hallazgos('URL = "postgresql://demo:demo@servidor:5432/app"'), [])
 
 
-class PruebaArchivosDeEntorno(unittest.TestCase):
+class PruebaArchivosDeEntorno(AsercionesDeJuez):
     def setUp(self):
         self.repo = RepoSintetico()
         self.addCleanup(self.repo.cierra)
@@ -223,11 +226,22 @@ class PruebaArchivosDeEntorno(unittest.TestCase):
         self.repo.escribe("frontend/.env.production", "VITE_API_BASE_URL=\n")
         self.assertEqual(self.repo.juzga().bloqueantes, [])
 
-    def test_gitignore_sin_anclar_avisa(self):
-        self.repo.escribe(".gitignore", ".env\n")
+    def test_env_de_vite_sin_sufijo_de_modo_no_es_legitimo(self):
+        """Vite lee `.env.<modo>` versionado por diseño; un `frontend/.env` a secas es
+        el archivo de secretos de siempre, y desde agosto de 2026 llega al servidor
+        (j08, G8-10). La lista lo dejaba pasar porque el sufijo era opcional."""
+        self.repo.escribe(".gitignore", "/.env\n")
+        self.repo.escribe("frontend/.env", "VITE_API_BASE_URL=\n")
+        self.assertRegla("G8-4", "BLOQUEA", "archivo de entorno versionado")
+
+    def test_el_gitignore_lo_juzga_j08_y_no_j09(self):
+        """Sin `.gitignore`, o con `.env` sin anclar, j09 avisaba con G8-4 lo mismo que
+        j08 ya cuenta como G8-8 —y el «sin anclar» contradecía a j08, que lo da por
+        bueno: la Guía 8, punto 8, sólo exige anclar `/data/`—. Un defecto, un código."""
         self.repo.escribe("README.md", "# x\n")
-        avisos = [h for h in self.repo.juzga().hallazgos if h not in self.repo.juzga().bloqueantes]
-        self.assertTrue(any("sin barra inicial" in h.mensaje for h in avisos))
+        self.assertSinRegla("G8-4")
+        self.repo.escribe(".gitignore", ".env\n")
+        self.assertSinRegla("G8-4")
 
 
 class PruebaFixturesDePrueba(unittest.TestCase):

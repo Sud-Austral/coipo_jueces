@@ -47,7 +47,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import sin_indice, Repo, Resultado, ejecutar, suprimido  # noqa: E402
+from comun import Repo, Resultado, ejecutar, ignora_env, sin_indice, suprimido  # noqa: E402
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -101,9 +101,11 @@ def comprobar_gitignore(repo: Repo, r: Resultado) -> None:
     entradas = _entradas_gitignore(repo)
     r.comprobo(".gitignore: rutas ancladas")
     lineas = repo.lineas(".gitignore")
-    patrones = {p for _, p in entradas}
 
-    if not ({".env", "/.env", ".env*", "*.env"} & patrones):
+    # `ignora_env()` de comun.py, el mismo que lee el `.dockerignore` en j01. La lista
+    # propia de aquí no aceptaba `**/.env` ni `/.env*` y bloqueaba un `.gitignore`
+    # correcto (2026-11-21).
+    if not ignora_env(lineas):
         r.bloquea(
             "G8-8", ".gitignore", "`.env` no está ignorado",
             "el `.env` real lo crea el bootstrap del servidor y nunca se commitea; "

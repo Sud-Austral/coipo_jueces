@@ -297,6 +297,34 @@ class Repo:
                 yield r
 
 
+# Los patrones de `.gitignore` o `.dockerignore` que dejan fuera el `.env` de la RAÍZ.
+# En los dos formatos `*` casa también la cadena vacía (`.env*` y `*.env` casan `.env`),
+# la barra inicial ancla a la raíz y `**/` casa a cualquier profundidad, la raíz
+# incluida. `.env.*` NO está: exige un punto después de `env`. Una barra final sólo
+# casa directorios. Hasta el 2026-11-21 había tres listas distintas en j01, j08 y j09.
+PATRONES_ENV = frozenset({
+    ".env", "/.env", "**/.env",
+    ".env*", "/.env*", "**/.env*",
+    "*.env", "/*.env", "**/*.env",
+})
+
+
+def ignora_env(lineas: Iterable[str]) -> bool:
+    """¿Estas líneas de `.gitignore` o `.dockerignore` dejan fuera el `.env` de la raíz?
+
+    Manda la última línea que casa, como en git y en Docker: `!.env` después de
+    `.env` lo vuelve a incluir."""
+    ignorado = False
+    for crudo in lineas:
+        linea = crudo.strip()
+        if not linea or linea.startswith("#"):
+            continue
+        negada = linea.startswith("!")
+        if linea.lstrip("!") in PATRONES_ENV:
+            ignorado = not negada
+    return ignorado
+
+
 def sin_indice(repo: Repo, r: Resultado) -> bool:
     """True, y lo anota en `no_evaluado`, si no se puede leer lo versionado.
 

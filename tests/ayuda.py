@@ -73,26 +73,14 @@ class RepoSintetico:
         shutil.rmtree(self.dir, ignore_errors=True)
 
 
-class CasoConRepo(unittest.TestCase):
-    """Base para las pruebas que necesitan un repositorio sintético.
+class AsercionesDeJuez(unittest.TestCase):
+    """Aserciones con nombre, para que el fallo se lea solo.
 
-    `MODULO` lo fija cada subclase con el juez bajo prueba.
+    Necesitan `self.repo` con un `juzga()`. Viven aparte de `CasoConRepo` para que las
+    use también quien arma su propio repositorio sintético (`test_j09_secretos.py`).
     """
 
-    MODULO = None
-
-    def setUp(self) -> None:
-        if not hay_git():
-            # Falla con instrucciones; nunca hace skip. Un test permanentemente
-            # saltado tiene el mismo color que uno que pasa, y esa confusión es
-            # la razón de que los tests de inmutabilidad de la flota lleven
-            # meses sin ejecutarse.
-            self.fail("falta `git` en el PATH: estas pruebas lo necesitan de verdad")
-        assert self.MODULO is not None, "la subclase debe fijar MODULO"
-        self.repo = RepoSintetico(self.MODULO)
-        self.addCleanup(self.repo.cierra)
-
-    # -- aserciones con nombre, para que el fallo se lea solo --------------
+    repo: RepoSintetico
 
     def assertBloquea(self, fragmento: str, resultado=None) -> None:
         r = resultado or self.repo.juzga()
@@ -144,3 +132,23 @@ class CasoConRepo(unittest.TestCase):
                  if h.regla == codigo],
             f"no debería haber {codigo}",
         )
+
+
+class CasoConRepo(AsercionesDeJuez):
+    """Base para las pruebas que necesitan un repositorio sintético.
+
+    `MODULO` lo fija cada subclase con el juez bajo prueba.
+    """
+
+    MODULO = None
+
+    def setUp(self) -> None:
+        if not hay_git():
+            # Falla con instrucciones; nunca hace skip. Un test permanentemente
+            # saltado tiene el mismo color que uno que pasa, y esa confusión es
+            # la razón de que los tests de inmutabilidad de la flota lleven
+            # meses sin ejecutarse.
+            self.fail("falta `git` en el PATH: estas pruebas lo necesitan de verdad")
+        assert self.MODULO is not None, "la subclase debe fijar MODULO"
+        self.repo = RepoSintetico(self.MODULO)
+        self.addCleanup(self.repo.cierra)
