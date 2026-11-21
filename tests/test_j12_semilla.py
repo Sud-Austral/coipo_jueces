@@ -514,5 +514,71 @@ class PruebaHistorial(unittest.TestCase):
         self.assertIn(HASTA_V1, por_archivo["backend/pyproject.toml"].mensaje)
 
 
+PRUEBA_SELLADA = "backend/tests/contrato/test_health.py"
+PRUEBA_CONTENIDO = "def test_x(): pass\n"
+DOCKERFILE = "backend/Dockerfile"
+DOCKERFILE_CONTENIDO = "FROM x\n"
+
+
+class PruebaPruebasSelladasAusentes(CasoConRepo):
+    """SEM-3: una prueba sellada que falta apaga una protección y el gate sigue verde.
+
+    Que falte una pieza cualquiera no es un hallazgo (`test_que_falte_una_pieza_no_es_un_
+    hallazgo`): no toda aplicación usa todas. Una prueba sellada de `backend/tests/` es
+    otra cosa: es la guarda que corre en cada aplicación, y borrarla no la rompe, la
+    calla."""
+
+    MODULO = j12
+
+    def setUp(self):
+        super().setUp()
+        self.lock = Path(self.repo.dir) / "semilla.lock.prueba"
+        self.lock.write_text(f"{huella(DOCKERFILE_CONTENIDO)}  {DOCKERFILE}\n"
+                             f"{huella(PRUEBA_CONTENIDO)}  {PRUEBA_SELLADA}\n",
+                             encoding="utf-8")
+        self._real, j12.LOCK = j12.LOCK, self.lock
+        self.addCleanup(lambda: setattr(j12, "LOCK", self._real))
+
+    def _sembrado(self, semilla: str = "version: 2026-11-20\n", backend: bool = True):
+        self.repo.escribe(".semilla", semilla)
+        self.repo.escribe(DOCKERFILE, "FROM x\n")
+        if backend:
+            self.repo.escribe("backend/app/main.py", "app = 1\n")
+
+    def test_una_prueba_sellada_que_falta_avisa(self):
+        self._sembrado()
+        r = self.repo.juzga()
+        h = self.assertRegla("SEM-3", "AVISA", "falta", r)
+        self.assertEqual(PRUEBA_SELLADA, h.archivo)
+        self.assertSinBloqueos(r)
+
+    def test_presente_no_avisa(self):
+        self._sembrado()
+        self.repo.escribe(PRUEBA_SELLADA, "def test_x(): pass\n")
+        self.assertSinRegla("SEM-3")
+
+    def test_sin_backend_no_hay_pruebas_que_exigir(self):
+        self._sembrado(backend=False)
+        self.assertSinRegla("SEM-3")
+
+    def test_lo_que_no_adopta_semilla_no_se_juzga(self):
+        self._sembrado(semilla="version: 2026-11-20\nadopta: interfaz\n")
+        self.assertSinRegla("SEM-3")
+
+    def test_se_suprime_en_la_semilla_nombrando_la_pieza(self):
+        self._sembrado(semilla=(
+            "version: 2026-11-20\n"
+            f"# coipo-jueces:ignorar(SEM-3) {PRUEBA_SELLADA}: esta app no expone /health\n"))
+        r = self.repo.juzga()
+        self.assertSinRegla("SEM-3", r)
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+
+    def test_una_supresion_de_otra_pieza_no_la_cubre(self):
+        self._sembrado(semilla=(
+            "version: 2026-11-20\n"
+            "# coipo-jueces:ignorar(SEM-3) backend/tests/otra.py: no aplica en esta app\n"))
+        self.assertRegla("SEM-3", "AVISA", "falta")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -481,8 +481,48 @@ def comprobar(repo: Repo, r: Resultado) -> None:
             continue
         _retirada(r, ruta, hasta)
 
+    _pruebas_ausentes(repo, r, esperado)
     _maqueta(repo, r)
     _paquetes_sistema(repo, r)
+
+
+# ── SEM-3: una prueba sellada que falta ───────────────────────────────────────
+#
+# Que falte una pieza del lock NO es un hallazgo (ver la cabecera): no toda aplicación
+# usa todas. Las de `backend/tests/` son otra cosa. Son las pruebas de contrato y de
+# arquitectura —y su arnés— que `semilla/README.md` de la fábrica declara CONGELADAS
+# («los tests de contrato») y que «por tanto corre[n] en cada aplicación»: borrar una no
+# rompe nada, la CALLA, y hasta el 2026-11-21 el gate seguía en verde. AVISA: o se borró,
+# o la semilla la trajo después de sembrar esta aplicación (`--actualizar` la trae).
+PRUEBAS_SELLADAS = "backend/tests/"
+
+
+def _pruebas_ausentes(repo: Repo, r: Resultado, esperado: dict[str, str]) -> None:
+    if not repo.existe("backend/app"):
+        return  # sin backend no hay pruebas del backend que exigir
+    marcador = repo.lineas(MARCADOR)
+    ausentes = sorted(ruta for ruta in esperado
+                      if ruta.startswith(PRUEBAS_SELLADAS) and not repo.existe(ruta))
+    for ruta in ausentes:
+        # Un archivo que no está no admite marcador: la supresión va en `.semilla`,
+        # nombrando la pieza en la misma línea que el marcador.
+        motivo = next((m for i, linea in enumerate(marcador)
+                       if ruta in linea and (m := suprimido(marcador, i, "SEM-3"))), None)
+        if motivo:
+            r.supresiones.append(f"{ruta} prueba sellada ausente — {motivo}")
+            continue
+        r.avisa(
+            "SEM-3", ruta, f"falta una pieza sellada de `{PRUEBAS_SELLADAS}` (las pruebas "
+                           "de la semilla y su arnés)",
+            "la guarda que esta prueba aplica en cada aplicación de la flota deja de "
+            "correr aquí, y nada se pone rojo: el CI pasa porque hay una prueba menos, no "
+            "porque el código cumpla",
+            arreglo="traerla de la semilla —" + ACTUALIZAR + " Si de verdad no aplica, "
+                    f"`# coipo-jueces:ignorar(SEM-3) {ruta}: <motivo>` en `.semilla`: se "
+                    "cuenta y se publica.",
+        )
+    r.comprobo(f"SEM-3: {sum(1 for p in esperado if p.startswith(PRUEBAS_SELLADAS))} "
+               f"prueba(s) sellada(s) de `{PRUEBAS_SELLADAS}`, {len(ausentes)} ausente(s)")
 
 
 PAQUETES = "backend/paquetes-sistema.txt"
