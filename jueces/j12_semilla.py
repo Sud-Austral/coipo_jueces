@@ -178,6 +178,21 @@ LÍMITES CONOCIDOS, sin disimular:
     publicó, y se juzga como editada.
   - La huella atrasada se reconoce por pieza, no por lock entero: una aplicación
     con piezas de tres semillas distintas avisa tres veces, cada una con su fecha.
+
+UNA RUTA RECIÉN SELLADA NO ES UNA PIEZA EDITADA (decisión del 2026-11-21)
+  Cuando un resellado añade una pieza en una ruta nueva —`rutas/autenticacion.py`,
+  `middleware_acceso.py`, `postgres/auditor.py` y `backend/ruff.toml` entraron el
+  2026-11-21—, una aplicación sembrada ANTES puede tener ya en esa ruta un archivo
+  PROPIO: su login con el IAM, su auditor. No editó nada de la semilla; la semilla
+  ocupó una ruta que era suya. Medido ese día con `consumidores.py`: cuatro
+  aplicaciones, cinco archivos. Llamarlo «pieza editada» es el falso positivo de
+  `FILOSOFIA.md` §3, y bloquearlo contradice el §4 (lo nuevo sólo bloquea en lo
+  sembrado desde su vigencia).
+  Una pieza que no aparece en NINGÚN bloque del historial es nueva en el lock
+  vigente, que rige desde el `vigente_hasta` más reciente del historial; su
+  vigencia es el día siguiente, como `AUD-1`. Sembrada antes (o sin `fabrica:`),
+  la aplicación AVISA; sembrada después, una diferencia es una edición y BLOQUEA.
+  Sin historial no se sabe qué pieza es nueva: BLOQUEA, como siempre.
 """
 
 from __future__ import annotations
@@ -193,6 +208,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from comun import (  # noqa: E402
     Repo,
     Resultado,
+    Siembra,
     alcance_semilla,
     ejecutar,
     leer_maqueta,
@@ -383,6 +399,39 @@ def _retirada(r: Resultado, ruta: str, hasta: datetime.date) -> None:
     )
 
 
+def _propia_antes_del_sello(r: Resultado, ruta: str, contexto: str) -> None:
+    """La aplicación tenía un archivo PROPIO en una ruta que la semilla selló después."""
+    r.avisa(
+        "SEM-1",
+        ruta,
+        "ruta que la semilla selló DESPUÉS de sembrar esta aplicación, que ya tenía aquí "
+        f"un archivo propio ({contexto}): no es una pieza editada",
+        "la aplicación sigue con su propia versión en esta ruta y no recibe la pieza "
+        "sellada ni lo que trae; en el despliegue no cambia nada hasta que la adopte",
+        arreglo="compara la tuya con `semilla/CONGELADO/" + ruta + "` de "
+        "coipo_master_produccion. Lo que sólo sirve a esta aplicación, llévalo a un "
+        "archivo que NO esté en el lock (`git mv`), haz commit y trae la sellada con "
+        "`sembrar.py --destino . --actualizar --reponer " + ruta + "`: mientras la ruta "
+        "tenga tu archivo, `--actualizar` no la pisa.",
+    )
+
+
+def _siembra_frente_al_lock(
+    historial: dict[str, dict[str, datetime.date]], texto_marcador: str
+) -> Siembra | None:
+    """La siembra frente a la vigencia de las piezas NUEVAS del lock vigente.
+
+    El lock vigente reemplazó al último del historial el día de su `vigente_hasta`
+    más reciente; lo que sella por primera vez rige desde el día siguiente. Sin
+    historial —o vacío— no se sabe qué pieza es nueva: None, y se bloquea como antes.
+    """
+    fechas = [hasta for huellas in historial.values() for hasta in huellas.values()]
+    if not fechas:
+        return None
+    vigencia = (max(fechas) + datetime.timedelta(days=1)).isoformat()
+    return leer_siembra(texto_marcador, vigencia, CAPA)
+
+
 def _editada(r: Resultado, ruta: str) -> None:
     r.bloquea(
         "SEM-1",
@@ -488,8 +537,9 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # Se lee ANTES del bucle y no cuando aparece la primera diferencia, para que
     # un archivo roto o ausente se anote siempre y no sólo cuando hace falta.
     historial = _leer_historial(r)
+    recien = _siembra_frente_al_lock(historial, texto_marcador)
 
-    _juzgar_presentes(repo, r, presentes, esperado, historial)
+    _juzgar_presentes(repo, r, presentes, esperado, historial, recien)
     _juzgar_retiradas(repo, r, esperado, historial)
     _pruebas_ausentes(repo, r, esperado)
     _maqueta(repo, r)
@@ -529,8 +579,10 @@ def _juzgar_presentes(
     presentes: list[str],
     esperado: dict[str, str],
     historial: dict[str, dict[str, datetime.date]],
+    recien: Siembra | None,
 ) -> None:
-    """Cada pieza del lock que la aplicación tiene: vigente, suprimida, atrasada o editada."""
+    """Cada pieza del lock que la aplicación tiene: vigente, suprimida, atrasada, propia de
+    antes del sello o editada."""
     for ruta in sorted(presentes):
         actual = _huella(repo.ruta(ruta))
         if actual is None:
@@ -545,6 +597,12 @@ def _juzgar_presentes(
 
         if (hasta := historial.get(ruta, {}).get(actual)) is not None:
             _atrasada(r, ruta, hasta)
+            continue
+
+        # Nueva en el lock vigente (ningún bloque del historial la nombra) y la aplicación
+        # se sembró antes de que rigiera: el archivo es suyo, no una edición.
+        if recien is not None and ruta not in historial and not recien.nuevo:
+            _propia_antes_del_sello(r, ruta, recien.contexto(CAPA, MARCADOR))
             continue
 
         _editada(r, ruta)

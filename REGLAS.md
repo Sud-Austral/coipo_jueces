@@ -167,11 +167,22 @@ vigente, en bloques fechados (`# vigente_hasta: AAAA-MM-DD`), que sólo crece, y
 | coincide con el lock vigente | nada |
 | lleva `coipo-jueces:ignorar(SEM-1)` | supresión contada |
 | coincide con una huella del historial | **AVISA**, siempre: «atrasada: es la versión de la semilla publicada hasta el AAAA-MM-DD», con `sembrar.py --actualizar` |
+| es NUEVA en el lock vigente (ningún bloque del historial la nombra) y la aplicación se sembró antes de que rigiera (`fabrica:` anterior al día siguiente del último `vigente_hasta`, o sin `fabrica:`) | **AVISA**: la ruta era de la aplicación antes de que la semilla la sellara; `--actualizar --reponer RUTA` la trae cuando la aplicación mueva la suya |
 | no coincide con ninguna | **BLOQUEA** como «editada», como siempre |
 
 Una pieza que el lock vigente ya no nombra pero sí el historial (la semilla la
 partió o dejó de congelarla) AVISA como atrasada si la aplicación la tiene tal
 cual, y no se juzga si no: ya no es una pieza congelada.
+
+**La ruta recién sellada (2026-11-21).** El resellado de ese día añadió piezas en
+rutas nuevas (`rutas/autenticacion.py`, `middleware_acceso.py`, `postgres/auditor.py`,
+`backend/ruff.toml`), y cuatro aplicaciones sembradas antes ya tenían ahí un archivo
+PROPIO —su login con el IAM, su auditor—, medido con `consumidores.py`. No editaron
+nada de la semilla: la semilla ocupó una ruta que era suya. Por `FILOSOFIA.md` §4
+(lo nuevo bloquea sólo en lo sembrado desde su vigencia), una pieza nueva en el lock
+vigente AVISA en esas aplicaciones y BLOQUEA en las sembradas después. Sin historial
+no se sabe qué pieza es nueva, y se bloquea como siempre: ante la duda, no es más
+indulgente.
 
 El historial no lo elige la aplicación y no relaja nada sobre una pieza editada.
 Si no existe, `j12` se comporta como antes de D2 (atrasada = editada) y lo anota

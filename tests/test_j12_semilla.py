@@ -525,6 +525,10 @@ class PruebaHistorial(unittest.TestCase):
                     {
                         "backend/Dockerfile": "FROM ejemplo:2\n",
                         "backend/pyproject.toml": "[tool.ejemplo]\nv = 2\n",
+                        # Ya sellada antes: si no estuviera en el historial seria
+                        # NUEVA en el lock vigente, y en una app sembrada antes
+                        # AVISA como propia (regla del 2026-11-21), no bloquea.
+                        "backend/requirements-base.txt": "ejemplo>=2\n",
                     },
                 ),
             )
@@ -617,6 +621,93 @@ class PruebaPruebasSelladasAusentes(CasoConRepo):
             )
         )
         self.assertRegla("SEM-3", "AVISA", "falta")
+
+
+# --------------------------------------------------------------------------
+# Una ruta recién sellada no es una pieza editada (decisión del 2026-11-21)
+# --------------------------------------------------------------------------
+
+# Sintético: una pieza que el lock vigente sella por PRIMERA vez (ningún bloque del
+# historial la nombra), y el archivo propio que una aplicación ya tenía en esa ruta.
+# Fuera de backend/app/ a propósito: ahí la app sintética dispararía AUD-1 y la prueba
+# dejaría de mirar sólo SEM-1. `backend/ruff.toml` fue uno de los choques reales.
+NUEVA = "backend/ruff.toml"
+NUEVA_SELLADA = "# la version sellada de la semilla\n"
+NUEVA_PROPIA = "# el login propio de la aplicacion, de antes del sello\n"
+# historial_de_dos() termina en HASTA_V2 (2026-10-24): lo nuevo rige desde el 25.
+VIGENCIA_NUEVA = "2026-10-25"
+
+
+class PruebaRutaRecienSellada(PruebaHistorial):
+    """Una aplicación sembrada ANTES de que la semilla sellara una ruta, con un archivo
+    propio en ella, AVISA; sembrada después, BLOQUEA; sin historial, BLOQUEA siempre."""
+
+    def setUp(self):
+        super().setUp()
+        self.lock.write_text(
+            f"{huella(VIGENTE)}  {CONGELADO}\n{huella(NUEVA_SELLADA)}  {NUEVA}\n",
+            encoding="utf-8",
+        )
+
+    def sembrado_con(self, marcador: str, nueva: str) -> None:
+        self.repo.escribe(".semilla", marcador)
+        self.repo.escribe(CONGELADO, VIGENTE)
+        self.repo.escribe(NUEVA, nueva)
+
+    def assertPropiaAvisa(self, r):
+        h = self.hallazgo(r)
+        self.assertEqual([], r.bloqueantes, "lo que la app tenía antes del sello no bloquea")
+        self.assertEqual(("SEM-1", NUEVA), (h.regla, h.archivo))
+        self.assertIn("selló DESPUÉS", h.mensaje)
+        self.assertNotIn("está editada", h.mensaje, "no acusa de editar lo que era suyo")
+        self.assertIn("--reponer", h.arreglo)
+        self.assertTrue(h.manifestacion.strip(), "un hallazgo sin manifestación no existe")
+        return h
+
+    def assertBloqueaLaNueva(self, r):
+        h = self.hallazgo(r)
+        self.assertEqual([h], r.bloqueantes)
+        self.assertEqual(("SEM-1", NUEVA), (h.regla, h.archivo))
+        self.assertIn("es una pieza CONGELADA de la semilla y está editada", h.mensaje)
+
+    def test_sin_fabrica_la_ruta_propia_avisa(self):
+        self.con_historial()
+        self.sembrado_con("version: 2026-09-05\n", NUEVA_PROPIA)
+        self.assertPropiaAvisa(self.repo.juzga())
+
+    def test_sembrada_el_dia_que_cambio_el_lock_todavia_avisa(self):
+        self.con_historial()
+        self.sembrado_con(f"fabrica: {HASTA_V2}\n", NUEVA_PROPIA)
+        h = self.assertPropiaAvisa(self.repo.juzga())
+        self.assertIn(VIGENCIA_NUEVA, h.mensaje, "dice desde cuándo rige")
+
+    def test_sembrada_despues_de_la_vigencia_bloquea(self):
+        """Con la pieza ya sellada al sembrar, una diferencia es una edición."""
+        self.con_historial()
+        self.sembrado_con(f"fabrica: {VIGENCIA_NUEVA}\n", NUEVA_PROPIA)
+        self.assertBloqueaLaNueva(self.repo.juzga())
+
+    def test_sin_historial_no_se_sabe_que_es_nueva_y_bloquea(self):
+        self.assertFalse(self.historial.exists())
+        self.sembrado_con("version: 2026-09-05\n", NUEVA_PROPIA)
+        self.assertBloqueaLaNueva(self.repo.juzga())
+
+    def test_con_la_sellada_no_hay_hallazgo(self):
+        self.con_historial()
+        self.sembrado_con("version: 2026-09-05\n", NUEVA_SELLADA)
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos)
+        self.assertEqual("OK", r.veredicto)
+
+    def test_una_pieza_que_ya_estaba_sellada_y_se_edito_sigue_bloqueando(self):
+        """La indulgencia es sólo para rutas NUEVAS: la vieja editada bloquea en la app vieja."""
+        self.con_historial()
+        self.repo.escribe(".semilla", "version: 2026-09-05\n")
+        self.repo.escribe(CONGELADO, VIGENTE + "# retocada en la aplicacion\n")
+        self.repo.escribe(NUEVA, NUEVA_SELLADA)
+        h = self.hallazgo(self.repo.juzga())
+        self.assertEqual(("SEM-1", CONGELADO), (h.regla, h.archivo))
+        self.assertIn("está editada", h.mensaje)
 
 
 if __name__ == "__main__":
