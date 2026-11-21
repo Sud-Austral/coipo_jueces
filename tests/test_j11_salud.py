@@ -51,7 +51,7 @@ router = APIRouter()
 def salud(db: Session = Depends(get_db)) -> dict:
     """Sin autenticación, sin redirección, 200 con JSON simple."""
     db.execute(text("SELECT 1"))
-    return {"status": "ok"}
+    return {"status": "ok", "app": "prueba"}
 '''
 
 
@@ -93,6 +93,87 @@ class PruebaSalud(CasoConRepo):
                           COMPOSE.replace("/health", "/api/estado"))
         r = self.repo.juzga()
         self.assertTrue(r.hallazgos, "el healthcheck apunta a otra ruta y nadie avisa")
+
+
+SALUD_CON = '''\
+from fastapi import APIRouter, Depends
+from fastapi.responses import RedirectResponse
+
+from .sesion import sesion_actual, sesion_opcional, usuario_actual, exigir_rol
+
+router = APIRouter()
+privado = APIRouter(dependencies=[Depends(sesion_actual)])
+
+
+{decorador}
+def salud({parametros}) -> dict:
+    {cuerpo}
+    return {{"status": "ok", "app": "prueba"}}
+'''
+
+
+class PruebaSinAutenticacion(CasoConRepo):
+    """Guía 8, punto 9: ni autenticación ni redirección en `/health`.
+
+    Hasta el 2026-11-21 sólo se miraban la anotación y el NOMBRE de cada parámetro:
+    un `Depends(...)` como valor por defecto, `dependencies=[...]` en el decorador o en
+    el `APIRouter`, `sesion_actual` y un `RedirectResponse` pasaban sin hallazgo, y esta
+    regla BLOQUEA no tenía ni una prueba."""
+
+    MODULO = j11
+
+    def setUp(self):
+        super().setUp()
+        self.repo.escribe("docker-compose.yml", COMPOSE)
+
+    def _salud(self, decorador='@router.get("/health")', parametros="", cuerpo="pass"):
+        self.repo.escribe("backend/app/routers/salud.py", SALUD_CON.format(
+            decorador=decorador, parametros=parametros, cuerpo=cuerpo))
+        return self.repo.juzga()
+
+    def test_depends_como_valor_por_defecto_bloquea(self):
+        r = self._salud(parametros="u = Depends(usuario_actual)")
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
+
+    def test_depends_solo_de_palabra_clave_bloquea(self):
+        r = self._salud(parametros="*, u = Depends(usuario_actual)")
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
+
+    def test_sesion_actual_bloquea(self):
+        r = self._salud(parametros="s = Depends(sesion_actual)")
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
+
+    def test_dependencies_en_el_decorador_bloquea(self):
+        r = self._salud(decorador='@router.get("/health", '
+                                  'dependencies=[Depends(exigir_rol("administrador"))])')
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
+
+    def test_dependencies_en_el_router_bloquea(self):
+        r = self._salud(decorador='@privado.get("/health")')
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
+
+    def test_redirect_response_bloquea(self):
+        r = self._salud(cuerpo='return RedirectResponse("/login")')
+        self.assertRegla("G8-9", "BLOQUEA", "redirige", r)
+
+    def test_anotacion_annotated_sigue_bloqueando(self):
+        r = self._salud(parametros="u: 'Annotated[dict, Depends(usuario_actual)]'")
+        self.assertRegla("G8-9", "BLOQUEA", "autenticación", r)
+
+    def test_sesion_opcional_no_es_autenticacion(self):
+        """`sesion_opcional` devuelve None sin sesión: no corta a nadie."""
+        r = self._salud(parametros="s = Depends(sesion_opcional)")
+        self.assertSinRegla("G8-9", r)
+        self.assertIn("/health sin autenticación", r.comprobado)
+
+    def test_la_base_de_datos_no_es_autenticacion(self):
+        r = self._salud(parametros="db = Depends(get_db)")
+        self.assertSinRegla("G8-9", r)
+
+    def test_dependencies_de_otro_router_no_cuentan(self):
+        """`privado` exige sesión, pero `/health` cuelga de `router`."""
+        r = self._salud()
+        self.assertSinRegla("G8-9", r)
 
 
 class PruebaRepositorioVacio(CasoConRepo):
@@ -222,12 +303,12 @@ class PruebaFalloDeDatos(CasoConRepo):
         juez.
         """
         self.repo.escribe("backend/app/routers/salud.py", SALUD_CORRECTO.replace(
-            '    db.execute(text("SELECT 1"))\n    return {"status": "ok"}\n',
+            '    db.execute(text("SELECT 1"))\n    return {"status": "ok", "app": "prueba"}\n',
             '    try:\n'
             '        db.execute(text("SELECT 1"))\n'
             '    except Exception:\n'
             '        return {"status": "error", "db": "error"}\n'
-            '    return {"status": "ok"}\n'))
+            '    return {"status": "ok", "app": "prueba"}\n'))
         r = self.repo.juzga()
         self.assertEqual([], r.bloqueantes, [h.mensaje for h in r.bloqueantes])
         self.assertAvisa("ninguna sonda automatizada lee el estado degradado", r)

@@ -63,11 +63,18 @@ RUTA_SALUD = re.compile(r'["\']/health/?["\']')
 # `Depends(...)` cuyo nombre huele a autenticación. La lista es corta y
 # deliberada: se prefiere no cazar un guard exótico a marcar como hallazgo un
 # `Depends(get_db)`, que es legítimo y está en el ejemplo del propio documento.
+#
+# Se busca en la anotación, en el nombre del parámetro, en su valor por defecto
+# (`u = Depends(usuario_actual)`), en `dependencies=[...]` del decorador y en el del
+# `APIRouter` del que cuelga la ruta. Hasta el 2026-11-21 sólo en los dos primeros, y
+# `sesion_actual` —la dependencia de sesión que siembra la fábrica— no estaba. Su
+# hermana `sesion_opcional` NO cuenta: devuelve None sin sesión y no corta a nadie.
 DEPENDENCIA_DE_AUTH = re.compile(
     r"(usuario_actual|current_user|get_current|require_|requerir_|exigir_"
-    r"|obtener_sesion|sesion_requerida|solo_admin|verify_token|auth)",
+    r"|obtener_sesion|sesion_requerida|sesion_actual|solo_admin|verify_token|auth)",
     re.IGNORECASE,
 )
+REDIRECCION = "RedirectResponse"
 
 # `db.execute("SELECT 1")` — string crudo. En SQLAlchemy 2.x lanza
 # ArgumentError: Textual SQL expression should be explicitly declared as text().
@@ -233,34 +240,92 @@ def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
         )
         return
 
-    _comprobar_sin_auth(fn, ruta, lineas, r)
+    _comprobar_sin_auth(fn, arbol, ruta, lineas, r)
     _comprobar_sql_crudo(fn, ruta, texto, lineas, r)
     _comprobar_except_mudo(fn, ruta, lineas, r, repo)
 
 
-def _comprobar_sin_auth(fn, ruta: str, lineas: list[str], r: Resultado) -> None:
+def _parametros(fn) -> list[tuple[ast.arg, ast.expr | None]]:
+    """(parámetro, valor por defecto) de la función, posicionales y de palabra clave."""
+    posicionales = list(fn.args.posonlyargs) + list(fn.args.args)
+    defectos = [None] * (len(posicionales) - len(fn.args.defaults)) + list(fn.args.defaults)
+    return list(zip(posicionales, defectos)) + list(zip(fn.args.kwonlyargs, fn.args.kw_defaults))
+
+
+def _dependencias(llamada: ast.AST) -> str:
+    """El texto de `dependencies=[...]` de un decorador o de un `APIRouter(...)`."""
+    if not isinstance(llamada, ast.Call):
+        return ""
+    return " ".join(ast.unparse(k.value) for k in llamada.keywords if k.arg == "dependencies")
+
+
+def _router_de(dec: ast.AST, arbol: ast.Module) -> ast.AST | None:
+    """El `APIRouter(...)`/`FastAPI(...)` asignado al objeto del decorador (`router.get`)."""
+    if not (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)
+            and isinstance(dec.func.value, ast.Name)):
+        return None
+    nombre = dec.func.value.id
+    for nodo in arbol.body:
+        if isinstance(nodo, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == nombre for t in nodo.targets):
+            return nodo.value
+    return None
+
+
+def _motivos_de_auth(fn, arbol: ast.Module) -> list[str]:
+    """Qué exige autenticación en el handler de `/health`, o [] si nada."""
+    motivos = []
+    for arg, defecto in _parametros(fn):
+        textos = [arg.arg, ast.unparse(arg.annotation) if arg.annotation else "",
+                  ast.unparse(defecto) if defecto is not None else ""]
+        if any(DEPENDENCIA_DE_AUTH.search(t) for t in textos):
+            motivos.append(f"recibe `{arg.arg}`, que parece una dependencia de autenticación")
+    for dec in fn.decorator_list:
+        if DEPENDENCIA_DE_AUTH.search(_dependencias(dec)):
+            motivos.append("su decorador declara `dependencies=[...]` de autenticación")
+        if DEPENDENCIA_DE_AUTH.search(_dependencias(_router_de(dec, arbol))):
+            motivos.append("cuelga de un router con `dependencies=[...]` de autenticación")
+    return motivos
+
+
+def _redirige(fn) -> bool:
+    """`RedirectResponse` en el cuerpo o como `response_class=` del decorador."""
+    nombres = {n.id for n in ast.walk(fn) if isinstance(n, ast.Name)}
+    nombres |= {n.attr for n in ast.walk(fn) if isinstance(n, ast.Attribute)}
+    return REDIRECCION in nombres
+
+
+def _comprobar_sin_auth(fn, arbol: ast.Module, ruta: str, lineas: list[str],
+                        r: Resultado) -> None:
     """Guía 8, punto 9: sin autenticación y sin 3xx.
 
     `curl -sf` falla con cualquier código >= 400 y no sigue redirecciones, así
     que un 401 o un 302 a login rompen el despliegue entero.
     """
+    motivos = _motivos_de_auth(fn, arbol)
+    redirige = _redirige(fn)
+    if (motivos or redirige) and suprimido(lineas, fn.lineno - 1, "G8-9"):
+        r.supresiones.append(f"{ruta}:{fn.lineno} /health con dependencia de auth o redirección")
+    elif motivos:
+        r.bloquea(
+            "G8-9", ruta,
+            f"`/health` exige autenticación: {motivos[0]}",
+            "el smoke test usa `curl -sf`, que falla con cualquier código >= 400 y no "
+            "sigue redirecciones: un 401 o un 302 a login hacen fallar el despliegue "
+            "entero aunque la aplicación esté perfectamente sana",
+            linea=fn.lineno,
+            arreglo="dejar /health sin ninguna dependencia de sesión, ni en sus parámetros "
+                    "ni en `dependencies=` del decorador o del router (Guía 8, punto 9)",
+        )
+    elif redirige:
+        r.bloquea(
+            "G8-9", ruta, "`/health` redirige (`RedirectResponse`)",
+            "`curl -sf` no sigue redirecciones: el smoke test recibe un 3xx, el despliegue "
+            "sale rojo y la aplicación está sana",
+            linea=fn.lineno,
+            arreglo="devolver 200 con un JSON simple en el propio `/health` (Guía 8, punto 9)",
+        )
     r.comprobo("/health sin autenticación")
-    for arg in list(fn.args.args) + list(fn.args.kwonlyargs):
-        anot = ast.unparse(arg.annotation) if arg.annotation else ""
-        if DEPENDENCIA_DE_AUTH.search(anot) or DEPENDENCIA_DE_AUTH.search(arg.arg):
-            if suprimido(lineas, fn.lineno - 1, "G8-9"):
-                r.supresiones.append(f"{ruta}:{fn.lineno} /health con dependencia de auth")
-                return
-            r.bloquea(
-                "G8-9", ruta,
-                f"`/health` recibe `{arg.arg}`, que parece una dependencia de autenticación",
-                "el smoke test usa `curl -sf`, que falla con cualquier código >= 400 y no "
-                "sigue redirecciones: un 401 o un 302 a login hacen fallar el despliegue "
-                "entero aunque la aplicación esté perfectamente sana",
-                linea=fn.lineno,
-                arreglo="dejar /health sin ninguna dependencia de sesión (Guía 8, punto 9)",
-            )
-            return
 
 
 def _comprobar_sql_crudo(fn, ruta: str, texto: str, lineas: list[str], r: Resultado) -> None:
