@@ -190,7 +190,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from comun import Repo, Resultado, alcance_semilla, ejecutar, leer_maqueta, no_adopta, suprimido  # noqa: E402
+from comun import (  # noqa: E402
+    Repo,
+    Resultado,
+    alcance_semilla,
+    ejecutar,
+    leer_maqueta,
+    leer_siembra,  # noqa: E402
+    no_adopta,
+    suprimido,
+)
+from comun_auditoria import ARREGLO as ARREGLO_AUDITORIA  # noqa: E402
+from comun_auditoria import MANIFESTACION as MANIFESTACION_AUDITORIA  # noqa: E402
+from comun_auditoria import lo_que_falta  # noqa: E402
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
@@ -482,6 +494,33 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     _pruebas_ausentes(repo, r, esperado)
     _maqueta(repo, r)
     _paquetes_sistema(repo, r)
+    _auditoria_siempre(repo, r, texto_marcador)
+
+
+# AUD-1 bloquea en lo sembrado desde el día SIGUIENTE a su publicación, como FAB-9 y el
+# UI-3 sin tema oscuro: lo sembrado antes no tenía cómo traerlo (FILOSOFIA.md §4).
+VIGENCIA_AUDITORIA = "2026-11-22"
+
+
+def _auditoria_siempre(repo: Repo, r: Resultado, texto_marcador: str) -> None:
+    """AUD-1: la auditoría y el último ingreso de cada persona están (lo mira comun_auditoria)."""
+    faltas = lo_que_falta(repo)
+    if faltas is None:
+        r.no_corresponde("AUD-1: no hay `backend/app/` en el que mirar la auditoría")
+        return
+    siembra = leer_siembra(texto_marcador, VIGENCIA_AUDITORIA, CAPA)
+    contexto = siembra.contexto(CAPA, MARCADOR)
+    for falta in faltas:
+        mensaje = f"{falta.mensaje} ({contexto})"
+        if siembra.nuevo:
+            r.bloquea(
+                "AUD-1", falta.archivo, mensaje, MANIFESTACION_AUDITORIA, arreglo=ARREGLO_AUDITORIA
+            )
+        else:
+            r.avisa(
+                "AUD-1", falta.archivo, mensaje, MANIFESTACION_AUDITORIA, arreglo=ARREGLO_AUDITORIA
+            )
+    r.comprobo(f"AUD-1: la auditoría siempre y el último ingreso ({contexto})")
 
 
 def _juzgar_presentes(
