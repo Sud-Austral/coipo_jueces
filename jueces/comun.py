@@ -29,7 +29,7 @@ import sys
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any, Callable, Iterable
 
 # Los módulos hermanos (`comun_yaml`, `comun_semilla`) se importan por nombre: este
 # directorio tiene que estar en la ruta aunque quien importe `comun` no lo haya
@@ -67,8 +67,9 @@ class Hallazgo:
 
     `manifestacion` no es decoración: es el campo que separa un hallazgo de una
     opinión. Si no se puede escribir cómo se ve este defecto en producción, el
-    hallazgo no debería existir. Es el mismo contrato que se le exige al agente
-    adversario en docs/ADVERSARIAL.md.
+    hallazgo no debería existir. Es el «Contrato de un juez» del README. (Hasta el
+    2026-11-21 esta línea lo atribuía a `docs/ADVERSARIAL.md`, que no existe: hay un
+    `borradores/ADVERSARIAL.md` en la fábrica, en cuarentena y sin mandar.)
     """
 
     regla: str  # "G8-4", "DK-3"... REGLAS.md dice qué documento la respalda
@@ -290,13 +291,6 @@ class Repo:
         """El compose de la raíz, con cualquiera de los cuatro nombres que acepta Docker."""
         return next((c for c in COMPOSE if self.existe(c)), None)
 
-    def buscar(self, *patrones: str) -> Iterator[str]:
-        """Rutas versionadas cuyo nombre casa con alguno de los patrones glob."""
-        from fnmatch import fnmatch
-
-        for r in self.versionados():
-            if any(fnmatch(r, p) for p in patrones):
-                yield r
 
 
 # Los patrones de `.gitignore` o `.dockerignore` que dejan fuera el `.env` de la RAÍZ.

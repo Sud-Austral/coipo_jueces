@@ -20,14 +20,15 @@ NO USAR CORS NO ES UN DEFECTO
   `coipo_prensa2` y `COIPO_ENTREGA_PLANTA` no registran `CORSMiddleware` en
   absoluto, y es correcto: el nginx del contenedor `app` sirve el frontend y
   proxea el backend bajo el MISMO origen, así que el navegador nunca emite una
-  petición cruzada. Ahí no hay nada que juzgar, y este juez lo declara NO
-  EVALUADO en vez de inventarse un hallazgo.
+  petición cruzada. Ahí no hay nada que juzgar, y este juez lo declara NO_APLICA
+  (`no_corresponde`) en vez de inventarse un hallazgo. Hasta el 2026-11-21 este
+  párrafo decía «NO EVALUADO», que es otro veredicto y frena el gate.
 
 CALIBRACIÓN INVERSA (medida el 2026-09-05)
   coipo_dendroenergia  -> VERDE: `allow_origins=settings.cors_origins`, y su
                           `.env.example` trae un dominio real.
-  coipo_prensa2        -> NO EVALUADO: no usa CORS (mismo origen).
-  COIPO_ENTREGA_PLANTA -> NO EVALUADO: no usa CORS (mismo origen).
+  coipo_prensa2        -> NO_APLICA: no usa CORS (mismo origen).
+  COIPO_ENTREGA_PLANTA -> NO_APLICA: no usa CORS (mismo origen).
   COIPO_USUARIOS       -> ROJO por los dos defectos a la vez: `backend/main.py`
                           cablea `allow_origins=["*"]` mientras
                           `core/config.py` define `cors_origins_list`, que no

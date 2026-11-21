@@ -75,10 +75,11 @@ CALIBRACIÓN INVERSA (vuelta a medir el 2026-09-07, sobre los 15 repositorios
   patrón sucio no distingue si falló la regla o el repositorio. Antes de tocar
   `j12` o `j13`, comprobar que ese patrón esté limpio.
 
-  La semilla materializada tiene que salir VERDE. Registra **1 comprobación**, no
-  22: `comprobar()` llama a `r.comprobo()` una sola vez, con el recuento dentro
-  del mensaje —«21 de 21 presentes»—. El «22» de esta línea nunca correspondió a
-  nada que el juez emitiera.
+  La semilla materializada tiene que salir VERDE. Registra una comprobación por cosa
+  mirada, con el recuento dentro del mensaje: las piezas congeladas («45 de 45
+  presentes»), SEM-3 y, si las hay, SEM-2 y MAQ-1. Medido el 2026-11-21 sobre una
+  siembra fresca: OK, con las tres primeras. (Esta línea decía «1 comprobación, no
+  22»: dejó de ser cierto con SEM-2, MAQ-1 y SEM-3.)
 
 CALIBRACIÓN INVERSA DEL HISTORIAL (2026-10-24, con el lock de 42 piezas y su
 historial de 10 bloques sembrado desde git)
@@ -526,7 +527,8 @@ def _paquetes_sistema(repo: Repo, r: Resultado) -> None:
     """SEM-2: la lista apt que lee el `backend/Dockerfile` sellado (desde el 2026-11-20).
 
     Cada línea lleva su motivo y ninguna instala un compilador. AVISA, no bloquea
-    (AGENTS.md §5): la regla es nueva y la lista es de la aplicación.
+    (FILOSOFIA.md §4 de la fábrica: una regla nueva mira hacia adelante): la regla es
+    nueva y la lista es de la aplicación.
     """
     texto = repo.texto(PAQUETES)
     if texto is None:
@@ -563,8 +565,9 @@ def _maqueta(repo: Repo, r: Resultado) -> None:
     """MAQ-1: la cara copiada de la maqueta validada no se edita.
 
     `sembrar.py --maqueta` copia su CSS, fuentes e imágenes a `frontend/src/maqueta/` y
-    deja el sha256 de cada uno en `maqueta/PROCEDENCIA.md`. AVISA, no bloquea (AGENTS.md
-    §5): la regla es del 2026-11-12 y todavía no se calibró sobre ninguna aplicación real.
+    deja el sha256 de cada uno en `maqueta/PROCEDENCIA.md`. AVISA, no bloquea (FILOSOFIA.md
+    §4 de la fábrica: una regla nueva mira hacia adelante): la regla es del 2026-11-12 y
+    todavía no se calibró sobre ninguna aplicación real.
     """
     maqueta = leer_maqueta(repo.texto(MARCADOR))
     if maqueta is None:

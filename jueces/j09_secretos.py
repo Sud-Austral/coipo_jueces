@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """j09 — secretos en el árbol versionado.  (Guía 8, punto 4)
 
-Es el primero de los tres jueces que se encienden en modo bloqueante, porque es
-el único cuyo hallazgo no admite discusión: un secreto en git ya salió del
-perímetro, y ninguna configuración posterior lo devuelve.
+Su hallazgo es el que menos admite discusión: un secreto en git ya salió del
+perímetro, y ninguna configuración posterior lo devuelve. (Hasta el 2026-11-21 esta
+línea decía que era «el primero de los tres jueces que se encienden en modo
+bloqueante»: el plan de septiembre. Hoy son once jueces, y cada aplicación elige
+su modo en su workflow.)
 
 EL CASO QUE FUNDA ESTA REGLA
   Una aplicación de la flota tenía su `.env` real en `git ls-files`, aunque su

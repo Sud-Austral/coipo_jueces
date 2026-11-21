@@ -47,7 +47,8 @@ CALIBRACIÓN INVERSA (2026-10-24, sobre los clones de D:\\GitHub)
                                    vigencia (el `fabrica:` más reciente del disco es
                                    2026-10-23). Su deuda se ve y nada se detiene.
   Una app sembrada de la semilla del 2026-10-24 -> TIENE QUE salir OK antes de mover
-  el tag con este juez (FILOSOFIA.md, §5). Pendiente hasta que la semilla migre.
+  el tag con este juez (FILOSOFIA.md, §5). Comprobado el 2026-11-21: una siembra
+  fresca (`fabrica: 2026-11-21`, con sus archivos en el índice) sale OK, sin hallazgos.
 
 COD-3 EN LOS SERVICIOS HERMANOS (2026-10-25). Hasta ese día sólo se miraban
 `backend/app/dominio/` y `frontend/src/dominio/`: un `import httpx` y un `import os`

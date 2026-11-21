@@ -384,15 +384,6 @@ def carga_yaml(texto: str) -> dict[str, Any]:
     return _Lector(texto).cargar()
 
 
-def _flow(texto: str) -> list[Any]:
-    """Secuencia en línea: `["CMD", "python", "-c", "..."]`. Se conserva por
-    compatibilidad; el parser usa `_Lector._en_linea`."""
-    t = texto.strip()
-    if not (t.startswith("[") and t.endswith("]")):
-        raise YamlNoSoportado(f"secuencia en línea mal formada: {texto[:60]}")
-    return _Lector("")._en_linea(t, 0)
-
-
 def numero_de_linea(texto: str, aguja: str) -> int | None:
     """Primera línea que contiene `aguja`. Para anclar hallazgos.
 

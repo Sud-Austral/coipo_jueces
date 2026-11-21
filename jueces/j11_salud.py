@@ -493,7 +493,8 @@ def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado,
 # despliegue recibe SU `/health`, responde 200, y tu despliegue se declara exitoso
 # sobre el contenedor equivocado» (`semilla/ESQUELETO/CLAUDE.md` §4 de la fábrica; la
 # regla 4 de la pieza sellada `rutas/salud.py` dice lo mismo). El despliegue ya lo
-# advierte; aquí se ve antes, en el CI. AVISA: es una regla nueva (AGENTS.md §5).
+# advierte; aquí se ve antes, en el CI. AVISA: es una regla nueva (FILOSOFIA.md §4 de
+# la fábrica: las reglas miran hacia adelante).
 #
 # Se busca en TODO el módulo del handler, no sólo en su `return`: la semilla arma el
 # cuerpo con `{"status": "ok", **_identidad()}` y `app` vive en `_identidad()`. Cuenta
