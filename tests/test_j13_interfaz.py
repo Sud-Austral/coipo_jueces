@@ -288,6 +288,48 @@ class PruebaMovimientoReducido(ConSemilla):
             f"el selector universal cubre todo: {[h.mensaje for h in r.hallazgos]}",
         )
 
+    def test_no_preference_anidado_antes_del_universal_no_bloquea(self):
+        """Un `no-preference` anidado ANTES del bloque universal no lo tapa.
+
+        Hasta el 2026-11-22 el juez miraba solo el PRIMER `@media prefers-reduced-motion`
+        de cada archivo. Un `.x:hover { @media (prefers-reduced-motion: no-preference)
+        {...} }` —la forma progresiva, que es correcta— quedaba como «el bloque», y el
+        universal de más abajo no se veía: salía «apaga 0 de N». Pasó con el IAM."""
+        self.repo.escribe(
+            "src/estilos.css",
+            ".card { transition: transform .2s; }\n"
+            ".card:hover {\n"
+            "  @media (prefers-reduced-motion: no-preference) {\n"
+            "    transform: translateY(-2px);\n"
+            "  }\n"
+            "}\n"
+            "@media (prefers-reduced-motion: reduce) {\n"
+            "  *, *::before, *::after {\n"
+            "    transition-duration: .01ms !important;\n"
+            "    animation-duration: .01ms !important;\n"
+            "  }\n"
+            "}\n",
+        )
+        r = self.repo.juzga()
+        self.assertFalse(
+            [h for h in r.hallazgos if h.regla == "UI-15"], [h.mensaje for h in r.hallazgos]
+        )
+
+    def test_no_preference_antes_de_un_reduce_parcial_cuenta_el_reduce(self):
+        """Con un `reduce` parcial, la cuenta sale del `reduce`, no del `no-preference`."""
+        self.repo.escribe(
+            "src/estilos.css",
+            ".a { transition: all .2s; }\n"
+            ".b { transition: color .2s; }\n"
+            ".a:hover {\n"
+            "  @media (prefers-reduced-motion: no-preference) { transform: scale(1.1); }\n"
+            "}\n"
+            "@media (prefers-reduced-motion: reduce) {\n"
+            "  .a { transition: none; }\n"
+            "}\n",
+        )
+        self.assertBloquea("apaga 1 de 2 declaración(es)")
+
     def test_sin_movimiento_no_exige_el_bloque(self):
         """Un CSS sin una sola transición no necesita apagar nada."""
         self.repo.escribe("src/estilos.css", ".a { color: #111; }\n")

@@ -401,13 +401,30 @@ def _fuera_de_movimiento_reducido(texto: str) -> str:
     return "".join(partes)
 
 
+def _bloques_reduce(texto: str) -> list[tuple[re.Match[str], str]]:
+    """Los `@media (prefers-reduced-motion: reduce)` del archivo, con su cuerpo.
+
+    TODOS, no el primero; y sin los `no-preference`. Un `no-preference` no apaga
+    nada: es la forma progresiva de ENCENDER movimiento solo para quien no pidió
+    reducirlo —correcta—, y suele ir anidada en una regla (`.x:hover { @media … }`).
+    Hasta el 2026-11-22 el juez tomaba el primer `@media prefers-reduced-motion` del
+    archivo como «el bloque»: un `no-preference` anidado antes del universal lo
+    tapaba y salía «apaga 0 de N». Pasó con el IAM (`coipo_usuarios`)."""
+    bloques = []
+    for m in MOVIMIENTO_REDUCIDO.finditer(texto):
+        llave = texto.find("{", m.end())
+        cabecera = texto[m.start() : llave if llave != -1 else len(texto)]
+        if "no-preference" in cabecera:
+            continue
+        bloques.append((m, _cuerpo_del_media(texto, m.end())))
+    return bloques
+
+
 def _es_universal(texto: str) -> bool:
-    """¿Tiene este archivo un `prefers-reduced-motion` con selector universal?"""
-    m = MOVIMIENTO_REDUCIDO.search(texto)
-    if not m:
-        return False
-    bloque = _cuerpo_del_media(texto, m.end())
-    return bool(re.search(r"(?:^|[,{\s])\*(?:[,\s{]|::)", bloque))
+    """¿Tiene este archivo un bloque `reduce` con selector universal?"""
+    return any(
+        re.search(r"(?:^|[,{\s])\*(?:[,\s{]|::)", cuerpo) for _m, cuerpo in _bloques_reduce(texto)
+    )
 
 
 def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) -> None:
@@ -461,16 +478,16 @@ def comprobar_movimiento_reducido(repo: Repo, r: Resultado, hojas: list[str]) ->
 
 
 def _bloque_selectivo(repo: Repo, r: Resultado, ruta: str, texto: str) -> None:
-    """UI-15 en UNA hoja: su bloque `prefers-reduced-motion` apaga menos de lo que mueve."""
-    m = MOVIMIENTO_REDUCIDO.search(texto)
-    if not m:
+    """UI-15 en UNA hoja: sus bloques `reduce` apagan menos de lo que mueve."""
+    bloques = _bloques_reduce(texto)
+    if not bloques or not any(cuerpo for _m, cuerpo in bloques):
         return
-    bloque = _cuerpo_del_media(texto, m.end())
-    if not bloque:
-        return
+    m = bloques[0][0]
 
     propios = len(HAY_MOVIMIENTO.findall(_fuera_de_movimiento_reducido(texto)))
-    apagados = len(re.findall(r"[{;]\s*(?:transition|animation)[^;}]*", bloque))
+    apagados = sum(
+        len(re.findall(r"[{;]\s*(?:transition|animation)[^;}]*", cuerpo)) for _m, cuerpo in bloques
+    )
     if apagados >= propios:
         return
 

@@ -217,6 +217,28 @@ class Resultado:
 COMPOSE = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
 
 
+def _nombre_del_remoto(raiz: Path) -> str | None:
+    """Último segmento de la URL de `origin`, sin `.git`; None si no hay remoto.
+
+    Sirve igual para `https://host/org/nombre(.git)(/)`, `git@host:org/nombre.git`
+    y `ssh://git@host/org/nombre.git`."""
+    try:
+        salida = subprocess.run(
+            ["git", "-C", str(raiz), "remote", "get-url", "origin"],
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    url = (salida.stdout or "").strip().rstrip("/")
+    if salida.returncode != 0 or not url:
+        return None
+    ultimo = re.split(r"[/:]", url)[-1].removesuffix(".git")
+    return ultimo or None
+
+
 class Repo:
     """Acceso de solo lectura al repositorio que se está juzgando.
 
@@ -232,10 +254,20 @@ class Repo:
             raise SystemExit(f"[jueces] no existe el directorio: {self.raiz}")
         self._versionados: list[str] | None = None
         self._fallo_git: str | None = None
+        self._nombre: str | None = None
 
     @property
     def nombre(self) -> str:
-        return self.raiz.name
+        """El nombre del repositorio en su remoto `origin`; sin remoto, el de la carpeta.
+
+        Es el nombre que usa el despliegue: `deploy.yml` arma `/opt/apps/<app>/` con
+        `github.event.repository.name`. En el CI la carpeta del checkout se llama
+        igual, pero un clon local puede llamarse como quiera. Hasta el 2026-11-22
+        esto devolvía la carpeta, y un clon de `coipo_usuarios` en `COIPO_USUARIOS`
+        salía bloqueado por G8-1 sin nada que arreglar."""
+        if self._nombre is None:
+            self._nombre = _nombre_del_remoto(self.raiz) or self.raiz.name
+        return self._nombre
 
     def versionados(self) -> list[str]:
         """Rutas relativas con barras `/`, tal como las emite git."""

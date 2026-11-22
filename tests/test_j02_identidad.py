@@ -79,6 +79,53 @@ class PruebaNombre(unittest.TestCase):
         self.assertEqual(1, len(r.bloqueantes), [h.mensaje for h in r.bloqueantes])
 
 
+class PruebaNombreDelRemoto(unittest.TestCase):
+    """El nombre que usa el despliegue es el del REMOTO, no el de la carpeta local.
+
+    `deploy.yml` arma `/opt/apps/<app>/` con `github.event.repository.name`. En el
+    CI la carpeta del checkout se llama igual, pero un clon local puede llamarse
+    como quiera: hasta el 2026-11-22 un clon de `coipo_usuarios` en una carpeta
+    `COIPO_USUARIOS` salía BLOQUEADO por G8-1 sin que hubiera nada que arreglar.
+    """
+
+    def setUp(self):
+        if not hay_git():
+            self.fail("falta `git` en el PATH: estas pruebas lo necesitan de verdad")
+
+    def _juzga(self, carpeta: str, url: str):
+        repo = RepoSintetico(j02, nombre=carpeta).remoto(url)
+        self.addCleanup(repo.cierra)
+        repo.escribe("docker-compose.yml", COMPOSE_CORRECTO)
+        return repo.juzga()
+
+    def _g8_1(self, r):
+        return [h for h in r.bloqueantes if h.regla == "G8-1"]
+
+    def test_carpeta_en_mayusculas_con_remoto_en_minusculas_no_bloquea(self):
+        r = self._juzga("COIPO_USUARIOS", "https://github.com/Org/coipo_usuarios.git")
+        self.assertEqual([], self._g8_1(r), [h.mensaje for h in r.bloqueantes])
+
+    def test_carpeta_en_minusculas_con_remoto_en_mayusculas_bloquea(self):
+        r = self._juzga("coipo_entrega", "git@github.com:Org/COIPO_ENTREGA.git")
+        self.assertTrue(
+            [h for h in self._g8_1(r) if "`COIPO_ENTREGA`" in h.mensaje],
+            [h.mensaje for h in r.bloqueantes],
+        )
+
+    def test_formas_de_url_del_remoto(self):
+        """https con y sin `.git` y con barra final, y ssh: todas dan el mismo nombre."""
+        for url in (
+            "https://github.com/Org/coipo_prensa2",
+            "https://github.com/Org/coipo_prensa2/",
+            "https://github.com/Org/coipo_prensa2.git",
+            "git@github.com:Org/coipo_prensa2.git",
+            "ssh://git@github.com/Org/coipo_prensa2.git",
+        ):
+            with self.subTest(url=url):
+                r = self._juzga("Carpeta_Local", url)
+                self.assertEqual([], self._g8_1(r), [h.mensaje for h in r.bloqueantes])
+
+
 class PruebaPuerto(CasoConRepo):
     """Guía 8, punto 2: lo que SÍ se puede comprobar desde un repositorio."""
 

@@ -26,9 +26,15 @@ LO QUE ESTE JUEZ NO PUEDE COMPROBAR, Y POR QUÉ LO DICE EN VOZ ALTA
 
 CALIBRACIÓN INVERSA (medida el 2026-09-05)
   `coipo_prensa2`, `coipo_dendroenergia` y `coipo_n8n` están en minúsculas y
-  deben salir VERDES. `COIPO_ENTREGA_PLANTA` y `COIPO_USUARIOS` están en
-  MAYÚSCULAS y deben salir ROJOS: los dos ya desplegaron, así que su carpeta en
-  el servidor lleva el nombre en mayúsculas y renombrar ahora exige tocar la VM.
+  deben salir VERDES. `COIPO_ENTREGA_PLANTA` y `COIPO_USUARIOS` estaban en
+  MAYÚSCULAS y debían salir ROJOS.
+
+  CORRECCIÓN DEL 2026-11-22. El nombre que se juzga es el del REMOTO `origin`
+  (`Repo.nombre`), no el de la carpeta: el despliegue usa
+  `github.event.repository.name`. `COIPO_USUARIOS` ya se llama `coipo_usuarios`
+  en GitHub; su clon local seguía en una carpeta en mayúsculas y salía rojo por
+  un defecto del juez, no del repositorio. En el CI no cambia nada: la carpeta
+  del checkout se llama como el repositorio.
 """
 
 from __future__ import annotations

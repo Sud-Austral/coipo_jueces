@@ -52,6 +52,11 @@ class RepoSintetico:
         _git(self.dir, "config", "user.email", "prueba@ejemplo.invalid")
         _git(self.dir, "config", "user.name", "prueba")
 
+    def remoto(self, url: str) -> RepoSintetico:
+        """Declara el remoto `origin`: de él sale el nombre que juzga j02."""
+        _git(self.dir, "remote", "add", "origin", url)
+        return self
+
     def escribe(self, ruta: str, contenido: str, *, versionar: bool = True) -> RepoSintetico:
         p = self.dir / ruta
         p.parent.mkdir(parents=True, exist_ok=True)

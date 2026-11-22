@@ -256,6 +256,26 @@ class PruebaCapas(Base):
         )
         self.assertBloquea("no tiene `src/dominio/`")
 
+    def test_el_arreglo_nombra_las_carpetas_de_la_semilla(self):
+        """El arreglo de COD-3 dice las carpetas que tiene la semilla, no otras.
+
+        Hasta el 2026-11-22 proponía `src/puertos/` y `src/interfaz/`, que no existen
+        en la semilla ni en `ESTANDAR_CODIGO.md`: quien lo siguiera armaba una
+        estructura que el resto de la fábrica no reconoce."""
+        (
+            self.repo.escribe(".semilla", NUEVA)
+            .escribe("frontend/package.json", "{}\n")
+            .escribe("frontend/tsconfig.json", TSCONFIG)
+            .escribe("frontend/src/App.tsx", "export default 1\n")
+        )
+        arreglos = [h.arreglo for h in self.repo.juzga().hallazgos if h.regla == "COD-3"]
+        self.assertTrue(arreglos)
+        for arreglo in arreglos:
+            for carpeta in ("src/aplicacion/puertos/", "src/adaptadores/", "src/vistas/"):
+                self.assertIn(carpeta, arreglo)
+            self.assertNotIn("src/puertos/", arreglo.replace("src/aplicacion/puertos/", ""))
+            self.assertNotIn("src/interfaz/", arreglo)
+
     def test_dominio_del_backend_que_importa_sqlalchemy_bloquea(self):
         self.repo.escribe(".semilla", NUEVA).escribe(
             "backend/app/dominio/modelo/x.py",

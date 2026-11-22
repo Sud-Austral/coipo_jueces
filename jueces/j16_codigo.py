@@ -379,8 +379,10 @@ def _capas_frontend(repo: Repo, r: Resultado, nuevo: bool, contexto: str) -> Non
             mensaje=f"el frontend no tiene `src/dominio/` ({contexto})",
             manifestacion=_MANIFESTACION_CAPAS,
             arreglo=(
-                "separar en `src/dominio/` (puro), `src/puertos/`, `src/adaptadores/` "
-                "y `src/interfaz/`, como la semilla desde el 2026-10-24"
+                "separar en `src/dominio/` (puro), `src/aplicacion/` con "
+                "`src/aplicacion/puertos/`, `src/adaptadores/` y `src/composicion.ts`, "
+                "y la interfaz en `src/componentes/` y `src/vistas/`, como la semilla "
+                "desde el 2026-10-24 (`docs/ESTANDAR_CODIGO.md`, COD-3)"
             ),
         )
         if nuevo:
