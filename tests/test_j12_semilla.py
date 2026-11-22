@@ -710,5 +710,49 @@ class PruebaRutaRecienSellada(PruebaHistorial):
         self.assertIn("está editada", h.mensaje)
 
 
+class PruebaGraciaPorPieza(PruebaRutaRecienSellada):
+    """La vigencia de una ruta sellada no cambia cuando su lock pasa al historial (2026-11-22).
+
+    Hasta ese día sólo tenían gracia las rutas que NINGÚN bloque nombraba. Al resellar, el
+    lock anterior entra al historial y sus rutas recién selladas perdían la gracia:
+    `consumidores.py --lock-candidato` midió cinco aplicaciones que pasaban de AVISA a BLOQUEA
+    sin que nadie tocara nada. Ahora cada pieza rige desde el día siguiente al último bloque
+    que todavía no la nombraba (`historial_semilla.py`), si eso es desde `GRACIA_DESDE`.
+    """
+
+    def con_el_lock_anterior_en_el_historial(self, sin: str, con: str) -> None:
+        """Un bloque sin la ruta nueva (hasta `sin`) y el del lock que la selló (hasta `con`)."""
+        self.con_historial(
+            texto_historial(
+                bloque(sin, {CONGELADO: VIGENTE}),
+                bloque(con, {CONGELADO: VIGENTE, NUEVA: NUEVA_SELLADA}),
+            )
+        )
+
+    def test_la_recien_sellada_sigue_avisando_cuando_su_lock_pasa_al_historial(self):
+        self.con_el_lock_anterior_en_el_historial("2026-11-21", "2026-11-22")
+        self.sembrado_con("fabrica: 2026-11-10\n", NUEVA_PROPIA)
+        h = self.assertPropiaAvisa(self.repo.juzga())
+        self.assertIn("2026-11-22", h.mensaje, "rige desde el día siguiente al bloque sin ella")
+
+    def test_sembrada_ya_con_la_pieza_bloquea_aunque_este_en_el_historial(self):
+        self.con_el_lock_anterior_en_el_historial("2026-11-21", "2026-11-22")
+        self.sembrado_con("fabrica: 2026-11-22\n", NUEVA_PROPIA)
+        self.assertBloqueaLaNueva(self.repo.juzga())
+
+    def test_dos_resellados_el_mismo_dia_se_cuentan_por_posicion(self):
+        """La ruta entró en el SEGUNDO resellado del 2026-11-21: rige desde el 22, no el 21."""
+        self.con_el_lock_anterior_en_el_historial("2026-11-21", "2026-11-21")
+        self.sembrado_con("fabrica: 2026-11-21\n", NUEVA_PROPIA)
+        self.assertPropiaAvisa(self.repo.juzga())
+
+    def test_una_sellada_antes_de_la_gracia_se_juzga_como_siempre(self):
+        """Sellada con vigencia 2026-09-06, antes de que existiera la regla: lo que relaja
+        también mira hacia adelante, y una diferencia sigue siendo una edición."""
+        self.con_el_lock_anterior_en_el_historial(HASTA_V1, HASTA_V2)
+        self.sembrado_con("fabrica: 2026-09-01\n", NUEVA_PROPIA)
+        self.assertBloqueaLaNueva(self.repo.juzga())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

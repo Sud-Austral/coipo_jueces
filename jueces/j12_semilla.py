@@ -193,6 +193,14 @@ UNA RUTA RECIÉN SELLADA NO ES UNA PIEZA EDITADA (decisión del 2026-11-21)
   vigencia es el día siguiente, como `AUD-1`. Sembrada antes (o sin `fabrica:`),
   la aplicación AVISA; sembrada después, una diferencia es una edición y BLOQUEA.
   Sin historial no se sabe qué pieza es nueva: BLOQUEA, como siempre.
+
+  LA VIGENCIA ES POR PIEZA (2026-11-22). Al resellar, el lock anterior entra al
+  historial, y con la vara de arriba sus rutas recién selladas dejaban de ser
+  nuevas: `consumidores.py --lock-candidato` midió cinco aplicaciones que pasaban
+  de AVISA a BLOQUEA sin que nadie tocara nada. Ahora cada pieza rige desde el día
+  siguiente al último bloque que todavía no la nombraba, contado por posición
+  (`historial_semilla.py`), y lo sellado antes de que existiera la regla
+  (`GRACIA_DESDE`) se juzga como siempre.
 """
 
 from __future__ import annotations
@@ -201,6 +209,7 @@ import datetime
 import hashlib
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -219,13 +228,21 @@ from comun import (  # noqa: E402
 from comun_auditoria import ARREGLO as ARREGLO_AUDITORIA  # noqa: E402
 from comun_auditoria import MANIFESTACION as MANIFESTACION_AUDITORIA  # noqa: E402
 from comun_auditoria import lo_que_falta  # noqa: E402
+from historial_semilla import (  # noqa: E402 — el historial y sus expresiones (2026-11-22)
+    CABECERA_DE_BLOQUE,
+    ENTRADA,
+    FORMATO,
+    FORMATO_HISTORIAL,
+    VIGENTE_HASTA,
+    Historial,
+    leer,
+)
+
+__all__ = ["CABECERA_DE_BLOQUE", "ENTRADA", "FORMATO", "FORMATO_HISTORIAL", "VIGENTE_HASTA"]
 
 PERFILES = ("aplicacion", "encuadre_operativo")
 
 LOCK = Path(__file__).resolve().parents[1] / "semilla.lock"
-
-# `<sha256>  <ruta>`, como la salida de `sha256sum`.
-ENTRADA = re.compile(r"^(?P<huella>[0-9a-f]{64})\s+(?P<ruta>\S.*)$")
 
 
 def _lock() -> dict[str, str]:
@@ -239,18 +256,6 @@ def _lock() -> dict[str, str]:
     return salida
 
 
-# El contrato de `semilla.lock.historial` con `semilla/sellar.py` de la fábrica,
-# que lo escribe con estas mismas expresiones (se repiten allí: la dependencia va
-# al revés, por el lock). Espacios y tabuladores, no `\s`: `\s` cruzaría un salto de
-# línea. `CABECERA_DE_BLOQUE` reconoce la intención y `VIGENTE_HASTA` la forma
-# completa: una cabecera de bloque con la fecha mal escrita hace ilegible el
-# archivo, no se lee como un comentario más.
-FORMATO_HISTORIAL = "1"
-FORMATO = re.compile(r"^#[ \t]*formato:[ \t]*(\S+)[ \t]*$")
-CABECERA_DE_BLOQUE = re.compile(r"^#[ \t]*vigente_hasta:")
-VIGENTE_HASTA = re.compile(r"^#[ \t]*vigente_hasta:[ \t]*(\d{4}-\d{2}-\d{2})[ \t]*$")
-
-
 def _ruta_historial() -> Path:
     """`semilla.lock.historial`, junto al lock. Sale de `LOCK` para que las pruebas,
     que parchean `LOCK`, parcheen también éste sin saberlo."""
@@ -258,82 +263,13 @@ def _ruta_historial() -> Path:
 
 
 def _historial() -> dict[str, dict[str, datetime.date]] | None:
-    """ruta -> {huella -> hasta cuándo fue la vigente}, o None.
+    """ruta -> {huella -> hasta cuándo fue la vigente}, o None si no hay historial.
 
-    None significa SÓLO «no hay `semilla.lock.historial`». Si el archivo existe pero
-    no se puede usar, LEVANTA `ValueError` con el motivo: un archivo roto que se
-    leyera como «no hay historial» sería indistinguible de uno que nunca se publicó,
-    y nadie se enteraría de que el historial prometido no está funcionando.
-
-    Una huella que aparece en varios bloques (la pieza no cambió entre dos
-    resellados) se queda con la fecha MÁS RECIENTE: es hasta cuándo la semilla la
-    estuvo publicando.
+    Si el archivo existe pero no se puede usar, LEVANTA `ValueError` con el motivo: ver
+    `historial_semilla.leer`, que es quien lo lee desde el 2026-11-22.
     """
-    ruta = _ruta_historial()
-    if not ruta.exists():
-        return None
-    try:
-        texto = ruta.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as e:
-        raise ValueError(f"no se pudo leer el archivo ({type(e).__name__})") from e
-
-    lector = _LectorDeHistorial()
-    for n, crudo in enumerate(texto.splitlines(), start=1):
-        lector.leer(n, crudo.strip())
-    return lector.fin()
-
-
-class _LectorDeHistorial:
-    """Las líneas de `semilla.lock.historial`, una a una. Levanta `ValueError` con el
-    motivo en cuanto algo no cuadra (ver `_historial`)."""
-
-    def __init__(self) -> None:
-        self.formato: str | None = None
-        self.hasta: datetime.date | None = None
-        self.en_el_bloque = 0
-        self.salida: dict[str, dict[str, datetime.date]] = {}
-
-    def leer(self, n: int, linea: str) -> None:
-        if m := FORMATO.match(linea):
-            self.formato = m.group(1)
-        elif CABECERA_DE_BLOQUE.match(linea):
-            self._bloque(n, linea)
-        elif m := ENTRADA.match(linea):
-            self._entrada(n, m)
-
-    def _bloque(self, n: int, linea: str) -> None:
-        m = VIGENTE_HASTA.match(linea)
-        if not m:
-            raise ValueError(f"línea {n}: `vigente_hasta:` sin una fecha AAAA-MM-DD")
-        self._cerrar_bloque()
-        try:
-            self.hasta = datetime.date.fromisoformat(m.group(1))
-        except ValueError as e:
-            raise ValueError(f"línea {n}: `{m.group(1)}` no es una fecha") from e
-        self.en_el_bloque = 0
-
-    def _cerrar_bloque(self) -> None:
-        if self.hasta is not None and self.en_el_bloque == 0:
-            raise ValueError(f"el bloque `vigente_hasta: {self.hasta}` no tiene entradas")
-
-    def _entrada(self, n: int, m: re.Match[str]) -> None:
-        if self.hasta is None:
-            raise ValueError(f"línea {n}: una entrada antes de cualquier `# vigente_hasta:`")
-        self.en_el_bloque += 1
-        por_huella = self.salida.setdefault(m.group("ruta"), {})
-        previa = por_huella.get(m.group("huella"))
-        por_huella[m.group("huella")] = self.hasta if previa is None else max(previa, self.hasta)
-
-    def fin(self) -> dict[str, dict[str, datetime.date]]:
-        if self.formato is None:
-            raise ValueError("falta la línea `# formato: 1`: no es un historial")
-        if self.formato != FORMATO_HISTORIAL:
-            raise ValueError(
-                f"`formato: {self.formato}` no es uno que este juez sepa leer "
-                f"(lee el {FORMATO_HISTORIAL})"
-            )
-        self._cerrar_bloque()
-        return self.salida
+    h = leer(_ruta_historial())
+    return None if h is None else h.huellas
 
 
 def _huella(ruta: Path) -> str | None:
@@ -416,22 +352,6 @@ def _propia_antes_del_sello(r: Resultado, ruta: str, contexto: str) -> None:
     )
 
 
-def _siembra_frente_al_lock(
-    historial: dict[str, dict[str, datetime.date]], texto_marcador: str
-) -> Siembra | None:
-    """La siembra frente a la vigencia de las piezas NUEVAS del lock vigente.
-
-    El lock vigente reemplazó al último del historial el día de su `vigente_hasta`
-    más reciente; lo que sella por primera vez rige desde el día siguiente. Sin
-    historial —o vacío— no se sabe qué pieza es nueva: None, y se bloquea como antes.
-    """
-    fechas = [hasta for huellas in historial.values() for hasta in huellas.values()]
-    if not fechas:
-        return None
-    vigencia = (max(fechas) + datetime.timedelta(days=1)).isoformat()
-    return leer_siembra(texto_marcador, vigencia, CAPA)
-
-
 def _editada(r: Resultado, ruta: str) -> None:
     r.bloquea(
         "SEM-1",
@@ -452,29 +372,29 @@ def _editada(r: Resultado, ruta: str) -> None:
     )
 
 
-def _leer_historial(r: Resultado) -> dict[str, dict[str, datetime.date]]:
-    """El historial, o `{}` con la razón anotada en `no_evaluado`. Nunca más indulgente."""
+def _leer_historial(r: Resultado) -> Historial:
+    """El historial, o uno vacío con la razón anotada en `no_evaluado`. Nunca más indulgente."""
     nombre = _ruta_historial().name
     regenerar = (
         "Lo escribe `python semilla/sellar.py --escribir <ruta>/semilla.lock` "
         "en coipo_master_produccion."
     )
     try:
-        historial = _historial()
+        historial = leer(_ruta_historial())
     except ValueError as e:
         r.no_evaluado.append(
             f"{nombre} existe pero no se pudo leer: {e}. Se IGNORA entero, así que una "
             "pieza de una semilla anterior se juzgará como EDITADA, nunca con más "
             "indulgencia. " + regenerar
         )
-        return {}
+        return Historial()
     if historial is None:
         r.no_evaluado.append(
             f"no hay {nombre} junto al lock: este juez no puede distinguir una pieza "
             "ATRASADA de una EDITADA y juzga las dos como editadas, como antes del "
             "2026-10-24. " + regenerar
         )
-        return {}
+        return Historial()
     return historial
 
 
@@ -537,10 +457,16 @@ def comprobar(repo: Repo, r: Resultado) -> None:
     # Se lee ANTES del bucle y no cuando aparece la primera diferencia, para que
     # un archivo roto o ausente se anote siempre y no sólo cuando hace falta.
     historial = _leer_historial(r)
-    recien = _siembra_frente_al_lock(historial, texto_marcador)
 
-    _juzgar_presentes(repo, r, presentes, esperado, historial, recien)
-    _juzgar_retiradas(repo, r, esperado, historial)
+    def gracia(ruta: str) -> Siembra | None:
+        # La siembra frente a la vigencia de ESA pieza (historial_semilla.py); None si no la tiene.
+        vigencia = historial.vigencia(ruta)
+        return (
+            None if vigencia is None else leer_siembra(texto_marcador, vigencia.isoformat(), CAPA)
+        )
+
+    _juzgar_presentes(repo, r, presentes, esperado, historial.huellas, gracia)
+    _juzgar_retiradas(repo, r, esperado, historial.huellas)
     _pruebas_ausentes(repo, r, esperado)
     _maqueta(repo, r)
     _paquetes_sistema(repo, r)
@@ -579,7 +505,7 @@ def _juzgar_presentes(
     presentes: list[str],
     esperado: dict[str, str],
     historial: dict[str, dict[str, datetime.date]],
-    recien: Siembra | None,
+    gracia: Callable[[str], Siembra | None],
 ) -> None:
     """Cada pieza del lock que la aplicación tiene: vigente, suprimida, atrasada, propia de
     antes del sello o editada."""
@@ -599,10 +525,11 @@ def _juzgar_presentes(
             _atrasada(r, ruta, hasta)
             continue
 
-        # Nueva en el lock vigente (ningún bloque del historial la nombra) y la aplicación
-        # se sembró antes de que rigiera: el archivo es suyo, no una edición.
-        if recien is not None and ruta not in historial and not recien.nuevo:
-            _propia_antes_del_sello(r, ruta, recien.contexto(CAPA, MARCADOR))
+        # La semilla selló esta ruta DESPUÉS de sembrar la aplicación (su vigencia, pieza a
+        # pieza, en historial_semilla.py): el archivo es suyo, no una edición.
+        siembra = gracia(ruta)
+        if siembra is not None and not siembra.nuevo:
+            _propia_antes_del_sello(r, ruta, siembra.contexto(CAPA, MARCADOR))
             continue
 
         _editada(r, ruta)
