@@ -11,8 +11,23 @@
 # fallaría en cada checkout de Windows por un motivo que no es el contenido, y
 # un juez que falla por algo que no importa se suprime en una semana.
 #
-# 54 archivos.
+# 69 archivos.
 
+3bec27618de4a56263b226bea9928184027d3a87e10fd674d8342a2480979087  .claude/hooks/autoprueba.ts
+7018d2b11718fc7516cb1a9961443ab2471b8d74d902f7cc0e9bf96382dc18d7  .claude/hooks/dominio/empuje.ts
+15375450cb7168b41c6734526f5960b8c9f80d4853ad80b5c2ffb393b255523d  .claude/hooks/dominio/inicio.ts
+c3b19b040a9b12a1b831a12885810d31f48c46eb0b566e7d3defcd2ba9788eaa  .claude/hooks/dominio/rutas.ts
+5ec484149b5c0755d4284ad66430010e48a6559e91d49d34560bb15a177a2056  .claude/hooks/dominio/selladas.ts
+993d09680314e30e56b524eb72a3752b4722e79e5a6cb1437bb0fb2ee5b23969  .claude/hooks/dominio/shell.ts
+bd42988f092bb4f4a6da35a78d882d594d9345aa5190c8f7f5f9b329f629f75b  .claude/hooks/entorno.ts
+c6fd83b62e7f9db43c72e7f240c4c0b6ba41e0064c00b60839acdf829d0e14d0  .claude/hooks/gate-antes-del-push.ts
+2c8f9e91a69a3f0cee3434b54665f259ae33f8c47fc877c98a98967ffb73056b  .claude/hooks/inicio-de-sesion.ts
+4f23a64d434bf307a232d995c41bc7f5f6a5d47ade16ad8ae3cd257e0b971cf3  .claude/hooks/package.json
+f9a20f7247ab9dc67f060ebb595f751dab40e1fc39800890dba6d9d31dd4b290  .claude/hooks/proteger-selladas.ts
+70e852fe04bfd834fd57e0b3301fb283ab3c7634454fefa2c14073329468ddc8  .claude/hooks/selladas.json
+c264dfd1cc177bd6dfe841bc5b599aec29e472837cd55784a8f278684d946749  .claude/hooks/tsconfig.json
+a7b755878e4a9fe3ea97467c19e57cd290995f8650fd566d5d2971d5c2e1bbcf  .claude/settings.json
+066c472be5ec5640f6a5257b74d79eb7aeda81929690c70c9a610bdc6dad258c  .githooks/pre-push
 14a6cb01b95fbca68da362712c9e338122833d59c3f9af7c364533e51be6a1e4  backend/Dockerfile
 26349d99acd4d8fa83eb980f00e617d800beee082f42ec0622bb3a3b068120a7  backend/app/adaptadores/entrada/http/guards.py
 f27aacffe135e8bd30d28863e7e343c2d125032df4bdbfe9a19806bbe6378fe0  backend/app/adaptadores/entrada/http/middleware_acceso.py
