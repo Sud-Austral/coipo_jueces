@@ -14,7 +14,7 @@ WORKFLOW REUSABLE DE GITHUB ACTIONS
 |---|---|
 | **Código de documento** | ERS-COIPO_JUECES-2026-V2 |
 | **Fecha de emisión** | 21 de noviembre de 2026 (la V1 es del 10 de noviembre de 2026) |
-| **Repositorio** | coipo_jueces (rama main, commit 81629c2 del 2026-11-21, leído ese día; publicado el mismo día como `v2.0.20`, con el lock de la semilla resellado) |
+| **Repositorio** | coipo_jueces (rama main, commit 81629c2 del 2026-11-21, leído ese día; publicado el mismo día como `v2.0.20`, con el lock de la semilla resellado; el 2026-11-22, `v2.0.21`, con el lock de los hooks de la semilla y la vigencia por pieza de `j12`) |
 | **Elaborado por** | Generado con asistencia de IA (Claude) a partir del código y la documentación del repositorio; puesto al día el 2026-11-21 contra el árbol de ese día; pendiente de revisión humana |
 | **Unidad requirente** | No documentado en el repositorio |
 | **Alcance** | Herramienta de verificación estática, no una aplicación web: once programas en Python de biblioteca estándar (`jueces/jNN_*.py`), su motor común y sus auxiliares, un orquestador, el workflow reusable que los distribuye (`.github/workflows/verificar.yml`), el catálogo de reglas (`REGLAS.md`), el sello de la semilla (`semilla.lock` y su historial) y la suite de pruebas. No tiene servicio, base de datos, interfaz de usuario ni contenedores. |
@@ -139,7 +139,7 @@ inmutable y `vN` móvil que las aplicaciones consumen (`docs/VERSIONADO.md`). La
 declarada es `v2`; en el clon leído existen los tags `v1`, `v1.0.0`, `v1.0.1`, `v1.1.0`, `v2` y
 `v2.0.0` a `v2.0.20`. Hasta el 2026-11-21, `v2`, `v2.0.19` y `origin/main` apuntaban al mismo
 commit (`26301b9`, del 2026-11-14); ese día se publicó `v2.0.20` con lo que `docs/VERSIONADO.md`
-listaba en «Sin publicar», y `v2` pasó a apuntarle. El procedimiento de publicación vive en `coipo_master_produccion` y no en
+listaba en «Sin publicar», y `v2` pasó a apuntarle. El 2026-11-22 se publicó `v2.0.21` —el lock con los hooks de Claude Code que siembra la semilla y la vigencia por pieza de `j12`— y `v2` pasó a apuntarle. El procedimiento de publicación vive en `coipo_master_produccion` y no en
 este repositorio. La organización de GitHub que aparece en el `uses:` es `Sud-Austral`.
 
 ### 3.2. Autenticación y matriz de roles
@@ -356,12 +356,14 @@ mensaje que el sistema maneja.
 
 - **Ambientes.** No hay ambientes de despliegue. El sistema corre en runners de GitHub Actions
   (`ubuntu-latest` por defecto o uno propio) y en equipos locales.
-- **Versión publicada.** `docs/VERSIONADO.md` describe hasta `v2.0.20` (2026-11-21), con `v2` como
+- **Versión publicada.** `docs/VERSIONADO.md` describe hasta `v2.0.21` (2026-11-22), con `v2` como
   mayor vigente y `v1` congelada. El `main` leído (28 commits después de `v2.0.19`) se publicó ese
   mismo día como `v2.0.20`, con su radio medido el 2026-11-21
   sobre 88 clones (`BLOQUEA` 180 → 182 y `AVISA` 555 → 613, una vez corregida la vigencia de
   `UI-3`). Antes de publicarlos se reselló `semilla.lock` y se vio `Autotest` en verde con los pasos
-  nuevos de actionlint y ruff, como pide ese documento.
+  nuevos de actionlint y ruff, como pide ese documento. El 2026-11-22 se publicó `v2.0.21`: el
+  lock con 69 piezas (los hooks de Claude Code de la semilla) y la vigencia por pieza de `j12`,
+  con el radio medido ese día contra la organización (0 `BLOQUEA` nuevos, 0 despliegues frenados).
 - **Adopción.** Según `docs/ESTADO.md` de la fábrica (medido el 2026-11-21 con su
   `flota/consumidores.py`), 32 repositorios de la organización llaman a `verificar.yml` (2 en
   bloqueante, 31 con el motor en `v2`) y 19 despliegan sin llamarlo. Desde el 2026-11-21 las
@@ -386,7 +388,7 @@ mensaje que el sistema maneja.
 | `jueces/` (listado, `PERFILES` de cada juez, largo de cada archivo) | Once jueces, dos auxiliares nuevos y el tamaño del motor. |
 | `semilla.lock` (encabezado), `semilla.lock.historial` (bloques), y `sellar.py --comprobar` de la fábrica | 45 piezas, 17 bloques y el lock desfasado. |
 | `tests/` (listado y conteo), y la suite ejecutada el 2026-11-21 | 29 archivos, 418 funciones `test_`, 422 pruebas en OK. |
-| Historial de git y tags | Los commits que resolvieron cada punto de la sección siguiente; desde el 2026-11-21, `v2` = `v2.0.20`. |
+| Historial de git y tags | Los commits que resolvieron cada punto de la sección siguiente; desde el 2026-11-22, `v2` = `v2.0.21` (del 2026-11-21 al 22, `v2.0.20`). |
 | `docs/ESTADO.md` de `coipo_master_produccion` | Adopción del gate en la flota y los pendientes de la fábrica que tocan a este repositorio. |
 | Lectura del 2026-11-10, no repetida: `insumos/00-PROBLEMA.md`, `insumos/MANIFIESTO.yaml`, `jueces/comun.py`, `comun_yaml.py`, `comun_semilla.py`, `correr.py`, las cabeceras de los once jueces y las llamadas a `bloquea` y `avisa` de `j01`, `j06`, `j08`, `j09` y `j11`, `tests/ayuda.py` y las pruebas transversales, `.gitignore`, `.gitattributes` | Lo que esta versión conserva de la V1 sin volver a leerlo. |
 
@@ -453,7 +455,7 @@ está en `main` y todavía no llega a quien consume `@v2`.
   permanente» de `docs/ESTADO.md`); desde aquí no se puede verificar que las reglas citadas digan lo
   que el catálogo afirma.
 - **Estado posterior a `v2.0.14` sin entrada en el versionado. Resuelto:** `docs/VERSIONADO.md`
-  documenta `v2.0.15` a `v2.0.20`; la sección «Sin publicar» (desde `8ce32f8`) lista lo que hay en
+  documenta `v2.0.15` a `v2.0.21`; la sección «Sin publicar» (desde `8ce32f8`) lista lo que hay en
   `main` después del último tag, y se vació al publicar `v2.0.20` el 2026-11-21.
 - **Unidad requirente, responsables, respaldo y nivel de adopción actual. Abierto en parte.** La
   adopción ya está medida, por la fábrica (sección 7.1); la unidad requirente, los responsables y el

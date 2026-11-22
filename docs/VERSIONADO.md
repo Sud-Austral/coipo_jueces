@@ -729,6 +729,48 @@ Verificado en local antes del tag: la suite (449 pruebas, OK), el autojuicio (0 
 rojo con un `${{ }}` vacío); en la fábrica, una siembra nueva juzgada en `bloqueante` con este
 lock sale con 0 bloqueantes y 0 avisos (con el `CONSTRUCCION.md` de prueba de su CI).
 
+### `v2.0.21`, 2026-11-22 — los hooks de Claude Code en el lock, y una ruta sellada que no pierde su gracia al resellar
+
+Autorizada por Luis Monsalve el 2026-11-22 («puedes hacer todo eso»), con el radio de abajo a
+la vista. **Reversión:** antes de este tag `v2` apuntaba a
+`e04937083fb3b2830554dcbbe24f3d138260f72c` (`v2.0.20`). El tag se crea sólo con `Autotest` en
+verde sobre su commit, en GitHub (`docs/publicar-los-jueces.md` de la fábrica).
+
+Lo que entra, después de `v2.0.20`:
+
+- `c6f8ad6` — `REGLAS.md` y `j11` citan el `AGENTS.md` del ESQUELETO, que su `CLAUDE.md`
+  importa desde el 2026-11-21 (sólo texto).
+- `856c050` — `semilla.lock` resellado desde `semilla/CONGELADO/` de la fábrica en `b8cae41`:
+  **54 → 69 piezas**. Las 15 nuevas son los hooks de Claude Code que la semilla siembra desde el
+  2026-11-22 a pedido de Luis Monsalve: `.claude/settings.json`, los scripts de
+  `.claude/hooks/` (no editar una pieza sellada, el gate antes del push y el inicio de
+  sesión), su manifiesto `selladas.json` y el `pre-push` de `.githooks/`. El lock de `v2.0.20`
+  entra al historial (19 bloques).
+- `b6f00bf` — **`j12`: la vigencia de una ruta sellada es por pieza.** Con la vara de
+  `dd6b779` sólo tenían gracia las rutas que ningún bloque del historial nombraba; al resellar,
+  el lock anterior entra al historial y sus rutas recién selladas la perdían. Ahora cada pieza
+  rige desde el día siguiente al último bloque que todavía no la nombraba, contado por posición
+  (dos resellados del mismo día dan dos bloques con la misma fecha), y lo sellado antes de
+  `GRACIA_DESDE` (2026-11-22) se juzga como siempre. La lectura del historial pasa a
+  `jueces/historial_semilla.py`: `j12` tenía 794 líneas. Cuatro pruebas nuevas y tres mutaciones
+  vistas en rojo; la misma vara en `flota/consumidores_lectura.py` de la fábrica (`9d8f59b`).
+- y este commit: esta entrada y el ERS al día con la publicación.
+
+**Radio del lock**, `flota/consumidores.py --lock-candidato` de la fábrica contra la
+organización (2026-11-22). Con el lock nuevo y el `j12` de `v2.0.20`, **5** aplicaciones
+sumaban un `SEM-1 BLOQUEA`: las rutas que `v2.0.20` selló por primera vez y que perdían la
+gracia al entrar su lock al historial. Lo encontró esta medición, antes de publicar. Con
+`b6f00bf`: **2** con `SEM-1 BLOQUEA`, las mismas dos y por las mismas piezas que con el lock
+publicado; 17 sólo avisan; **frenarían el despliegue: 0**. Las 15 piezas nuevas no están en
+ninguna aplicación ya sembrada, y una pieza ausente no es un hallazgo: la reciben con
+`sembrar.py --actualizar --reponer`. Ningún `BLOQUEA` nuevo. Las aplicaciones no se nombran
+aquí, que es público.
+
+Verificado en local antes del tag: la suite (480 pruebas, OK), el autojuicio (0 bloqueantes),
+`ruff check`/`ruff format --check`; en la fábrica, una siembra nueva juzgada en `bloqueante`
+con este lock y este `j12` sale con 0 bloqueantes y 0 avisos (con el `CONSTRUCCION.md` de
+prueba de su CI).
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
