@@ -771,6 +771,33 @@ Verificado en local antes del tag: la suite (480 pruebas, OK), el autojuicio (0 
 con este lock y este `j12` sale con 0 bloqueantes y 0 avisos (con el `CONSTRUCCION.md` de
 prueba de su CI).
 
+### `v2.0.22`, 2026-11-22 — tres falsos positivos que aparecieron al alinear el IAM
+
+Autorizada por Luis Monsalve el 2026-11-22, en el plan aprobado ese día para llevar
+`coipo_usuarios` (el IAM) al estándar de la fábrica («el tag v2.0.21 y mover v2»: la otra
+publicación del día tomó ese número y esta pasa a `v2.0.22`). **Reversión:** antes de este tag
+`v2` apuntaba a `1e395cc57e8e27282c5670131b280d3442595440` (`v2.0.21`). El tag se crea sólo con
+`Autotest` en verde sobre su commit.
+
+Lo que entra, después de `v2.0.21`: `8fdafe5` y este commit. Sin resellado: el lock no cambia.
+
+| Juez | Qué estaba mal | Qué hace ahora |
+|---|---|---|
+| `j02` (`G8-1`) | `Repo.nombre` era la carpeta local. Un clon de `coipo_usuarios` en una carpeta `COIPO_USUARIOS` salía bloqueado sin nada que arreglar: el repositorio se llama en minúsculas en GitHub | el nombre sale del remoto `origin` (el que usa el despliegue, `github.event.repository.name`); sin remoto, la carpeta. En el CI no cambia nada: el checkout se llama como el repositorio |
+| `j13` (`UI-15`) | miraba solo el PRIMER `@media prefers-reduced-motion` de cada hoja. Un `.x:hover { @media (prefers-reduced-motion: no-preference) {…} }` anidado antes del bloque universal lo tapaba: «apaga 0 de 14» sobre un CSS correcto | se miran todos los bloques `reduce`; un `no-preference` (que ENCIENDE movimiento, no lo apaga) no cuenta como bloque. El hueco de un repositorio con SOLO bloques `no-preference` (que hoy sale «completo») no se toca: cerrarlo puede poner rojo a uno verde, y eso es mayor nueva |
+| `j16` (`COD-3`) | el arreglo proponía `src/puertos/` y `src/interfaz/`, que no existen en la semilla ni en `ESTANDAR_CODIGO.md` | nombra `src/aplicacion/puertos/`, `src/adaptadores/`, `src/composicion.ts`, `src/componentes/` y `src/vistas/` |
+
+Seis pruebas nuevas, vistas en rojo antes del arreglo (la de `UI-15` reproduce el «apaga 0 de 1»).
+
+**Radio medido** (2026-11-22), `correr.py --jueces "j02 j13 j16"` en advisory sobre los **163
+clones** de `D:\GitHub`, la versión anterior contra la nueva: **BLOQUEA 84 → 83, AVISA 207 →
+207**. El único cambio es el `G8-1` falso de un clon del IAM. Ningún repositorio pasa de verde a
+rojo. Se midió sobre `c6f8ad6`; `v2.0.21` no tocó `comun.py`, `j02`, `j13` ni `j16`
+(`git diff c6f8ad6 1e395cc` vacío para esos archivos), así que el radio vale igual.
+
+Verificado en local antes del tag: la suite (OK), el autojuicio (0 bloqueantes), `ruff check` y
+`ruff format --check`.
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
