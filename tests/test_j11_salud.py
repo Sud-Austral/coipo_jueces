@@ -207,7 +207,7 @@ class PruebaIdentidadEnSalud(CasoConRepo):
     Es lo único que delata una colisión de `APP_PORT`: si otra aplicación ocupa el
     puerto, el `curl -sf` del despliegue recibe SU `/health`, responde 200, y el
     despliegue se declara exitoso sobre el contenedor equivocado
-    (`semilla/ESQUELETO/CLAUDE.md` §4 de la fábrica)."""
+    (`semilla/ESQUELETO/AGENTS.md` §4 de la fábrica)."""
 
     MODULO = j11
 

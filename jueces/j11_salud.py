@@ -541,7 +541,7 @@ def _comprobar_except_mudo(fn, ruta: str, lineas: list[str], r: Resultado, repo:
 # «`APP_NOMBRE` es un literal versionado y sale en `/health`. Es lo único que delata
 # una colisión de `APP_PORT`: si otra aplicación ocupa tu puerto, el `curl` del
 # despliegue recibe SU `/health`, responde 200, y tu despliegue se declara exitoso
-# sobre el contenedor equivocado» (`semilla/ESQUELETO/CLAUDE.md` §4 de la fábrica; la
+# sobre el contenedor equivocado» (`semilla/ESQUELETO/AGENTS.md` §4 de la fábrica; la
 # regla 4 de la pieza sellada `rutas/salud.py` dice lo mismo). El despliegue ya lo
 # advierte; aquí se ve antes, en el CI. AVISA: es una regla nueva (FILOSOFIA.md §4 de
 # la fábrica: las reglas miran hacia adelante).
@@ -586,7 +586,7 @@ def _sin_identidad(r: Resultado, ruta: str, linea: int) -> None:
         linea=linea,
         arreglo='devolver `"app": APP_NOMBRE`, con el nombre como literal versionado y no '
         "leído del entorno, como `backend/app/adaptadores/entrada/http/rutas/salud.py` "
-        "de la semilla (`semilla/ESQUELETO/CLAUDE.md` §4)",
+        "de la semilla (`semilla/ESQUELETO/AGENTS.md` §4)",
     )
 
 
