@@ -185,8 +185,10 @@ Los huecos de la numeración no son jueces perdidos:
   `borradores/DECISION_ARQUITECTURA-2026-09-04.md` de la fábrica (`j03_iam_bff`,
   `j04_auditoria_pii`, `j07_postgres`, `j10_rat`), que está en cuarentena. **Nunca se
   escribieron**: no hay rastro de ellos en la historia de este repositorio.
-- **`j15`** (`j15_cuota.py`) existe sólo en la rama `rescate/jueces-cuota-sin-publicar`
-  (commit `5191a9a`, «j14 y j15 escritos y NO publicables») y **nunca se publicó**.
+- **`j15`** (`j15_cuota.py`) existió sólo en la rama `rescate/jueces-cuota-sin-publicar`
+  (commit `5191a9a`, «j14 y j15 escritos y NO publicables») y **nunca se publicó**. El
+  2026-11-24 esa rama ya no está en `origin` (sólo `main` y `semilla-compatible-lab`) y el
+  commit no está en este clon: si quedó en algún checkout local, no lo comprobé.
 
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
@@ -218,7 +220,8 @@ vigente. Medido el 2026-10-25 en la rama `arreglos-auditoria-2026-10-25`: 301
 pruebas, OK, **0 omitidas**. La única que se omitía (la de los tags de
 `test_verificar_yaml.py`, fuera de CI) ahora comprueba contra la mayor vigente que
 declara `docs/VERSIONADO.md`; en CI sigue exigiendo los tags. Corre en CI con
-`.github/workflows/autotest.yml`. (Hasta el 2026-11-21 había además un
+`.github/workflows/autotest.yml`. Medido de nuevo el 2026-11-24 sobre `main`
+(1f3d696), en Windows con Python 3.13: `Ran 486 tests`, OK, en 400 s. (Hasta el 2026-11-21 había además un
 `probar-runner.yml` manual que pedía un runner self-hosted desde este repositorio
 público y quedaba encolado para siempre: se retiró.)
 
