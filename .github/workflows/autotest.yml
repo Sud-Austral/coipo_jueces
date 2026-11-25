@@ -4,7 +4,7 @@
 # cuando pone rojo, y al que todo el mundo cree cuando pone verde. La primera
 # versión de j09 emitía 68 hallazgos falsos sobre COIPO_USUARIOS y 53 sobre
 # coipo_prensa2 —que por diseño tenía que salir verde—; sin una suite que lo
-# midiera, esa versión se habría conectado a los 22 repos de la flota.
+# midiera, esa versión se habría conectado a los repositorios de la flota.
 
 name: Autotest
 
@@ -23,7 +23,29 @@ permissions:
 
 jobs:
   pruebas:
-    runs-on: ubuntu-latest
+    # DOS PIERNAS (2026-11-25).
+    #
+    # `ubuntu-latest` corre con el `python3` que traiga el runner, que es con lo que
+    # corren los jueces en el CI de las apps. `ubuntu-22.04` trae Python 3.10, el
+    # MÍNIMO declarado (README, «Contrato de un juez»): hasta ese día el código evitaba
+    # sintaxis de 3.10 y 3.11 «porque el runner puede ser anterior», ruff apuntaba a
+    # 3.11 y nada lo probaba por debajo de 3.12. Un mínimo que nadie ejecuta es una
+    # frase.
+    #
+    # Sin `setup-python`: es el `python3` del sistema, lo mismo que tendría un runner
+    # propio con esa distribución, y no entra ninguna action nueva. Si la imagen dejara
+    # de traer 3.10, el paso «Versión de python» falla y lo dice: no se prueba en
+    # silencio otra versión.
+    name: pruebas (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            python: ""
+          - runner: ubuntu-22.04
+            python: "3.10"
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     env:
       PYTHONIOENCODING: utf-8
@@ -32,8 +54,10 @@ jobs:
         with:
           # CON TAGS, y no es un detalle de rendimiento. `tests/test_verificar_yaml.py`
           # comprueba que el `ref_jueces` por defecto no se quede en una mayor anterior,
-          # y para eso lista los tags. El checkout por defecto es superficial y sin
-          # tags, así que esa prueba se declaraba `skipTest` — SIEMPRE, y sólo aquí.
+          # y `tests/test_coherencia_documentos.py` que cada tag tenga su entrada en
+          # docs/VERSIONADO.md: para eso listan los tags. El checkout por defecto es
+          # superficial y sin tags, así que esa prueba se declaraba `skipTest` — SIEMPRE,
+          # y sólo aquí.
           #
           # Medido el 2026-09-08: la única comprobación que protege el valor por
           # defecto se saltaba justo en el único sitio donde la suite corre sola. Un
@@ -44,52 +68,36 @@ jobs:
       - name: Versión de python
         # Los jueces son de biblioteca estándar: si esto deja de bastar, es un
         # cambio de contrato y tiene que doler aquí, no en el CI de una app.
-        run: python3 --version
+        env:
+          ESPERADA: ${{ matrix.python }}
+        run: |
+          python3 --version
+          if [ -n "$ESPERADA" ]; then
+            python3 -c "import sys; v = '%d.%d' % sys.version_info[:2]; sys.exit(0 if v == '$ESPERADA' else 'se esperaba Python $ESPERADA y este runner trae ' + v)"
+          fi
 
       - name: Suite
+        # Dentro van dos comprobaciones que hasta el 2026-11-25 eran un `python -c` en
+        # este archivo: «sólo biblioteca estándar» (tests/test_solo_biblioteca_estandar.py)
+        # y «todo `uses:` fijado a un SHA» (tests/test_workflows_yaml.py). El YAML no se
+        # puede probar; una prueba sí, y además corre en la máquina de quien edita.
         run: python3 -m unittest discover -s tests -v
-
-      - name: Sin dependencias fuera de la biblioteca estándar
-        # `pip` no está disponible a propósito en esta comprobación: se importa
-        # cada juez con el intérprete pelado. Un `import yaml` que se colara
-        # rompería el CI de las apps, no el nuestro, y el diagnóstico allá es
-        # mucho más caro.
-        run: |
-          for j in jueces/j*.py; do
-            python3 -c "
-          import importlib.util, sys
-          spec = importlib.util.spec_from_file_location('x', '$j')
-          m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-          print('ok  $j')
-          "
-          done
-
-      - name: El YAML del reusable parsea
-        run: |
-          python3 -c "
-          import re, sys
-          t = open('.github/workflows/verificar.yml', encoding='utf-8').read()
-          assert t.lstrip().startswith('#'), 'el archivo debe empezar por comentario o clave'
-          assert 'workflow_call' in t, 'el reusable perdió su disparador'
-          # TODOS los `uses:`, no 'alguno': antes bastaba con que UNO llevara SHA y un
-          # `@v4` colado pasaba. Medido el 2026-09-08 con un YAML de prueba.
-          usos = re.findall(r'^\s*-?\s*uses:\s*(\S+)', t, re.M)
-          assert usos, 'el reusable no declara ningun uses:'
-          sin_sha = [u for u in usos if not re.search(r'@[0-9a-f]{40}$', u)]
-          assert not sin_sha, f'uses: sin SHA de 40 caracteres: {sin_sha}'
-          print('verificar.yml ok')
-          "
 
       - name: El Zen de Python (ruff)
         # Decisión de Luis Monsalve del 2026-11-21: los principios, con chequeos.
-        # `ruff.toml` es una copia del sellado de la semilla. Va DESPUÉS de la
-        # comprobación de biblioteca estándar y no la toca: ruff es una herramienta
+        # `ruff.toml` es una copia del sellado de la semilla. ruff es una herramienta
         # de este CI, no una dependencia de los jueces, y el CI de las apps sigue
         # sin instalar nada.
+        #
+        # `--target-version py310`: esa copia apunta a 3.11 y no se edita aquí (la
+        # compara la fábrica). El mínimo de los jueces es 3.10, así que se pasa por
+        # línea de comandos: con el objetivo en 3.11, ruff daría por buena —y con `UP`
+        # hasta pediría— sintaxis que 3.10 no entiende.
+        if: matrix.runner == 'ubuntu-latest'
         run: |
           python3 -m pip install --disable-pip-version-check --quiet ruff==0.17.4
-          python3 -m ruff check .
-          python3 -m ruff format --check .
+          python3 -m ruff check --target-version py310 .
+          python3 -m ruff format --check --target-version py310 .
 
       - name: actionlint sobre el reusable
         # La validación que de verdad cuenta es la de GitHub al LLAMAR al reusable (el
@@ -102,6 +110,7 @@ jobs:
         # documentado, y el propio verificar.yml explica que llega vacío y por qué el
         # paso muere si no hay referencia. Sin shellcheck ni pyflakes (`-shellcheck=`,
         # `-pyflakes=`): lo que se comprobó en local es exactamente lo que corre aquí.
+        if: matrix.runner == 'ubuntu-latest'
         env:
           ACTIONLINT: "1.7.12"
           ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8

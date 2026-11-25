@@ -167,9 +167,49 @@ def _emision(
     return Emision(juez, nodo.lineno, llamada, codigo)
 
 
+# El mismo patrón que `correr.PATRON_JUEZ`: lo que el orquestador carga como juez.
+ES_JUEZ = re.compile(r"^j\d{2}_[a-z_]+\.py$")
+# `comun.py` DEFINE `bloquea()`, `avisa()` y `anota()`: dentro de `Resultado`, sus llamadas a
+# `self.anota(` son la API y no una emisión. Fuera de esa clase vale lo que en los demás.
+DEFINE_LA_API = "comun.py"
+
+
+def archivos_de_juez() -> list[Path]:
+    return sorted(p for p in JUECES.glob("*.py") if ES_JUEZ.match(p.name))
+
+
+def auxiliares() -> list[Path]:
+    """Todo `jueces/*.py` que NO es un juez. Ninguno emite: devuelve datos y el juez emite.
+
+    Hasta el 2026-11-25 la prueba miraba `comun_*.py`, y `emisiones()` miraba `j*.py`:
+    `historial_semilla.py` y `correr.py` no casaban con ninguno de los dos patrones, así que
+    una regla emitida desde ahí no la habría visto nadie. Es el hueco por el que pasó COD-5
+    el 2026-11-21, movido un nombre de archivo más allá."""
+    return sorted(p for p in JUECES.glob("*.py") if not ES_JUEZ.match(p.name))
+
+
+def emisiones_de_un_auxiliar(texto: str, nombre: str) -> list[tuple[int, str]]:
+    """(línea, llamada) de lo que emite un módulo que no es un juez.
+
+    En `comun.py` se descuenta el `self.anota(` de dentro de la clase `Resultado`."""
+    dentro_de_la_api: range = range(0)
+    if nombre == DEFINE_LA_API:
+        clase = next(
+            n
+            for n in ast.parse(texto).body
+            if isinstance(n, ast.ClassDef) and n.name == "Resultado"
+        )
+        dentro_de_la_api = range(clase.lineno, (clase.end_lineno or clase.lineno) + 1)
+    return [
+        (e.linea, e.llamada)
+        for e in emisiones_de(texto, nombre)
+        if e.llamada != "suprimido" and not (e.llamada == "anota" and e.linea in dentro_de_la_api)
+    ]
+
+
 def emisiones() -> list[Emision]:
     salida: list[Emision] = []
-    for archivo in sorted(JUECES.glob("j*.py")):
+    for archivo in archivos_de_juez():
         salida += emisiones_de(archivo.read_text(encoding="utf-8"), archivo.stem)
     return salida
 
@@ -242,18 +282,29 @@ class PruebaTrazabilidad(unittest.TestCase):
                 )
 
     def test_un_modulo_auxiliar_no_emite_hallazgos(self):
-        """La trazabilidad lee `jueces/j*.py`: lo que emitiera un `comun_*.py` no lo vería.
+        """La trazabilidad lee los jueces: lo que emitiera cualquier otro módulo no lo vería.
 
         Pasó el 2026-11-21 con COD-5, escrito en `comun_zen.py`: esta misma prueba siguió
         verde sin su fila en REGLAS.md. Un auxiliar DEVUELVE datos y el juez emite el código.
+        Desde el 2026-11-25 «auxiliar» es todo `jueces/*.py` que no es un juez, no sólo los
+        `comun_*.py` (ver `auxiliares()`).
         """
-        for archivo in sorted(JUECES.glob("comun_*.py")):
-            emitidas = [
-                (e.linea, e.llamada)
-                for e in emisiones_de(archivo.read_text(encoding="utf-8"), archivo.stem)
-                if e.llamada != "suprimido"
-            ]
-            self.assertEqual([], emitidas, f"{archivo.name} emite hallazgos: {emitidas}")
+        for archivo in auxiliares():
+            with self.subTest(modulo=archivo.name):
+                emitidas = emisiones_de_un_auxiliar(
+                    archivo.read_text(encoding="utf-8"), archivo.name
+                )
+                self.assertEqual([], emitidas, f"{archivo.name} emite hallazgos: {emitidas}")
+
+    def test_todo_archivo_de_jueces_es_juez_o_auxiliar_y_se_mira(self):
+        """Cero de cero: la partición cubre el directorio entero y ninguna mitad está vacía."""
+        todos = {p.name for p in JUECES.glob("*.py")}
+        self.assertEqual(
+            todos, {p.name for p in archivos_de_juez()} | {p.name for p in auxiliares()}
+        )
+        self.assertTrue(archivos_de_juez(), "ningún archivo casa con el patrón de juez")
+        for esperado in ("comun.py", "correr.py", "historial_semilla.py", "comun_zen.py"):
+            self.assertIn(esperado, {p.name for p in auxiliares()})
 
 
 class PruebaDelExtractor(unittest.TestCase):
@@ -289,6 +340,26 @@ class PruebaDelExtractor(unittest.TestCase):
         emitidas = emisiones_de(fuente, "jXX")
         self.assertEqual([], [e.problema for e in emitidas if e.problema])
         self.assertEqual({"G8-4", "SEM-1"}, {e.codigo for e in emitidas})
+
+    def test_un_auxiliar_que_emite_se_ve(self):
+        """El caso de COD-5: un módulo que no es un juez llama a `avisa()`."""
+        fuente = 'def mirar(r):\n    r.avisa("COD-5", "", "m", "p")\n'
+        self.assertEqual([(2, "avisa")], emisiones_de_un_auxiliar(fuente, "historial_semilla.py"))
+
+    def test_en_comun_solo_se_descuenta_la_api_de_resultado(self):
+        """`self.anota(` dentro de `Resultado` es la API; una emisión fuera de ella, no."""
+        fuente = (
+            "class Resultado:\n"
+            "    def bloquea(self, regla):\n"
+            "        self.anota(regla)\n"
+            "\n"
+            "def alcance(r):\n"
+            '    r.bloquea("SEM-9", "", "m", "p")\n'
+            "    r.anota('SEM-9')\n"
+        )
+        self.assertEqual(
+            [(6, "bloquea"), (7, "anota")], emisiones_de_un_auxiliar(fuente, "comun.py")
+        )
 
 
 SECCION_SIN_FUENTE = "## Reglas sin fuente escrita"

@@ -16,3 +16,12 @@
 *.py    text eol=lf
 *.sql   text eol=lf
 .env*   text eol=lf
+
+# Los datos que lee j12 y los documentos, también. Con `text=auto` a secas y
+# `core.autocrlf=true`, en Windows salían con CRLF (11 archivos el 2026-11-24, entre
+# ellos `semilla.lock` y su historial) mientras la primera línea de este archivo dice
+# «LF forzado». Los lectores lo toleran; lo que no tolera es una huella calculada sobre
+# esos bytes, que cambia de una máquina a otra.
+semilla.lock*   text eol=lf
+*.md    text eol=lf
+*.toml  text eol=lf
