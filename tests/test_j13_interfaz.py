@@ -198,6 +198,21 @@ class PruebaTemaOscuro(ConSemilla):
         self.assertRegla("UI-3", "AVISA", "antes de la regla", r)
         self.assertEqual([], r.bloqueantes)
 
+    def test_sin_tema_oscuro_el_dia_anterior_a_la_vigencia_solo_avisa(self):
+        """La frontera por debajo: `SEMILLA_NUEVA` es el 2026-11-22 y bloquea.
+
+        La prueba de arriba usa el 2026-10-14. Hasta el 2026-11-25 nada fijaba el día 21:
+        `VIGENCIA_SIN_TEMA` podía adelantarse más de un mes con la suite en verde."""
+        vispera = self.SEMILLA_NUEVA.replace("2026-11-22", "2026-11-21")
+        self.assertIn("fabrica: 2026-11-21", vispera)
+        self.repo.escribe(".semilla", vispera)
+        self.repo.escribe(
+            "src/estilos.css", ":root { --verde: #064928; }\n.t { color: var(--verde); }\n"
+        )
+        r = self.repo.juzga()
+        self.assertRegla("UI-3", "AVISA", "tema oscuro", r)
+        self.assertEqual([], r.bloqueantes)
+
     def test_sin_tema_oscuro_sin_fecha_de_siembra_solo_avisa(self):
         """`adopta: interfaz` sin `fabrica:` (un repositorio alineado, no sembrado)."""
         self.repo.escribe(

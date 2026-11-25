@@ -97,6 +97,19 @@ class PruebaTamano(Base):
         self.assertSinBloqueos()
         self.assertAvisa("1500 líneas")
 
+    def test_el_dia_anterior_a_la_vigencia_solo_avisa(self):
+        """La frontera por debajo. `NUEVA` es el 2026-10-24 y bloquea; `VIEJA` es el 20.
+
+        Hasta el 2026-11-25 nada fijaba el día 23: la vigencia podía adelantarse tres días
+        con la suite en verde, y adelantar una vigencia pone a bloquear a quien se sembró
+        esos días (pasó con FAB-9 y dos aplicaciones sembradas el 2026-11-12)."""
+        vispera = NUEVA.replace("2026-10-24", "2026-10-23")
+        self.assertIn("fabrica: 2026-10-23", vispera)
+        self.repo.escribe(".semilla", vispera).escribe("backend/app/grande.py", lineas(1500))
+        r = self.repo.juzga()
+        self.assertRegla("COD-1", "AVISA", "1500 líneas", r)
+        self.assertEqual([], r.bloqueantes)
+
     def test_sin_fecha_de_siembra_solo_avisa(self):
         """Como coipo_prensa2: adopta un estándar sin haberse sembrado."""
         self.repo.escribe(".semilla", SIN_FECHA).escribe("frontend/src/estilos.css", lineas(1985))

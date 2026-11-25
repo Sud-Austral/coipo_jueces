@@ -180,7 +180,7 @@ class PruebaContextoDeBuild(CasoConRepo):
         self.assertRegla("DK-4", "BLOQUEA", "falta `.dockerignore`")
 
     def test_dockerignore_que_no_excluye_env_bloquea(self):
-        """El defecto real de COIPO_USUARIOS: existe, pero deja pasar el .env."""
+        """El defecto real del caso de j09: existe, pero deja pasar el .env."""
         self.repo.escribe("docker-compose.yml", COMPOSE_BUENO)
         self.repo.escribe("frontend/nginx.conf", NGINX_BUENO)
         self.repo.escribe(".dockerignore", ".git\n**/node_modules\nfrontend/dist\n")
@@ -218,7 +218,11 @@ services:
     restart: unless-stopped
 """,
         )
-        self.assertSinBloqueos()
+        # Hasta el 2026-11-25 sólo afirmaba `assertSinBloqueos()`: sin `.dockerignore` y
+        # sin `context: .` DK-4 AVISA, así que la prueba pasaba igual si se exigía.
+        r = self.repo.juzga()
+        self.assertSinBloqueos(r)
+        self.assertSinRegla("DK-4", r)
 
 
 class PruebaNginxInterno(CasoConRepo):

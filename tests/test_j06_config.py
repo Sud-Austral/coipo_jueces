@@ -151,8 +151,13 @@ class PruebaVersiones(CasoConRepo):
         self.assertAvisa("ninguna imagen se construye con esa versión")
 
     def test_version_coincidente_no_bloquea(self):
+        """Ni bloquea ni avisa. Hasta el 2026-11-25 sólo afirmaba `assertSinBloqueos()`, y
+        `CI-1` nunca bloquea: la prueba no podía fallar por la regla que nombra."""
         self._con(DOCKERFILE, CI)
-        self.assertSinBloqueos()
+        r = self.repo.juzga()
+        self.assertSinBloqueos(r)
+        self.assertSinRegla("CI-1", r)
+        self.assertIn("versiones del CI frente a las del Dockerfile", r.comprobado)
 
     def test_version_del_ci_mas_corta_casa_por_componentes(self):
         """`3.1` no puede casar con `3.13` por prefijo de cadena.
