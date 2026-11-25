@@ -13,7 +13,10 @@ que distingue un archivo escrito tras consultar de uno escrito de memoria».
          declara `metodologia:`, `instancia:`, `objetivos:` y `consultas:`, cita
          una metodología de IGNUS (`smb-metodologia-…`) y al menos un
          `correlation_id` con forma válida (`corr-<10+ dígitos>-<6+ hex>`, o
-         `corr-maestro-…`). Sin `registrado:` sólo avisa.
+         `corr-maestro-…`). Sin `registrado:` sólo avisa. Desde el 2026-11-24 el MCP
+         es recomendado, no obligatorio: sin `correlation_id`, una línea
+         `copia-local metodologia_coipo.json <fecha> sha256:<64 hex>` (la copia
+         versionada de la fábrica) baja el hallazgo a AVISA.
 
 LA LÓGICA DE REFERENCIA es `flota/herramientas_de_fabrica.py --construccion` de la
 fábrica (`juzgar_construccion`, que desde el 2026-11-21 vive en
@@ -111,6 +114,12 @@ METODOLOGIA = re.compile(r"\bsmb-metodologia-[a-z0-9-]+\b")
 CORRELACION = re.compile(r"\bcorr-(?:maestro-)?\d{10,}-[0-9a-f]{6,}\b")
 PENDIENTE = re.compile(r"\[(?:PENDIENTE|VERIFICAR)\]")
 REGISTRADO = re.compile(r"^\s*registrado:", re.MULTILINE | re.IGNORECASE)
+# Sin MCP, la consulta se hace sobre la COPIA versionada de la metodología
+# (`flota/metodologia_coipo.json` de la fábrica) y se cita con su sha256. Conectarse
+# a IGNUS es lo recomendado, no una obligación: decisión de Luis Monsalve del
+# 2026-11-24, después de que un colega quedara obligado a conectarse sólo para
+# pasar este juez. Con la copia, FAB-8 avisa en vez de bloquear.
+COPIA_LOCAL = re.compile(r"\bcopia-local\b[^\n]*\bmetodologia_coipo\.json\b[^\n]*\bsha256:[0-9a-f]{64}\b")
 
 PASO = (
     "`prompts/05-consultar-la-fabrica.md` de coipo_master_produccion (la skill "
@@ -269,7 +278,17 @@ def _forma(r: Resultado, nuevo: bool, contexto: str, texto: str) -> tuple[list[s
         )
 
     correlaciones = list(dict.fromkeys(CORRELACION.findall(texto)))
-    if not correlaciones:
+    if not correlaciones and COPIA_LOCAL.search(texto):
+        r.avisa(
+            FAB_8,
+            CONSTRUCCION,
+            "se consultó la copia local de la metodología, no IGNUS: vale, pero conectarse "
+            "al MCP es lo recomendado",
+            "la copia puede ir atrás de IGNUS y lo aprendido no queda registrado en el grafo",
+            arreglo="cuando haya acceso a `mcp-metodologias`, repetir `ver_metodologia` y "
+            "copiar su `correlation_id` en `consultas:`",
+        )
+    elif not correlaciones:
         _anota(
             r,
             nuevo,
@@ -279,7 +298,9 @@ def _forma(r: Resultado, nuevo: bool, contexto: str, texto: str) -> tuple[list[s
             manifestacion=_MANIFESTACION,
             arreglo=(
                 "copiar en `consultas:` el `correlation_id` de CADA respuesta de "
-                "IGNUS (`corr-<dígitos>-<hex>`), con la herramienta y la fecha"
+                "IGNUS (`corr-<dígitos>-<hex>`), con la herramienta y la fecha; o, sin "
+                "MCP, `copia-local metodologia_coipo.json <fecha> sha256:<64 hex>` de la "
+                "copia que se leyó"
             ),
         )
 

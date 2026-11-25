@@ -238,6 +238,25 @@ class PruebaPositivo(Base):
         self.assertTrue(any("2 `correlation_id`" in c for c in r.comprobado), r.comprobado)
         self.assertTrue(any("IGNUS" in n for n in r.no_evaluado), r.no_evaluado)
 
+    def test_sin_mcp_con_copia_local_avisa_y_no_bloquea(self):
+        """El MCP es recomendado, no obligatorio (2026-11-24)."""
+        copia = "copia-local metodologia_coipo.json 2026-11-24 sha256:" + "a" * 64
+        texto = (
+            COMPLETO.replace(CORRELACION, copia)
+            .replace("obj-leccion-sintetica-0000 corr-1700000000001-0000beef", "no aplica: sin MCP")
+        )
+        r = self.sembrado(construccion=texto)
+        self.assertSinBloqueos(r)
+        self.assertRegla("FAB-8", "AVISA", "copia local", r)
+
+    def test_copia_local_sin_sha256_no_cuenta(self):
+        texto = COMPLETO.replace(
+            CORRELACION, "copia-local metodologia_coipo.json 2026-11-24"
+        ).replace("corr-1700000000001-0000beef", "")
+        self.assertRegla(
+            "FAB-8", "BLOQUEA", "ningún `correlation_id`", self.sembrado(construccion=texto)
+        )
+
     def test_sin_registrado_solo_avisa(self):
         r = self.sembrado(construccion=COMPLETO.replace("registrado:", "cierre:"))
         self.assertSinBloqueos(r)
