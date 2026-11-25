@@ -2,9 +2,12 @@
 """j01 — el sobre de despliegue: compose, contexto de build y nginx interno.
 
 Verifica el contrato que el pipeline de la flota da por supuesto y que hoy no
-comprueba nadie. Todas las reglas vienen de un fallo que ya ocurrió.
+comprueba nadie. Las reglas con fuente escrita vienen de un fallo que ya ocurrió;
+`NG-1` y `OPS-1` no la tienen, y por eso sólo avisan (`REGLAS.md`). (Hasta el
+2026-11-25 esta línea decía «todas las reglas vienen de un fallo que ya ocurrió»,
+contra lo que el catálogo dice de esas dos.)
 
-CALIBRACIÓN INVERSA (medida el 2026-09-05)
+CALIBRACIÓN INVERSA (medida el 2026-09-05: registro fechado, no el estado de hoy)
   `coipo_n8n` es la referencia y debe salir VERDE: es el único compose de la
   flota con `mem_limit` en los cuatro servicios, healthcheck en casi todos,
   guards `${VAR:?mensaje}` en cada secreto, volúmenes con nombre y `resolver`
@@ -14,6 +17,10 @@ CALIBRACIÓN INVERSA (medida el 2026-09-05)
     COIPO_ENTREGA_PLANTA -> sin `.dockerignore` en la raíz con `context: .`
     el caso de j09       -> `.dockerignore` que no excluye `.env`
     coipo_prensa2        -> `proxy_pass` con nombre literal en el nginx interno
+
+  Desde ese mismo día `NG-1` sólo avisa, así que un `proxy_pass` literal ya no pone
+  rojo a nadie: en la medición del 2026-10-25 del README, `coipo_prensa2` sale sin
+  ningún BLOQUEA.
 
 PERFILES
   Un proyecto `encuadre_operativo` (software de terceros: el patrón coipo_n8n)

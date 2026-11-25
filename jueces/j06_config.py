@@ -6,7 +6,9 @@ EXCLUYE del rsync. Nadie lo revisa nunca. Eso convierte al `.env.example` en el
 único contrato de configuración que se puede verificar, y a cada divergencia
 silenciosa en un incidente que solo aparece en producción.
 
-CALIBRACIÓN INVERSA (medida el 2026-09-05)
+CALIBRACIÓN INVERSA (medida el 2026-09-05: registro fechado, no el estado de hoy.
+`CI-1` sólo avisa desde ese mismo día, y la medición del 2026-10-25 del README da
+`coipo_prensa2` sin ningún BLOQUEA)
   coipo_prensa2        -> ROJO. Conviven `SESSION_SECRET` y cinco `SESION_*`, y
                           su CI prueba con python 3.11 mientras sus imágenes se
                           construyen con 3.13 y 3.14.

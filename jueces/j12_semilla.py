@@ -71,7 +71,8 @@ CALIBRACIÓN INVERSA (vuelta a medir el 2026-09-07, sobre los 15 repositorios
   estaba desalineado era la semilla de ese repositorio.
 
   **Lo que importa del episodio:** este juez sólo tiene UN patrón de calibración
-  vivo, porque sólo hay un repositorio sembrado. Medir una regla nueva contra un
+  vivo, porque sólo hay un repositorio sembrado (era así en septiembre de 2026; el
+  2026-10-24 ya eran diez, ver más abajo). Medir una regla nueva contra un
   patrón sucio no distingue si falló la regla o el repositorio. Antes de tocar
   `j12` o `j13`, comprobar que ese patrón esté limpio.
 

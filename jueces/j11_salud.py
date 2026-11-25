@@ -22,15 +22,25 @@ QUÉ COMPRUEBA, Y DE DÓNDE SALE CADA REGLA
   3. `execute()` con string crudo.                        fastapi-postgresql-conexion.md
      En SQLAlchemy 2.x lanza ArgumentError. La versión ANTERIOR de ese propio
      documento traía el ejemplo sin `text()`, así que quien copió de ahí tiene
-     el `/health` roto o «pasando» por el except.
+     el `/health` roto o «pasando» por el except. Se emite como `G8-9`.
   4. Un `except` que devuelve sin cambiar el código.      Guía 8, punto 11
      `{"status": "error"}` con código 200 hace que el smoke test dé VERDE con la
      base caída.
   5. El `test:` del healthcheck y el `/health` real       DOCKER.md (`DK-5`)
-     apuntan al mismo sitio. Hoy `coipo_cabania` lleva días `unhealthy` mientras
-     su `/health` devuelve 200 (hallazgo H9): el contenedor queda marcado mal
-     para siempre sin que nada se rompa, y ese `unhealthy` permanente esconderá
-     un problema real el día que lo haya.
+     apuntan al mismo sitio. Cuando se escribió esta regla, un repositorio de la
+     flota llevaba días `unhealthy` mientras su `/health` devolvía 200 (hallazgo
+     H9 de la fábrica): el contenedor queda marcado mal para siempre sin que nada
+     se rompa, y ese `unhealthy` permanente esconderá un problema real el día que
+     lo haya.
+  6. El cuerpo de `/health` lleva la clave `app`.         `SEM-4` (`REGLAS.md`)
+     Es lo único que delata una colisión de `APP_PORT`. Sólo avisa.
+
+CALIBRACIÓN
+  Este juez no tiene una tabla propia. Lo que consta medido: el 2026-09-08 daba un
+  hallazgo falso sobre `coipo_n8n` (software de terceros, sin Python propio) y se
+  corrigió para que saliera NO_APLICA (README, «Calibración inversa»). El radio de
+  cada cambio posterior está en `docs/VERSIONADO.md`. Hasta el 2026-11-25 era el
+  único juez sin esta sección, mientras el README decía que todos la llevaban.
 
 LO QUE NO COMPRUEBA, Y ES DELIBERADO
   No exige 503 ante un fallo de DATOS. La Guía 8 pide que ese estado sea
@@ -303,8 +313,9 @@ def comprobar_endpoint(repo: Repo, r: Resultado) -> None:
 
 def _parametros(fn) -> list[tuple[ast.arg, ast.expr | None]]:
     """(parámetro, valor por defecto) de la función, posicionales y de palabra clave."""
-    # Por índice y no con `zip(..., strict=True)`: `strict=` es de Python 3.10 y los
-    # jueces corren con el `python3` del runner, que puede ser anterior.
+    # Por índice y no con `zip(..., strict=True)`. Se escribió así cuando el `python3`
+    # del runner podía ser anterior a 3.10; desde el 2026-11-25 el mínimo declarado es
+    # 3.10 (README) y `zip(strict=)` ya se puede usar.
     posicionales = list(fn.args.posonlyargs) + list(fn.args.args)
     defectos = [None] * (len(posicionales) - len(fn.args.defaults)) + list(fn.args.defaults)
     pares = [(arg, defectos[i]) for i, arg in enumerate(posicionales)]
@@ -602,8 +613,8 @@ def _comprobar_identidad(fn, arbol: ast.Module, ruta: str, lineas: list[str], r:
 def comprobar_coherencia_healthcheck(repo: Repo, r: Resultado) -> None:
     """DOCKER.md: «el healthcheck y el /health tienen que apuntar al mismo sitio».
 
-    Está pasando hoy con `coipo_cabania`: `unhealthy` desde hace ocho días
-    mientras su `/health` devuelve 200. No rompe nada —el smoke test solo mira
+    Pasó en un repositorio de la flota: `unhealthy` durante días mientras su
+    `/health` devolvía 200. No rompe nada —el smoke test solo mira
     el curl— pero deja un `unhealthy` permanente que esconderá un problema real
     el día que lo haya.
     """

@@ -19,7 +19,7 @@ Entradas opcionales del workflow (VERIFICADO en `.github/workflows/verificar.yml
 |---|---|---|
 | `jueces` | vacío (todos los del perfil) | lista separada por espacios, p. ej. `j01 j09` |
 | `ref_jueces` | `v2` | tag o SHA de `coipo_jueces` con el que se verifica; pasarlo explícito junto al SHA del `uses:` congela de verdad YAML y motor |
-| `runner` | `ubuntu-latest` | etiqueta del runner; uno self-hosted no consume cuota de Actions (necesita `git` y `python3`) |
+| `runner` | `ubuntu-latest` | etiqueta del runner; uno self-hosted no consume cuota de Actions (necesita `git` y un `python3` que sea Python 3.10 o superior) |
 
 Salidas: `estado` (`corrio`, o `no_corrio` si `correr.py` murió antes de terminar: los
 números valen entonces `-1`), `bloqueantes` y `avisos` (hallazgos `BLOQUEA` y `AVISA`) y
@@ -89,7 +89,9 @@ verificador entero.
 
 Un juez nuevo se valida contra el código que **ya se sabe bueno**. Si sale rojo
 sobre un repo cuyo comportamiento es correcto, el verificador está mal — no el
-código. Cada juez lleva su tabla de calibración en el docstring.
+código. Cada juez dice en su docstring contra qué se calibró y cuándo; una prueba
+comprueba que ninguno se quede sin decirlo. (Hasta el 2026-11-25 esta línea decía
+«cada juez lleva su tabla de calibración», y `j11` no llevaba ninguna.)
 
 **Medición nueva, 2026-10-25**, con los once jueces de la rama
 `arreglos-auditoria-2026-10-25`, perfil `aplicacion` y modo bloqueante, sobre los
@@ -123,7 +125,7 @@ interfaz`). Tras esta medición se corrigió un falso positivo de `j11` sobre
 | `COIPO_CHATBOTNORMATIVA` · `COIPO_LICITACION_IA` · `COIPO_PDF_EXCEL` | 3 | 1–2 | |
 | `COIPO_BID_LOSRIOS` | 4 | 2 | |
 | `COIPO_DIRECTORIO` | 6 | 3 | |
-| `COIPO_USUARIOS` | 9 | 8 | secretos versionados (el detalle no se publica en este repositorio, que es público) |
+| un repositorio de la flota | 9 | 8 | secretos versionados (ni el detalle ni el nombre se publican en este repositorio, que es público; el nombre estuvo en esta fila hasta el 2026-11-25) |
 | `COIPO_SEGUIMIENTO` · `COIPO_SEGUIMIENTOPROYECTO` | **12** | 8 | los dos peores de la flota (el detalle no se publica aquí) |
 
 **Lo que dice la medición completa:** de 24, **cinco** con cero bloqueantes, y
@@ -167,7 +169,8 @@ el `DEUDA.md` de la app.
 
 ## Jueces
 
-Once, y se cuentan con `ls jueces/j*.py`: `j01_despliegue`, `j02_identidad`,
+Se cuentan con `ls jueces/j*.py`, y esta lista la comprueba
+`tests/test_coherencia_documentos.py`: `j01_despliegue`, `j02_identidad`,
 `j05_cors`, `j06_config`, `j08_rsync`, `j09_secretos`, `j11_salud`, `j12_semilla`,
 `j13_interfaz`, `j14_construccion` y `j16_codigo`. **Qué comprueba cada uno, con qué
 código, qué documento lo respalda y con qué severidad está en [`REGLAS.md`](REGLAS.md),
@@ -187,6 +190,8 @@ Los huecos de la numeración no son jueces perdidos:
   escribieron**: no hay rastro de ellos en la historia de este repositorio.
 - **`j15`** (`j15_cuota.py`) existe sólo en la rama `rescate/jueces-cuota-sin-publicar`
   (commit `5191a9a`, «j14 y j15 escritos y NO publicables») y **nunca se publicó**.
+  Esa rama es **local**: no está en GitHub (comprobado el 2026-11-24 con
+  `git ls-remote --heads origin`), así que sólo existe en el clon donde se creó.
 
 
 **Qué documento respalda cada código está en [`REGLAS.md`](REGLAS.md)**, y una
@@ -200,7 +205,9 @@ que se ignora en silencio.
 
 ## Contrato de un juez
 
-- Solo biblioteca estándar. Sin `pip install` en el CI de las apps.
+- Solo biblioteca estándar. Sin `pip install` en el CI de las apps. Corren con el
+  `python3` del runner, que tiene que ser **Python 3.10** o superior: es el mínimo
+  declarado el 2026-11-25 y el que `autotest.yml` prueba además del que traiga el runner.
 - Solo lectura. Un juez jamás modifica el repositorio que examina.
 - Todo hallazgo lleva `manifestacion`: cómo se ve ese defecto **en producción**.
   Si no se puede escribir, el hallazgo no debería existir.
@@ -222,10 +229,20 @@ declara `docs/VERSIONADO.md`; en CI sigue exigiendo los tags. Corre en CI con
 `probar-runner.yml` manual que pedía un runner self-hosted desde este repositorio
 público y quedaba encolado para siempre: se retiró.)
 
+Las pruebas no dejan nada en el disco, y `tests/test_arnes.py` lo comprueba. Hasta el
+2026-11-25, en Windows cada prueba dejaba su repositorio temporal en `%TEMP%`: git escribe
+sus objetos como sólo lectura y el borrado fallaba en silencio (22.651 directorios medidos
+el 2026-11-24).
+
 ## Más documentación
 
 [`CLAUDE.md`](CLAUDE.md) (guía para agentes) · [`REGLAS.md`](REGLAS.md) · [`DEUDA.md`](DEUDA.md) ·
-[`insumos/00-PROBLEMA.md`](insumos/00-PROBLEMA.md) · [`insumos/01-SOLUCION.md`](insumos/01-SOLUCION.md)
+[`docs/VERSIONADO.md`](docs/VERSIONADO.md) · [`docs/ERS.md`](docs/ERS.md)
+
+(Hasta el 2026-11-25 esta lista enlazaba `insumos/`, documentos del problema y la solución
+reconstruidos desde el código en septiembre. Se habían separado de él —su manifiesto no
+coincidía en ninguna de sus nueve huellas— y salieron de este repositorio junto con dos
+binarios de ofimática; siguen en el historial, hasta `v2.0.24`.)
 
 Un `skip` es un fallo: una dependencia ausente falla con instrucciones, nunca se
 salta. Un test permanentemente saltado tiene el mismo color que uno que pasa.

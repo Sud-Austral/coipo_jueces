@@ -3,7 +3,9 @@
 
 Implementa tres reglas del estándar de interfaz de la flota.
 
-  LAS TRES BLOQUEAN desde el **2026-09-07**, día en que se firmó
+  LAS TRES BLOQUEAN desde el **2026-09-07** —salvo `UI-3` sin NINGÚN tema oscuro, que
+  desde el 2026-11-22 bloquea sólo lo sembrado desde ese día y avisa en lo anterior
+  (`VIGENCIA_SIN_TEMA`); hasta el 2026-11-25 esta cabecera no lo decía—, día en que se firmó
   `identidad/ESTANDAR_UI.md` de `coipo_master_produccion` (Luis Monsalve,
   Profesional UIA). Hasta entonces avisaban, y no por prudencia: un documento
   generado por IA y sin firmar no es una fuente escrita en el sentido que esa

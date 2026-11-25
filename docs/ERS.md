@@ -1,5 +1,6 @@
 <!-- Fuente del ERS de coipo_jueces. El .docx NO se edita: se genera desde aquí con la herramienta de la fábrica (coipo_master_produccion, clonada al lado), con el anterior como plantilla, y se comprueba al releerlo:
-     python ../coipo_master_produccion/herramientas/ers_a_docx.py docs/ERS.md --plantilla documentacion/ERS.docx --salida documentacion/ERS.docx -->
+     python ../coipo_master_produccion/herramientas/ers_a_docx.py docs/ERS.md --plantilla <carpeta>/ERS.docx --salida <carpeta>/ERS.docx
+     Hasta el 2026-11-25 el .docx se versionaba en `documentacion/ERS.docx`. Salió de este repositorio: es un binario derivado que ninguna prueba lee, y `tests/test_coherencia_documentos.py` rechaza los binarios de ofimática. La plantilla y la salida van fuera de este árbol. -->
 
 21, noviembre, 2026
 
@@ -466,6 +467,24 @@ está en `main` y todavía no llega a quien consume `@v2`.
 - **Nuevo: el lock no tiene las piezas de la auditoría. Abierto.** El 2026-11-21, `semilla/sellar.py --comprobar`
   de la fábrica da este `semilla.lock` por DESFASADO respecto de la semilla, mientras `AUD-1` (sin
   tag) ya exige esas piezas. `docs/VERSIONADO.md` deja el resellado para antes de publicar.
+
+**Puesta al día del 2026-11-25**, sin volver a generar el documento. Lo que cambió ese día en
+los puntos de arriba:
+
+- `insumos/` salió del repositorio, junto con `docs/preguntas_usuario.xlsx` y
+  `documentacion/ERS.docx`: el punto sobre `insumos/01-SOLUCION.md` deja de aplicar. Los
+  archivos siguen en el historial, hasta `v2.0.24`.
+- La fila de `README.md` que asociaba el nombre de otro repositorio con «secretos versionados»
+  ya no lo nombra, y tampoco los docstrings de dos pruebas. El historial conserva lo anterior.
+- «22 apps» y «22 repos» ya no figuran en `docs/VERSIONADO.md`, `jueces/comun.py` ni
+  `autotest.yml`. Este documento decía que `comun.py` ya no lo mencionaba: seguía en el
+  docstring de `ejecutar()`.
+- `v2.0.23` (2026-11-24) se publicó sin entrada en `docs/VERSIONADO.md`. Se reconstruyó desde
+  git, y `tests/test_coherencia_documentos.py` falla si vuelve a pasar.
+- El lock sí trae las piezas de la auditoría: lo comprueba `tests/test_datos_semilla.py`.
+- Python mínimo declarado: 3.10, probado en `autotest.yml`.
+
+Las cifras de pruebas de este documento (422) son del 2026-11-21 y no se han tocado.
 
 Este documento se elaboró leyendo el código y la documentación del repositorio en las fechas
 indicadas, sin entrevistar a la unidad requirente. Los requisitos marcados como Implementado indican

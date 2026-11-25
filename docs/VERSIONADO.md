@@ -1,16 +1,19 @@
 # Versionado y publicación de `coipo_jueces`
 
 Este repositorio se consume por `uses:`, no por copia. Eso significa que **el
-tag es la interfaz pública**: lo que las 22 apps de la flota ejecutan en cada
+tag es la interfaz pública**: lo que las apps de la flota ejecutan en cada
 push es lo que apunte ese tag, y moverlo mal cambia el comportamiento del CI de
-toda CONAF a la vez.
+toda CONAF a la vez. (Hasta el 2026-11-25 este archivo decía «las 22 apps», «22
+repos» y «22 pull requests»: una cifra tecleada sin fecha, que ya no era la de
+la flota. Cuántos repositorios hay se mide, con su fecha, en cada entrada de más
+abajo.)
 
 ## Dos tags, con propósitos opuestos
 
 | Tag | Qué es | ¿Se mueve? | Para qué |
 |---|---|---|---|
 | `vN.N.N` | anotado, apunta a un commit concreto | **jamás** | poder decir «el 5 de septiembre corría exactamente esto» |
-| `vN` | ligero, apunta al último `vN.x` | **sí, en cada publicación de esa mayor** | que un arreglo llegue a las apps sin tocar 22 repos |
+| `vN` | ligero, apunta al último `vN.x` | **sí, en cada publicación de esa mayor** | que un arreglo llegue a las apps sin tocar cada repositorio |
 
 **Hoy la mayor vigente es `v2`.** `v1` sigue existiendo y **congelado** en
 `d73d735`: quien no haya migrado ejecuta exactamente lo de entonces, que es
@@ -23,7 +26,7 @@ Es la convención de las propias actions de GitHub, y se puede comprobar:
 **Las apps fijan la mayor, `@vN`.** Es deliberado y es toda la tesis del repositorio: la
 propagación por copia en esta flota está medida en 22 % y la del `uses:` en
 100 %. Fijar cada app a `@v1.0.3` devolvería el problema de la copia con otro
-nombre — 22 pull requests para un arreglo de una línea, y la certeza de que
+nombre — un pull request por aplicación para un arreglo de una línea, y la certeza de que
 alguien se queda atrás.
 
 > El contrapeso: si `v1` se mueve, se mueve para **todos a la vez**. Por eso una
@@ -798,6 +801,30 @@ rojo. Se midió sobre `c6f8ad6`; `v2.0.21` no tocó `comun.py`, `j02`, `j13` ni 
 Verificado en local antes del tag: la suite (OK), el autojuicio (0 bloqueantes), `ruff check` y
 `ruff format --check`.
 
+### `v2.0.23`, 2026-11-24 — el lock, con `ARG BASE_PATH` en `frontend/Dockerfile`
+
+> **Entrada reconstruida el 2026-11-25 desde git.** El tag se publicó sin ella. Es la
+> tercera vez, después de `v2.0.12` y `v2.0.13` (ver la enmienda del 2026-10-25, más
+> arriba). Desde el 2026-11-25 `tests/test_coherencia_documentos.py` falla si un tag de la
+> mayor vigente no tiene aquí su encabezado: la regla dejó de depender de que alguien se
+> acuerde.
+
+Tag anotado del 2026-11-24 sobre `1f3d69616a0238ef0934b2cb07782297021e550e`. El tag anterior
+es `v2.0.22` (`81c485ba67341a676bd7b098218ed81478d78381`). Quién la autorizó no consta en
+este repositorio.
+
+Lo que entra, después de `v2.0.22`: `db3e9ae` (el informe de optimización del 2026-11-21),
+`0b46df2` (`docs/preguntas_usuario.xlsx`), su merge `a596e39` y `1f3d696`, que es el
+resellado. En el lock cambia una sola huella, la de `frontend/Dockerfile` (mensaje del tag:
+«con ARG BASE_PATH (LOCK-LAB, 81deb0e de la fabrica)»), y el lock anterior entra al
+historial como bloque `vigente_hasta: 2026-11-24`, que pasa de 19 a 20 bloques. No toca
+ningún juez.
+
+**Radio: no quedó escrito**, y la política de arriba lo pide en cada resellado. Lo que
+dicen las reglas, sin haberlo medido para esta entrada: una aplicación que conserva el
+`frontend/Dockerfile` anterior coincide con el historial y sale «atrasada» —`SEM-1` AVISA—,
+no «editada».
+
 ### `v2.0.24`, 2026-11-24 — el MCP es recomendado, no obligatorio
 
 Autorizada por Luis Monsalve el 2026-11-24 («puedes hacerlo todo»), después de que un
@@ -832,7 +859,7 @@ compra al no moverla.
 > `github.job_workflow_ref`. **No se puede:** ese campo llega **vacío** en los
 > pasos de un workflow reusable —existe en las reclamaciones del token OIDC, no en
 > el contexto que ve `run:`—, medido en una ejecución real el 2026-09-08. Esa
-> versión es `v2.0.0` y está rota; ver abajo.
+> versión es `v2.0.0` y está rota; ver arriba.
 
 ## Comprobar qué está publicado de verdad
 

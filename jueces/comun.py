@@ -59,7 +59,7 @@ from comun_yaml import (  # noqa: E402,F401  (reexportados: los jueces los impor
 # --------------------------------------------------------------------------
 
 
-class Severidad(str, Enum):  # noqa: UP042 StrEnum exige Python 3.11 y los jueces corren con el python3 del runner
+class Severidad(str, Enum):  # noqa: UP042 StrEnum exige Python 3.11 y el mínimo declarado es 3.10 (README)
     """Solo dos niveles a propósito.
 
     Un tercer nivel intermedio ("importante", "menor") se convierte siempre en
@@ -576,7 +576,7 @@ def ejecutar(juez: str, descripcion: str, comprobar: Callable[[Repo, Resultado],
 
     El código de salida es 1 SOLO en modo bloqueante y con hallazgos
     bloqueantes. En advisory el juez informa y sale 0 aunque el repo esté
-    lleno de defectos: es lo que permite conectarlo a los 22 repos existentes
+    lleno de defectos: es lo que permite conectarlo a los repositorios existentes
     el primer día sin dejar a la flota sin desplegar.
     """
     p = argparse.ArgumentParser(description=descripcion)
