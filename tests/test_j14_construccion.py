@@ -241,9 +241,8 @@ class PruebaPositivo(Base):
     def test_sin_mcp_con_copia_local_avisa_y_no_bloquea(self):
         """El MCP es recomendado, no obligatorio (2026-11-24)."""
         copia = "copia-local metodologia_coipo.json 2026-11-24 sha256:" + "a" * 64
-        texto = (
-            COMPLETO.replace(CORRELACION, copia)
-            .replace("obj-leccion-sintetica-0000 corr-1700000000001-0000beef", "no aplica: sin MCP")
+        texto = COMPLETO.replace(CORRELACION, copia).replace(
+            "obj-leccion-sintetica-0000 corr-1700000000001-0000beef", "no aplica: sin MCP"
         )
         r = self.sembrado(construccion=texto)
         self.assertSinBloqueos(r)

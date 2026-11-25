@@ -798,6 +798,20 @@ rojo. Se midió sobre `c6f8ad6`; `v2.0.21` no tocó `comun.py`, `j02`, `j13` ni 
 Verificado en local antes del tag: la suite (OK), el autojuicio (0 bloqueantes), `ruff check` y
 `ruff format --check`.
 
+### `v2.0.24`, 2026-11-24 — el MCP es recomendado, no obligatorio
+
+Autorizada por Luis Monsalve el 2026-11-24 («puedes hacerlo todo»), después de que un
+colega quedara obligado a conectarse al MCP sólo para pasar `FAB-8`. **Reversión:** antes
+de este tag `v2` apuntaba a `1f3d69616a0238ef0934b2cb07782297021e550e`. Sin resellado: el
+lock está al día (`sellar.py --comprobar`).
+
+Lo que entra: `d20a29e` y este commit. `j14` (`FAB-8`) acepta, en vez de un
+`correlation_id` de IGNUS, la línea `copia-local metodologia_coipo.json <fecha>
+sha256:<64 hex>` de quien consultó la copia versionada de la fábrica, y la anota como
+AVISA. Sin ningún rastro sigue bloqueando. **Sólo relaja**: ningún repositorio verde
+puede ponerse rojo, por eso es `v2.x` y no se midió con `consumidores.py` (que mide
+`SEM-1`, no `FAB-8`).
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la

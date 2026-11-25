@@ -119,7 +119,9 @@ REGISTRADO = re.compile(r"^\s*registrado:", re.MULTILINE | re.IGNORECASE)
 # a IGNUS es lo recomendado, no una obligación: decisión de Luis Monsalve del
 # 2026-11-24, después de que un colega quedara obligado a conectarse sólo para
 # pasar este juez. Con la copia, FAB-8 avisa en vez de bloquear.
-COPIA_LOCAL = re.compile(r"\bcopia-local\b[^\n]*\bmetodologia_coipo\.json\b[^\n]*\bsha256:[0-9a-f]{64}\b")
+COPIA_LOCAL = re.compile(
+    r"\bcopia-local\b[^\n]*\bmetodologia_coipo\.json\b[^\n]*\bsha256:[0-9a-f]{64}\b"
+)
 
 PASO = (
     "`prompts/05-consultar-la-fabrica.md` de coipo_master_produccion (la skill "
