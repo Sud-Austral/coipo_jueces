@@ -839,6 +839,44 @@ AVISA. Sin ningún rastro sigue bloqueando. **Sólo relaja**: ningún repositori
 puede ponerse rojo, por eso es `v2.x` y no se midió con `consumidores.py` (que mide
 `SEM-1`, no `FAB-8`).
 
+### Sin publicar (rama `mejora/coherencia-2026-11-25`, sin tag)
+
+Lo que hay después de `v2.0.24` y todavía no tiene tag. **Ningún tag se movió**, y la rama
+no está subida.
+
+Tanda «coherencia y barreras» (2026-11-25), tras una auditoría del repositorio entero. Un
+commit por tema:
+
+- `23af159` — el arnés borra de verdad sus repositorios temporales. En Windows no lo hacía:
+  22.651 directorios en `%TEMP%`, medidos el 2026-11-24.
+- `873b4bc` — documentos al día: la entrada de `v2.0.23`, que se publicó sin ella; la tabla
+  de fuentes y las filas `FAB-8` y `SEM-1` de `REGLAS.md`; `CLAUDE.md` y `README.md`; Python
+  mínimo 3.10. Salen `insumos/` y dos binarios de ofimática.
+- `42421ab` — barreras: `tests/test_coherencia_documentos.py`,
+  `tests/test_solo_biblioteca_estandar.py` y `tests/test_datos_semilla.py`; la trazabilidad
+  cubre todo `jueces/*.py`; la lista de jueces que leen el índice sale del código. En
+  `autotest.yml`, una pierna con Python 3.10.
+- `634f046` — dos pruebas que no podían fallar, y las vigencias de `j13` y `j16` fijadas por
+  debajo.
+- `2cc7ee4` — pruebas de `j12` y `AUD-1`: mueren 19 mutantes que sobrevivían con la suite en
+  verde. `test_j12_semilla.py` pasa de 106 pruebas a 58: 55 eran repeticiones por herencia.
+
+**Radio: cero, por construcción.** No cambia ninguna línea ejecutable de `jueces/`: el árbol
+sintáctico de sus 18 módulos, sin docstrings, es idéntico al de `d04babf` (`v2.0.24`).
+Cambian documentos, pruebas, el arnés y el CI de este repositorio. `verificar.yml` y el lock
+no se tocan, así que no hay nada que resellar.
+
+Verificado en local el 2026-11-25: la suite (511 pruebas, OK, 0 omitidas) con Python 3.12.3 y
+3.11.9; `ruff check` y `ruff format --check` con `--target-version py310`; el autojuicio
+(exit 0, 1 supresión). Cada prueba nueva se vio en rojo una vez, sobre una copia. **Sin
+ejecutar todavía:** la pierna de Python 3.10 de `autotest.yml` y el job
+`el-reusable-lo-valida-github`, que exigen subir la rama.
+
+Lo que la auditoría encontró y esta tanda NO arregla, porque cambia veredictos: los falsos
+rojos y las caídas van en una tanda `v2.x` propia; los falsos verdes entran primero como
+AVISA, con su radio medido, y pasan a BLOQUEA en `v3` (decisión de Luis Monsalve del
+2026-11-25).
+
 ### Migrar a una mayor nueva
 
 Se cambia el `@vN` de cada `uses:` **a propósito**, uno a uno. No hay prisa: la
