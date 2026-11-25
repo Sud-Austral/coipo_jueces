@@ -63,6 +63,15 @@ class PruebaFabrica(unittest.TestCase):
         self.assertIsNone(leer_fabrica("# fabrica: 2026-10-24\n"))
         self.assertIsNone(leer_fabrica("fabrica: pronto\n"))
 
+    def test_el_mes_y_el_dia_van_con_dos_cifras(self):
+        """`fabrica:` se compara con las vigencias como CADENA, y eso sólo ordena bien con
+        `AAAA-MM-DD`: `2026-11-3` quedaría DESPUÉS de `2026-11-22`. Por eso una fecha con el
+        mes o el día de una sola cifra no se lee como fecha. Aflojar la expresión a una o
+        dos cifras no rompía ninguna prueba (mutación del 2026-11-24)."""
+        for texto in ("fabrica: 2026-11-3\n", "fabrica: 2026-1-22\n", "fabrica: 26-11-22\n"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(leer_fabrica(texto))
+
 
 class PruebaLeerClave(unittest.TestCase):
     def test_la_misma_lectura_para_adopta(self):

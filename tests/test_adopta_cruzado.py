@@ -51,9 +51,16 @@ class PruebaAdoptaCruzado(unittest.TestCase):
             self.fail("falta `git` en el PATH: esta prueba lo necesita de verdad")
         self.repo = RepoSintetico(j12)
         self.addCleanup(self.repo.cierra)
-        # Una aplicación mínima que NO se sembró: su nginx.conf es suyo, aunque
-        # se llame igual que la pieza congelada.
-        self.repo.escribe("frontend/nginx.conf", "server {\n    listen 8000;\n}\n")
+        # Una aplicación mínima que NO se sembró: tiene un archivo suyo en una ruta que el
+        # lock sella. La ruta sale del PROPIO lock. Hasta el 2026-11-25 era
+        # `frontend/nginx.conf` escrito a mano: `correr.py` corre aquí como subproceso, con
+        # el `semilla.lock` de verdad, y el día que un resellado retirara o renombrara esa
+        # pieza estas pruebas se quedarían sin pieza sellada delante (y la de «sin adopta»
+        # pasaría a SIN_EVALUAR) sin que cambiara una línea de código de este repositorio.
+        sellado = j12._lock()
+        self.assertTrue(sellado, "no se pudo leer `semilla.lock`: no hay pieza sellada que usar")
+        self.pieza = min(sellado)
+        self.repo.escribe(self.pieza, "server {\n    listen 8000;\n}\n")
         self.repo.escribe("src/estilos.css", CSS_MALO)
 
     def _correr(self) -> dict:
@@ -83,14 +90,17 @@ class PruebaAdoptaCruzado(unittest.TestCase):
             )
         return json.loads(salida.read_text(encoding="utf-8"))
 
-    def _veredicto(self, datos: dict, juez: str) -> str:
+    def _resultado(self, datos: dict, juez: str) -> dict:
         for r in datos.get("resultados", []):
             if r.get("juez", "").startswith(juez):
-                return r.get("veredicto", "")
+                return r
         self.fail(
             f"{juez} no aparece en el resumen: "
             f"{[r.get('juez') for r in datos.get('resultados', [])]}"
         )
+
+    def _veredicto(self, datos: dict, juez: str) -> str:
+        return self._resultado(datos, juez).get("veredicto", "")
 
     def test_adopta_interfaz_calla_a_j12_y_enciende_a_j13(self):
         """El caso completo, que es la razón de existir de la clave."""
@@ -121,6 +131,14 @@ class PruebaAdoptaCruzado(unittest.TestCase):
         self.assertIn(
             self._veredicto(datos, "j12"), ("OK", "HALLAZGOS"), "sin la clave, j12 tiene que mirar"
         )
+        # Y que mirar sea mirar ESA pieza: el archivo no es el sellado, así que j12 tiene
+        # que decir algo de él (bloquee o avise, según la vigencia de la pieza que tocó).
+        sobre_la_pieza = [
+            h
+            for h in self._resultado(datos, "j12").get("hallazgos", [])
+            if h.get("regla") == "SEM-1" and h.get("archivo") == self.pieza
+        ]
+        self.assertTrue(sobre_la_pieza, f"sin la clave, j12 tiene que juzgar `{self.pieza}`")
         self.assertEqual("HALLAZGOS", self._veredicto(datos, "j13"))
 
     def test_sin_marcador_ninguno_de_los_dos_juzga(self):

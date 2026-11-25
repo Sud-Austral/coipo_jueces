@@ -159,3 +159,15 @@ class PruebaMaq1(CasoConRepo):
         self.repo.escribe("maqueta/PROCEDENCIA.md", _procedencia())
         self.repo.escribe("frontend/src/maqueta/css/styles.css", "/* otra */\n")
         self.assertFalse([h for h in self.repo.juzga().bloqueantes if h.regla == "MAQ-1"])
+
+    def test_procedencia_sin_ninguna_fila_se_anota_como_no_evaluado(self):
+        """`PROCEDENCIA.md` está, pero no lista ningún sha256: no hay contra qué comparar la
+        cara, y eso se dice en «no evaluado» en vez de pasar en silencio. Sin la nota la
+        suite seguía en verde (mutación del 2026-11-24)."""
+        self.repo.escribe("maqueta/PROCEDENCIA.md", "# Procedencia\n\nTodavía sin tabla.\n")
+        self.repo.escribe("frontend/src/maqueta/css/styles.css", CSS)
+        r = self.repo.juzga()
+        self.assertSinRegla("MAQ-1", r)
+        self.assertTrue(
+            [n for n in r.no_evaluado if "PROCEDENCIA.md" in n and "sha256" in n], r.no_evaluado
+        )

@@ -33,7 +33,16 @@ def huella(texto: str) -> str:
     return hashlib.sha256(texto.replace("\r\n", "\n").encode("utf-8")).hexdigest()
 
 
-class PruebaSemilla(CasoConRepo):
+class CasoSemilla(CasoConRepo):
+    """Base SIN pruebas: el lock sintético de una pieza y la siembra mínima.
+
+    Hasta el 2026-11-25 esto vivía en `PruebaSemilla`, y `PruebaAdopcion` heredaba de ella
+    para usar sus ayudas: unittest volvía a ejecutar en la subclase las siete pruebas de la
+    base, con el mismo fixture. Lo mismo pasaba con las clases del historial. De las 106
+    pruebas que corría este archivo, 51 eran distintas y 55 repeticiones: un «Ran N» inflado
+    no es más cobertura. Una base sin métodos `test_*` da las ayudas sin repetir nada.
+    """
+
     MODULO = j12
 
     def setUp(self):
@@ -49,6 +58,8 @@ class PruebaSemilla(CasoConRepo):
         self.repo.escribe(".semilla", "version: 2026-09-05\n")
         self.repo.escribe(CONGELADO, contenido)
 
+
+class PruebaSemilla(CasoSemilla):
     def test_intacto_no_bloquea(self):
         self._sembrado()
         self.assertSinBloqueos()
@@ -78,11 +89,53 @@ class PruebaSemilla(CasoConRepo):
         self.assertSinBloqueos()
 
     def test_que_falte_una_pieza_no_es_un_hallazgo(self):
-        """No toda aplicación sembrada usa todas las piezas."""
+        """No toda aplicación sembrada usa todas las piezas.
+
+        Hasta el 2026-11-25 esta prueba no ejercitaba lo que dice. El lock tenía UNA pieza y
+        el repositorio no la traía, así que el juez salía antes de juzgar, por «no está
+        ninguno de los archivos congelados» (SIN_EVALUAR), y `[] == hallazgos` no podía
+        fallar por la razón que nombra. Ahora el lock sella dos piezas, una presente e
+        intacta y la otra ausente: el juez llega a comparar, y la que falta no produce nada.
+        """
+        self.lock.write_text(
+            f"{huella(CONTENIDO)}  {CONGELADO}\n{huella(DOCKERFILE_CONTENIDO)}  {DOCKERFILE}\n",
+            encoding="utf-8",
+        )
+        self._sembrado()
+        r = self.repo.juzga()
+        self.assertFalse((Path(self.repo.dir) / DOCKERFILE).exists(), "la segunda pieza no está")
+        self.assertEqual([], r.hallazgos, [h.mensaje for h in r.hallazgos])
+        self.assertEqual("OK", r.veredicto)
+        self.assertIn("1 de 2 presentes", r.comprobado[0])
+
+    def test_marcador_sin_ninguna_pieza_no_sale_ok(self):
+        """Hay `.semilla` y no está NINGUNA pieza del lock: el juez no comparó nada, y lo dice.
+
+        Es el caso que la prueba de arriba ejercitaba sin querer y sin afirmarlo. Sin esa
+        rama el juez registraría «0 de 1 presentes» como una comprobación hecha y saldría OK
+        —cero de cero—; se probó quitándola y toda la suite seguía en verde (mutación del
+        2026-11-24).
+        """
         self.repo.escribe(".semilla", "version: 2026-09-05\n")
         self.repo.escribe("README.md", "# sin frontend\n")
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos)
+        self.assertEqual([], r.comprobado, "no comparó ninguna pieza: no registra ninguna")
+        self.assertEqual("SIN_EVALUAR", r.veredicto)
+        self.assertTrue(any("no está ninguno" in n for n in r.no_evaluado), r.no_evaluado)
+
+    def test_una_pieza_que_no_se_puede_leer_se_anota_y_no_se_acusa(self):
+        """En la ruta de una pieza sellada hay algo que no se puede leer (aquí, un directorio).
+
+        No se puede decir que esté editada ni que esté intacta: va a «no evaluado», con su
+        ruta. Si esa nota se pierde, la pieza queda sin mirar y nadie se entera; ninguna
+        prueba pasaba por ahí (mutación del 2026-11-24).
+        """
+        self.repo.escribe(".semilla", "version: 2026-09-05\n")
+        (Path(self.repo.dir) / CONGELADO).mkdir(parents=True)
+        r = self.repo.juzga()
+        self.assertSinRegla("SEM-1", r)
+        self.assertIn(f"{CONGELADO}: no se pudo leer.", r.no_evaluado)
 
     def test_supresion_con_motivo(self):
         self._sembrado("# coipo-jueces:ignorar(SEM-1) cabecera exigida por seguridad\n" + CONTENIDO)
@@ -100,7 +153,7 @@ class PruebaSemilla(CasoConRepo):
         self.assertEqual("SIN_EVALUAR", r.veredicto)
 
 
-class PruebaAdopcion(PruebaSemilla):
+class PruebaAdopcion(CasoSemilla):
     """La clave `adopta:` de `.semilla`, en las dos direcciones.
 
     Estas pruebas se escribieron porque al implementar `adopta:` NINGUNA de las
@@ -220,14 +273,12 @@ def historial_de_dos() -> str:
     )
 
 
-class PruebaHistorial(unittest.TestCase):
-    """Una pieza de una semilla anterior está ATRASADA, no editada, y AVISA siempre.
+class CasoHistorial(unittest.TestCase):
+    """Base SIN pruebas: el lock sintético, su historial al lado y las aserciones con nombre.
 
-    `FILOSOFIA.md` §3 de la fábrica: «una pieza congelada de una versión anterior no
-    es una pieza editada». Y la regla que más importa de esta clase es la contraria:
-    **ninguna combinación de historial —ausente, roto o degenerado— produce un
-    hallazgo sobre una pieza que coincide con el lock vigente**, ni oculta el
-    bloqueo de una pieza realmente editada.
+    Las usan `PruebaHistorial`, `PruebaRutaRecienSellada` y `PruebaGraciaPorPieza`. Hasta el
+    2026-11-25 las dos últimas heredaban de la primera y volvían a ejecutar sus pruebas (ver
+    `CasoSemilla`).
     """
 
     def setUp(self):
@@ -276,6 +327,17 @@ class PruebaHistorial(unittest.TestCase):
         self.assertEqual([h], r.bloqueantes)
         self.assertIn("es una pieza CONGELADA de la semilla y está editada", h.mensaje)
         self.assertNotIn("atrasada", h.mensaje)
+
+
+class PruebaHistorial(CasoHistorial):
+    """Una pieza de una semilla anterior está ATRASADA, no editada, y AVISA siempre.
+
+    `FILOSOFIA.md` §3 de la fábrica: «una pieza congelada de una versión anterior no
+    es una pieza editada». Y la regla que más importa de esta clase es la contraria:
+    **ninguna combinación de historial —ausente, roto o degenerado— produce un
+    hallazgo sobre una pieza que coincide con el lock vigente**, ni oculta el
+    bloqueo de una pieza realmente editada.
+    """
 
     # -- vigente: nada --------------------------------------------------------
 
@@ -340,6 +402,27 @@ class PruebaHistorial(unittest.TestCase):
         r = self.repo.juzga()
         self.assertEqual([], r.hallazgos)
         self.assertEqual("OK", r.veredicto)
+
+    def test_pieza_retirada_con_el_marcador_cuenta_como_supresion(self):
+        """La pieza retirada coincide con lo que se publicó y lleva
+        `coipo-jueces:ignorar(SEM-1)`: se cuenta y se publica como supresión, igual que una
+        pieza del lock, en vez de avisar. Ninguna prueba pasaba por esa rama: se podía
+        quitar entera y la suite seguía en verde (mutación del 2026-11-24)."""
+        con_marca = (
+            "-- coipo-jueces:ignorar(SEM-1) esquema heredado, se migra aparte\n" + RETIRADA_V1
+        )
+        self.con_historial(
+            texto_historial(
+                bloque(HASTA_V1, {CONGELADO: V1, RETIRADA: con_marca}),
+                bloque(HASTA_V2, {CONGELADO: V2}),
+            )
+        )
+        self.sembrado(VIGENTE, **{RETIRADA: con_marca})
+        r = self.repo.juzga()
+        self.assertEqual([], r.hallazgos, [h.mensaje for h in r.hallazgos])
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+        self.assertIn(RETIRADA, r.supresiones[0])
+        self.assertIn("retirada", r.supresiones[0])
 
     # -- editada: bloquea, con historial o sin él -----------------------------
 
@@ -622,6 +705,41 @@ class PruebaPruebasSelladasAusentes(CasoConRepo):
         )
         self.assertRegla("SEM-3", "AVISA", "falta")
 
+    def test_hoy_el_marcador_de_la_linea_anterior_tambien_suprime(self):
+        """COMPORTAMIENTO DE HOY, fijado para que no cambie sin querer. No es una decisión.
+
+        `suprimido()` mira la línea y la anterior (comun.py: hay formatos donde el marcador
+        no cabe en la misma línea), y SEM-3 lo hereda: el marcador una línea por encima de
+        la que nombra la pieza también suprime. REGLAS.md y el propio arreglo de SEM-3 dicen
+        «en la misma línea». Si se decide exigirlo, esta prueba se invierte con ese cambio;
+        hasta ahora se podía cambiar sin que fallara nada (mutación del 2026-11-24).
+        """
+        self._sembrado(
+            semilla=(
+                "version: 2026-11-20\n"
+                "# coipo-jueces:ignorar(SEM-3) esta app no expone /health\n"
+                f"# {PRUEBA_SELLADA}\n"
+            )
+        )
+        r = self.repo.juzga()
+        self.assertSinRegla("SEM-3", r)
+        self.assertEqual(1, len(r.supresiones), r.supresiones)
+
+    def test_registra_cuantas_pruebas_selladas_miro(self):
+        """SEM-3 deja su comprobación con el recuento dentro: cuántas pruebas sella el lock y
+        cuántas faltan. Sin ella, una aplicación con todas sus pruebas no deja rastro de que
+        la regla corrió, y se podía quitar sin que fallara nada (mutación del 2026-11-24)."""
+        self._sembrado()
+        sem3 = [c for c in self.repo.juzga().comprobado if c.startswith("SEM-3")]
+        self.assertEqual(1, len(sem3), sem3)
+        self.assertIn("1 prueba(s) sellada(s)", sem3[0])
+        self.assertIn("1 ausente(s)", sem3[0])
+
+    def test_sin_backend_no_registra_la_comprobacion(self):
+        """Sin `backend/app/` no hay nada que mirar, y lo que no se miró no se cuenta."""
+        self._sembrado(backend=False)
+        self.assertEqual([], [c for c in self.repo.juzga().comprobado if c.startswith("SEM-3")])
+
 
 # --------------------------------------------------------------------------
 # Una ruta recién sellada no es una pieza editada (decisión del 2026-11-21)
@@ -638,9 +756,10 @@ NUEVA_PROPIA = "# el login propio de la aplicacion, de antes del sello\n"
 VIGENCIA_NUEVA = "2026-10-25"
 
 
-class PruebaRutaRecienSellada(PruebaHistorial):
-    """Una aplicación sembrada ANTES de que la semilla sellara una ruta, con un archivo
-    propio en ella, AVISA; sembrada después, BLOQUEA; sin historial, BLOQUEA siempre."""
+class CasoRutaRecienSellada(CasoHistorial):
+    """Base SIN pruebas: un lock que además sella `NUEVA`, y las aserciones sobre esa ruta.
+
+    Las usan `PruebaRutaRecienSellada` y `PruebaGraciaPorPieza` (ver `CasoSemilla`)."""
 
     def setUp(self):
         super().setUp()
@@ -669,6 +788,11 @@ class PruebaRutaRecienSellada(PruebaHistorial):
         self.assertEqual([h], r.bloqueantes)
         self.assertEqual(("SEM-1", NUEVA), (h.regla, h.archivo))
         self.assertIn("es una pieza CONGELADA de la semilla y está editada", h.mensaje)
+
+
+class PruebaRutaRecienSellada(CasoRutaRecienSellada):
+    """Una aplicación sembrada ANTES de que la semilla sellara una ruta, con un archivo
+    propio en ella, AVISA; sembrada después, BLOQUEA; sin historial, BLOQUEA siempre."""
 
     def test_sin_fabrica_la_ruta_propia_avisa(self):
         self.con_historial()
@@ -710,7 +834,7 @@ class PruebaRutaRecienSellada(PruebaHistorial):
         self.assertIn("está editada", h.mensaje)
 
 
-class PruebaGraciaPorPieza(PruebaRutaRecienSellada):
+class PruebaGraciaPorPieza(CasoRutaRecienSellada):
     """La vigencia de una ruta sellada no cambia cuando su lock pasa al historial (2026-11-22).
 
     Hasta ese día sólo tenían gracia las rutas que NINGÚN bloque nombraba. Al resellar, el
@@ -751,6 +875,17 @@ class PruebaGraciaPorPieza(PruebaRutaRecienSellada):
         también mira hacia adelante, y una diferencia sigue siendo una edición."""
         self.con_el_lock_anterior_en_el_historial(HASTA_V1, HASTA_V2)
         self.sembrado_con("fabrica: 2026-09-01\n", NUEVA_PROPIA)
+        self.assertBloqueaLaNueva(self.repo.juzga())
+
+    def test_sellada_la_vispera_de_la_gracia_se_juzga_como_siempre(self):
+        """La frontera de `GRACIA_DESDE`, que nadie fijaba. La ruta rige desde el 2026-11-21,
+        un día antes de que existiera la regla: una diferencia sigue siendo una edición
+        aunque la aplicación se sembrara antes. La prueba de arriba la deja en septiembre y
+        la primera de esta clase en el 22: con `GRACIA_DESDE` en octubre la suite seguía en
+        verde (mutación del 2026-11-24), y con el lock de ese día eso habría dado gracia a
+        21 piezas más."""
+        self.con_el_lock_anterior_en_el_historial("2026-11-20", "2026-11-21")
+        self.sembrado_con("fabrica: 2026-11-10\n", NUEVA_PROPIA)
         self.assertBloqueaLaNueva(self.repo.juzga())
 
 

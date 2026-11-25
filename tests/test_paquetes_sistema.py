@@ -57,3 +57,35 @@ class PruebaSem2(CasoConRepo):
         avisos = self._sem2()
         self.assertEqual(2, len(avisos))
         self.assertTrue(all("compilar" in h.mensaje for h in avisos))
+
+    def test_el_motivo_cuenta_desde_doce_caracteres(self):
+        """El umbral, que nadie fijaba: once caracteres no son un motivo y doce sí.
+
+        Sólo se probaban un motivo largo y ninguno, así que el mínimo podía bajar a un
+        carácter —`libexpat1  # x`— y la suite seguía en verde (mutación del 2026-11-24). Es
+        el mismo mínimo que piden las supresiones (`comun.suprimido`).
+        """
+        for motivo, falta in (("12345678901", True), ("123456789012", False)):
+            with self.subTest(caracteres=len(motivo)):
+                self.repo.escribe(j12.PAQUETES, CABECERA + f"libexpat1  # {motivo}\n")
+                r = self.repo.juzga()
+                if falta:
+                    self.assertRegla("SEM-2", "AVISA", "sin motivo", r)
+                else:
+                    self.assertSinRegla("SEM-2", r)
+
+    def test_cada_compilador_de_la_lista_avisa(self):
+        """`gcc`, `g++`, `make`, `build-essential` y cualquier `*-dev`: los cinco de REGLAS.md.
+
+        Sólo se probaban `gcc` y `libpq-dev`: quitar los otros tres de la expresión no
+        rompía nada (mutación del 2026-11-24). Y que sea AVISA y no BLOQUEA: la prueba de
+        arriba cuenta hallazgos sin mirar la severidad.
+        """
+        for paquete in ("gcc", "g++", "make", "build-essential", "libpq-dev"):
+            with self.subTest(paquete=paquete):
+                self.repo.escribe(
+                    j12.PAQUETES, CABECERA + f"{paquete}  # lo pide una dependencia nativa\n"
+                )
+                r = self.repo.juzga()
+                self.assertRegla("SEM-2", "AVISA", f"`{paquete}` es para compilar", r)
+                self.assertEqual(1, len([h for h in r.hallazgos if h.regla == "SEM-2"]))
