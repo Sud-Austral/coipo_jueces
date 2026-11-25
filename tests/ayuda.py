@@ -8,10 +8,13 @@ para evitar. Todo lo que se escribe con este arnés está inventado a mano.
 
 from __future__ import annotations
 
+import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -27,9 +30,53 @@ def hay_git() -> bool:
 
 
 def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, encoding="utf-8", errors="replace"
-    )
+    try:
+        subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except subprocess.CalledProcessError as e:
+        # El `CalledProcessError` crudo no decía qué pasó. El 2026-11-21 diecinueve pruebas
+        # fallaron con «git init salió 128» y hubo que adivinar que era el disco temporal.
+        raise RuntimeError(
+            f"`git {' '.join(args)}` salió {e.returncode} en {cwd}: "
+            f"{(e.stderr or '').strip()[:300] or 'sin mensaje'}. Es un fallo del entorno "
+            "de la prueba, no del juez: mira el espacio libre del disco temporal."
+        ) from e
+
+
+def _quitar_solo_lectura(funcion, camino, _error) -> None:
+    """Manejador de `rmtree`: quita el atributo de sólo lectura y reintenta."""
+    os.chmod(camino, stat.S_IWRITE)
+    funcion(camino)
+
+
+def borrar_arbol(ruta: Path) -> None:
+    """Borra un directorio temporal DE VERDAD, también en Windows.
+
+    git escribe sus objetos sueltos como sólo lectura. En Windows `shutil.rmtree` no borra
+    un archivo de sólo lectura, y con `ignore_errors=True` lo callaba: cada prueba dejaba su
+    repositorio en %TEMP% con el `.git` dentro. Medido el 2026-11-24: 22.651 directorios
+    `coipo_jueces_*`, el más antiguo del 2026-11-20. Aquí se quita el atributo y se
+    reintenta; si aun así no se puede, FALLA: un residuo que nadie ve es el defecto.
+    """
+    for intento in range(3):
+        if not ruta.exists():
+            return
+        try:
+            if sys.version_info >= (3, 12):
+                shutil.rmtree(ruta, onexc=_quitar_solo_lectura)
+            else:
+                shutil.rmtree(ruta, onerror=_quitar_solo_lectura)
+        except OSError:
+            # Un antivirus o un `git` que todavía no soltó el archivo: se espera y se repite.
+            if intento == 2:
+                raise
+            time.sleep(0.2)
 
 
 class RepoSintetico:
@@ -43,10 +90,12 @@ class RepoSintetico:
 
     def __init__(self, modulo, nombre: str | None = None) -> None:
         self.modulo = modulo
-        base = Path(tempfile.mkdtemp(prefix="coipo_jueces_"))
+        # Lo que `mkdtemp` creó y `cierra()` tiene que borrar. Con `nombre`, `self.dir` es
+        # una subcarpeta: hasta el 2026-11-25 se borraba sólo ella y la base se quedaba.
+        self.base = Path(tempfile.mkdtemp(prefix="coipo_jueces_"))
         # `nombre` existe para j02: el nombre del DIRECTORIO es lo que ese juez
         # examina, porque es lo que el workflow usa para armar /opt/apps/<app>/.
-        self.dir = base / nombre if nombre else base
+        self.dir = self.base / nombre if nombre else self.base
         self.dir.mkdir(exist_ok=True)
         _git(self.dir, "init", "-q")
         _git(self.dir, "config", "user.email", "prueba@ejemplo.invalid")
@@ -76,7 +125,7 @@ class RepoSintetico:
         return r
 
     def cierra(self) -> None:
-        shutil.rmtree(self.dir, ignore_errors=True)
+        borrar_arbol(self.base)
 
 
 class AsercionesDeJuez(unittest.TestCase):

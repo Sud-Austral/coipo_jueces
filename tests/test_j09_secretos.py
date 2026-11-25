@@ -13,8 +13,6 @@ los mira porque `tests/` casa con ES_PRUEBA.
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -27,48 +25,23 @@ import j09_secretos as j09  # noqa: E402
 from comun import Repo, Resultado, suprimido  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ayuda import AsercionesDeJuez  # noqa: E402
+import ayuda  # noqa: E402
+from ayuda import AsercionesDeJuez, borrar_arbol  # noqa: E402
 
 # 64 caracteres hexadecimales. No abre nada: es literalmente el sha256 de la
 # cadena "fixture sintetico de coipo_jueces, no es un secreto".
 HEX_FALSO = "3f1b8c2e9a47d05e6b83f2c1a09d47be15c3082fa6d94e7b1c250af38d69e4a7"
 
 
-def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, encoding="utf-8", errors="replace"
-    )
+def RepoSintetico() -> ayuda.RepoSintetico:  # noqa: N802 conserva el nombre con que lo usan las pruebas
+    """El repositorio sintético del arnés común, con j09 como juez.
 
-
-class RepoSintetico:
-    """Un repositorio git de verdad, en un directorio temporal.
-
-    Se usa git de verdad y no un doble porque la regla que se está probando ES
-    "qué devuelve `git ls-files`". Un doble que devolviera una lista de rutas
-    probaría el filtro, no el comportamiento, y el fallo que importa —un `.env`
-    trackeado pese al .gitignore— solo existe dentro de git.
+    Hasta el 2026-11-25 este archivo llevaba su propia copia de la clase. Se había
+    separado de la común en dos cosas: escribía sin `newline=""` —en Windows un `\\n`
+    salía como `\\r\\n`, que no es lo que hay en un repositorio— y su `cierra()` no
+    borraba el `.git` (ver `tests/test_arnes.py`).
     """
-
-    def __init__(self) -> None:
-        self.dir = Path(tempfile.mkdtemp(prefix="coipo_jueces_"))
-        _git(self.dir, "init", "-q")
-        _git(self.dir, "config", "user.email", "prueba@ejemplo.invalid")
-        _git(self.dir, "config", "user.name", "prueba")
-
-    def escribe(self, ruta: str, contenido: str, *, versionar: bool = True) -> None:
-        p = self.dir / ruta
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(contenido, encoding="utf-8")
-        if versionar:
-            _git(self.dir, "add", "-f", ruta)
-
-    def juzga(self) -> Resultado:
-        r = Resultado(juez="j09", descripcion="prueba")
-        j09.comprobar(Repo(self.dir), r)
-        return r
-
-    def cierra(self) -> None:
-        shutil.rmtree(self.dir, ignore_errors=True)
+    return ayuda.RepoSintetico(j09)
 
 
 class PruebaHeuristica(unittest.TestCase):
@@ -205,10 +178,13 @@ class PruebaArchivosDeEntorno(AsercionesDeJuez):
         self.assertRegla("G8-4", "BLOQUEA", "parece llevar un valor real")
 
     def test_gitignore_no_salva_a_un_archivo_ya_trackeado(self):
-        """El corazón del incidente de COIPO_USUARIOS.
+        """El corazón del incidente que funda este juez.
 
-        Su .gitignore SÍ lista `.env`, y el archivo lleva versionado desde
-        abril: un archivo ya trackeado ignora el .gitignore. Un juez que mirase
+        (Este repositorio es público: el caso se cuenta sin el nombre de la aplicación,
+        como en el docstring de `j09`. Aquí estuvo escrito hasta el 2026-11-25.)
+
+        Su .gitignore SÍ lista `.env`, y el archivo llevaba meses versionado:
+        un archivo ya trackeado ignora el .gitignore. Un juez que mirase
         el .gitignore en vez de `git ls-files` daría verde sobre el peor caso
         real de la flota.
         """
@@ -348,7 +324,7 @@ class PruebaDelPropioJuez(unittest.TestCase):
             self.assertEqual(r.hallazgos, [])
             self.assertTrue(r.no_evaluado, "un repo no evaluable debe decirlo")
         finally:
-            shutil.rmtree(d, ignore_errors=True)
+            borrar_arbol(d)
 
     def test_el_juez_detecta_lo_que_dice_detectar(self):
         """Se planta la violación y se exige que el verificador la vea.
@@ -431,7 +407,7 @@ class PruebaAccessKey(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    if shutil.which("git") is None:
+    if not ayuda.hay_git():
         # Falla con instrucciones; nunca hace skip. Un test saltado es un test
         # que no protege nada, y su estado permanente "verde" es indistinguible
         # de un test que pasa.
