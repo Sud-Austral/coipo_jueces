@@ -114,6 +114,16 @@ CAPA = "interfaz"
 # de la fábrica: toda regla nueva mira hacia adelante.
 VIGENCIA_SIN_TEMA = "2026-11-22"
 
+# `[data-theme=dark]` cuenta como tema oscuro desde el 2026-11-25. Hasta ese día sólo
+# contaba `oscuro`, y el visor de `coipo_gestionypresupuesto` —un
+# `:root[data-theme="dark"]` que redefine todos sus tokens— salía con «ninguna hoja
+# declara el tema oscuro»: un falso positivo. Reconocer `dark` lleva esas hojas de «sin
+# tema» (AVISA en lo anterior) a la comprobación por hoja (BLOQUEA), así que lo que
+# sólo se ve gracias a `dark` AVISA salvo en lo sembrado desde el día siguiente a la
+# corrección. Si no, un repositorio verde podía pasar a rojo, y eso es mayor nueva
+# (docs/VERSIONADO.md). FILOSOFIA.md §4 de la fábrica.
+VIGENCIA_DARK = "2026-11-26"
+
 ES_CSS = re.compile(r"\.css$", re.IGNORECASE)
 ES_PRUEBA = re.compile(r"(^|/)(tests?|__tests__|spec|fixtures|node_modules|dist|build)(/|$)")
 
@@ -134,12 +144,18 @@ TOKEN_COLOR = re.compile(
 # minificado —que es exactamente la forma en que el bundle llega al servidor— no
 # encontraba ningún bloque de tema oscuro y el juez declaraba «no evaluado» en
 # silencio. Un juez que no mira nada y no lo dice es peor que no tenerlo.
-BLOQUE_RAIZ = re.compile(r":root\s*\{([^}]*)\}")
-BLOQUE_OSCURO = re.compile(
-    r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)"
-    r"[^{]*\{(.*?)\}",
-    re.DOTALL,
+#
+# El selector se escribe UNA vez: hasta el 2026-11-25 estaba copiado aquí y en
+# `SELECTOR_OSCURO`, y añadir `dark` exigía acordarse de los dos.
+_SELECTOR_OSCURO = (
+    r"(?:\[data-theme\s*=\s*['\"]?(?:oscuro|dark)['\"]?\]|prefers-color-scheme\s*:\s*dark)"
 )
+# Lo que contaba antes de `dark`: decide si un hallazgo por hoja AVISA (`VIGENCIA_DARK`).
+SELECTOR_OSCURO_ANTERIOR = re.compile(
+    r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)"
+)
+BLOQUE_RAIZ = re.compile(r":root\s*\{([^}]*)\}")
+BLOQUE_OSCURO = re.compile(_SELECTOR_OSCURO + r"[^{]*\{(.*?)\}", re.DOTALL)
 
 # Usos que exigen contraste: texto, borde y anillo de foco.
 USO_QUE_EXIGE_CONTRASTE = re.compile(
@@ -155,9 +171,7 @@ MOVIMIENTO_REDUCIDO = re.compile(r"@media[^{]*prefers-reduced-motion")
 
 # Solo el SELECTOR del tema oscuro. El cuerpo se saca por conteo de llaves con
 # `_bloques_oscuros`, porque `BLOQUE_OSCURO` corta en la PRIMERA `}`.
-SELECTOR_OSCURO = re.compile(
-    r"(?:\[data-theme\s*=\s*['\"]?oscuro['\"]?\]|prefers-color-scheme\s*:\s*dark)"
-)
+SELECTOR_OSCURO = re.compile(_SELECTOR_OSCURO)
 
 
 def _sin_comentarios(texto: str) -> str:
@@ -290,8 +304,8 @@ def _sin_tema_oscuro(repo: Repo, r: Resultado, textos: list[tuple[str, str]]) ->
     siembra = leer_siembra(repo.texto(MARCADOR), VIGENCIA_SIN_TEMA, CAPA)
     datos = dict(
         archivo=ruta,
-        mensaje="ninguna hoja declara el tema oscuro (`[data-theme=oscuro]` ni "
-        "`prefers-color-scheme: dark`)"
+        mensaje="ninguna hoja declara el tema oscuro (`[data-theme=oscuro]`, "
+        "`[data-theme=dark]` ni `prefers-color-scheme: dark`)"
         + (
             f": {len(huerfanos)} token(es) de color de texto, borde o foco se quedan con "
             f"su valor claro: {muestra}{cola}"
@@ -343,12 +357,19 @@ def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]
 
         muestra = ", ".join(f"`{t}`" for t in huerfanos[:5])
         cola = f" y {len(huerfanos) - 5} más" if len(huerfanos) > 5 else ""
-        r.bloquea(
-            "UI-3",
-            ruta,
+        mensaje = (
             f"{len(huerfanos)} token(es) de color se usan como texto, borde o "
-            f"foco y NO se redefinen en el tema oscuro: {muestra}{cola}",
-            "el token no desaparece: se queda con su valor claro sobre una "
+            f"foco y NO se redefinen en el tema oscuro: {muestra}{cola}"
+        )
+        # Una hoja cuyo tema oscuro sólo se ve gracias a `dark` antes salía como «sin
+        # tema» y avisaba: sigue avisando, salvo en lo sembrado desde VIGENCIA_DARK.
+        solo_dark = not SELECTOR_OSCURO_ANTERIOR.search(texto)
+        siembra = leer_siembra(repo.texto(MARCADOR), VIGENCIA_DARK, CAPA)
+        avisa = solo_dark and not siembra.nuevo
+        datos = dict(
+            archivo=ruta,
+            mensaje=mensaje + (f" ({siembra.contexto(CAPA, MARCADOR)})" if avisa else ""),
+            manifestacion="el token no desaparece: se queda con su valor claro sobre una "
             "superficie oscura. Medido en coipo_prensa2, el peor caso da 1,38:1 "
             "—texto presente e ilegible—, y el anillo de foco cae a 2,99:1, por "
             "debajo del 3:1 de WCAG 2.4.11. Nada lo delata en el navegador de "
@@ -359,6 +380,10 @@ def _huerfanos_por_hoja(repo: Repo, r: Resultado, con_tema: list[tuple[str, str]
             "no corregir el color medido del banner, que sobre su propia "
             "superficie es correcto",
         )
+        if avisa:
+            r.avisa("UI-3", **datos)  # type: ignore[arg-type]
+        else:
+            r.bloquea("UI-3", **datos)  # type: ignore[arg-type]
 
 
 def _cuerpo_del_media(texto: str, desde: int) -> str:
