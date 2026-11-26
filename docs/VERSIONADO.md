@@ -839,10 +839,17 @@ AVISA. Sin ningún rastro sigue bloqueando. **Sólo relaja**: ningún repositori
 puede ponerse rojo, por eso es `v2.x` y no se midió con `consumidores.py` (que mide
 `SEM-1`, no `FAB-8`).
 
-### Sin publicar (en `main`, sin tag)
+### `v2.0.25`, 2026-11-26 — `resumen.yml` (el resumen del repo para IGNUS) y la tanda «coherencia y barreras»
 
-Lo que hay en `main` después de `v2.0.24` y todavía no tiene tag. **Ningún tag se movió**:
-`v2` sigue en `v2.0.24`.
+Autorizada por Luis Monsalve el 2026-11-26 («autorizo todo»). **Reversión:** antes de este
+tag `v2` apuntaba al commit de `v2.0.24`. Sin resellado: `verificar.yml` y el lock no se tocan.
+
+Lo que entra: la tanda de abajo (antes «Sin publicar») y `83f85ce`, que agrega
+`.github/workflows/resumen.yml`, un reusable **aparte** (pide `id-token: write`) que corre
+`resumen/resumir_repo.py` y manda el resumen a `POST /repo-resumen` de IGNUS con el token
+OIDC de GitHub Actions, sin secretos. Probado de punta a punta el 2026-11-26 desde
+`Sud-Austral/test-actions` (HTTP 200). **Radio: cero** para quien no lo llame: es un archivo
+nuevo y sólo corre en las apps que agreguen el job `resumen`.
 
 Tanda «coherencia y barreras» (2026-11-25), tras una auditoría del repositorio entero. Un
 commit por tema:
