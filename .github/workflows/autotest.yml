@@ -29,8 +29,9 @@ jobs:
     # corren los jueces en el CI de las apps. `ubuntu-22.04` trae Python 3.10, el
     # MÍNIMO declarado (README, «Contrato de un juez»): hasta ese día el código evitaba
     # sintaxis de 3.10 y 3.11 «porque el runner puede ser anterior», ruff apuntaba a
-    # 3.11 y nada lo probaba por debajo de 3.12. Un mínimo que nadie ejecuta es una
-    # frase.
+    # 3.11 y el CI sólo lo probaba con el `python3` de `ubuntu-latest`: 3.14.4 sobre
+    # `ubuntu-26.04` en la corrida de `d04babf`, la última antes de este cambio. Un
+    # mínimo que nadie ejecuta es una frase.
     #
     # Sin `setup-python`: es el `python3` del sistema, lo mismo que tendría un runner
     # propio con esa distribución, y no entra ninguna action nueva. Si la imagen dejara

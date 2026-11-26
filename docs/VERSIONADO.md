@@ -839,10 +839,10 @@ AVISA. Sin ningún rastro sigue bloqueando. **Sólo relaja**: ningún repositori
 puede ponerse rojo, por eso es `v2.x` y no se midió con `consumidores.py` (que mide
 `SEM-1`, no `FAB-8`).
 
-### Sin publicar (rama `mejora/coherencia-2026-11-25`, sin tag)
+### Sin publicar (en `main`, sin tag)
 
-Lo que hay después de `v2.0.24` y todavía no tiene tag. **Ningún tag se movió**, y la rama
-no está subida.
+Lo que hay en `main` después de `v2.0.24` y todavía no tiene tag. **Ningún tag se movió**:
+`v2` sigue en `v2.0.24`.
 
 Tanda «coherencia y barreras» (2026-11-25), tras una auditoría del repositorio entero. Un
 commit por tema:
@@ -868,9 +868,10 @@ no se tocan, así que no hay nada que resellar.
 
 Verificado en local el 2026-11-25: la suite (511 pruebas, OK, 0 omitidas) con Python 3.12.3 y
 3.11.9; `ruff check` y `ruff format --check` con `--target-version py310`; el autojuicio
-(exit 0, 1 supresión). Cada prueba nueva se vio en rojo una vez, sobre una copia. **Sin
-ejecutar todavía:** la pierna de Python 3.10 de `autotest.yml` y el job
-`el-reusable-lo-valida-github`, que exigen subir la rama.
+(exit 0, 1 supresión). Cada prueba nueva se vio en rojo una vez, sobre una copia. **Lo que
+sólo corre en GitHub** —la suite en Linux, con el `python3` de `ubuntu-latest` y con Python
+3.10, y el job `el-reusable-lo-valida-github`— no se copia aquí: es el resultado de
+`Autotest` sobre el commit que entró en `main`.
 
 Lo que la auditoría encontró y esta tanda NO arregla, porque cambia veredictos: los falsos
 rojos y las caídas van en una tanda `v2.x` propia; los falsos verdes entran primero como
