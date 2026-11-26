@@ -1,0 +1,88 @@
+# Resumen del repositorio para IGNUS — workflow reusable, APARTE de verificar.yml.
+#
+# Se invoca desde el ci.yml de cada app, como un job más:
+#
+#     resumen:
+#       uses: Sud-Austral/coipo_jueces/.github/workflows/resumen.yml@v2
+#       permissions:
+#         contents: read
+#         id-token: write     # el permiso que la app concede; sin él no se puede usar
+#
+# QUÉ HACE: genera el resumen determinista del repositorio (árbol, comandos, jueces,
+# dependencias, archivos más tocados, con su commit) y lo guarda en IGNUS, para que una
+# sesión de Claude nueva lo lea en vez de explorar el repositorio (2026-11-26: el 98 % del
+# gasto de tokens es releer contexto).
+#
+# POR QUÉ OIDC Y NO UNA CLAVE: este repositorio es público y no lleva secretos (ver
+# verificar.yml). GitHub firma para este job un token que dice qué repositorio lo pide; IGNUS
+# verifica la firma y sólo deja escribir el resumen DE ESE repositorio.
+#
+# POR QUÉ UN ARCHIVO APARTE: un reusable que pide `id-token: write` hace fallar el run entero
+# de la app que no lo concede. Separado, verificar.yml no cambia y ninguna app se rompe.
+#
+# NUNCA ROMPE EL BUILD: si IGNUS no responde, el paso avisa y sale 0.
+
+name: Resumen para IGNUS
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: "Endpoint de IGNUS que recibe el resumen."
+        type: string
+        default: https://mcp.conaf.cl/repo-resumen
+      ref_jueces:
+        description: "Tag o rama de coipo_jueces de donde sale el generador."
+        type: string
+        default: v2
+      runner:
+        type: string
+        default: ubuntu-latest
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  resumen:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 10
+    steps:
+      - name: Repositorio a resumir
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
+        with:
+          # Historia de 120 días para «archivos más tocados»; acotada para no clonar todo.
+          fetch-depth: 300
+          persist-credentials: false
+
+      - name: Generador y jueces
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 · 2026-09-05
+        with:
+          repository: Sud-Austral/coipo_jueces
+          ref: ${{ inputs.ref_jueces }}
+          path: .coipo_jueces
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Generar y enviar
+        env:
+          PYTHONIOENCODING: utf-8
+          URL: ${{ inputs.url }}
+        run: |
+          python3 .coipo_jueces/resumen/resumir_repo.py . --jueces .coipo_jueces \
+            > "$RUNNER_TEMP/resumen.json"
+          echo "Resumen: $(wc -c < "$RUNNER_TEMP/resumen.json") bytes"
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "::warning::Sin id-token: write en el job que llama: no se envía a IGNUS."
+            exit 0
+          fi
+          token=$(curl -sS --max-time 20 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=ignus" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')
+          echo "::add-mask::$token"
+          codigo=$(curl -sS --max-time 60 -o "$RUNNER_TEMP/respuesta.json" -w '%{http_code}' \
+            -X POST "$URL" -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/resumen.json" || echo 000)
+          echo "IGNUS respondió HTTP $codigo: $(head -c 400 "$RUNNER_TEMP/respuesta.json" 2>/dev/null)"
+          if [ "$codigo" != "200" ]; then
+            echo "::warning::IGNUS no guardó el resumen (HTTP $codigo). El build sigue."
+          fi
