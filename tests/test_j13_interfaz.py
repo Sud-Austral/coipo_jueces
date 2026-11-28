@@ -242,6 +242,57 @@ class PruebaTemaOscuro(ConSemilla):
         )
         self.assertBloquea("NO se redefinen en el tema oscuro")
 
+    def test_data_theme_dark_cuenta_como_tema_oscuro(self):
+        """Regresión (2026-11-25). El juez sólo reconocía `[data-theme=oscuro]`, y una
+        hoja con `:root[data-theme="dark"]` que redefinía todos sus tokens salía con
+        «ninguna hoja declara el tema oscuro»: un falso positivo sobre CSS correcto
+        (el visor de `coipo_gestionypresupuesto`)."""
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --verde: #064928; }\n"
+            ':root[data-theme="dark"] { --verde: #4fb37a; }\n'
+            ".t { color: var(--verde); }\n",
+        )
+        self.assertSinRegla("UI-3")
+
+    def test_data_theme_dark_sin_redefinir_solo_avisa_en_lo_anterior(self):
+        """Con `dark` reconocido, la hoja pasa de «sin tema oscuro» —que en lo anterior
+        AVISA— a la comprobación por hoja, que BLOQUEA. Para no poner rojo a nadie que
+        hoy está verde (docs/VERSIONADO.md), lo que sólo se ve gracias a `dark` avisa
+        salvo en lo sembrado desde `VIGENCIA_DARK` (FILOSOFIA.md §4 de la fábrica)."""
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --verde: #064928; }\n"
+            "[data-theme='dark'] { --fondo: #1a1f1c; }\n"
+            ".t { color: var(--verde); }\n",
+        )
+        self.assertRegla("UI-3", "AVISA", "NO se redefinen en el tema oscuro")
+        self.assertSinBloqueos()
+
+    def test_data_theme_dark_sin_redefinir_bloquea_desde_la_vigencia(self):
+        self.repo.escribe(
+            ".semilla",
+            f"version: {j13.VIGENCIA_DARK}\nfabrica: {j13.VIGENCIA_DARK}\n"
+            "adopta: semilla, interfaz\n",
+        )
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --verde: #064928; }\n"
+            "[data-theme='dark'] { --fondo: #1a1f1c; }\n"
+            ".t { color: var(--verde); }\n",
+        )
+        self.assertRegla("UI-3", "BLOQUEA", "NO se redefinen en el tema oscuro")
+
+    def test_oscuro_sin_redefinir_sigue_bloqueando_en_lo_anterior(self):
+        """La asimetría es SÓLO para lo que `dark` destapa: `oscuro` bloquea como antes."""
+        self.repo.escribe(
+            "src/estilos.css",
+            ":root { --verde: #064928; }\n"
+            "[data-theme='oscuro'] { --fondo: #1a1f1c; }\n"
+            ".t { color: var(--verde); }\n",
+        )
+        self.assertRegla("UI-3", "BLOQUEA", "NO se redefinen en el tema oscuro")
+
     def test_prefers_color_scheme_cuenta_como_tema_oscuro(self):
         """Las dos vías son válidas: el selector explícito para quien eligió, y
         la consulta de medio para quien no."""
